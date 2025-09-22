@@ -1,5 +1,29 @@
-import Phaser from "phaser";
 import "./style.css";
+
+async function loadPhaserModule() {
+  try {
+    const phaserModule = await import("phaser");
+    return resolvePhaserModule(phaserModule);
+  } catch (error) {
+    console.warn(
+      "Unable to load Phaser from node_modules, falling back to CDN distribution.",
+      error
+    );
+    const cdnModule = await import(
+      "https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.esm.js"
+    );
+    return resolvePhaserModule(cdnModule);
+  }
+}
+
+/**
+ * @param {any} module
+ */
+function resolvePhaserModule(module) {
+  return module?.default ?? module?.Phaser ?? module;
+}
+
+const Phaser = await loadPhaserModule();
 
 /**
  * @typedef {"hp" | "mp" | "exp"} StatKey
