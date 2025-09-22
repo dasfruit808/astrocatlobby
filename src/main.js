@@ -1,39 +1,43 @@
 import Phaser from "phaser";
 import "./style.css";
 
-type StatKey = "hp" | "mp" | "exp";
+/**
+ * @typedef {"hp" | "mp" | "exp"} StatKey
+ */
 
-interface PlayerStats {
-  name: string;
-  level: number;
-  rank: string;
-  exp: number;
-  maxExp: number;
-  hp: number;
-  maxHp: number;
-  mp: number;
-  maxMp: number;
-  hairColor: number;
-  skinColor: number;
-  shirtColor: number;
-}
+/**
+ * @typedef {Object} PlayerStats
+ * @property {string} name
+ * @property {number} level
+ * @property {string} rank
+ * @property {number} exp
+ * @property {number} maxExp
+ * @property {number} hp
+ * @property {number} maxHp
+ * @property {number} mp
+ * @property {number} maxMp
+ * @property {number} hairColor
+ * @property {number} skinColor
+ * @property {number} shirtColor
+ */
 
-interface StatBar {
-  fill: Phaser.GameObjects.Rectangle;
-  valueLabel: Phaser.GameObjects.Text;
-  maxWidth: number;
-}
+/**
+ * @typedef {Object} StatBar
+ * @property {Phaser.GameObjects.Rectangle} fill
+ * @property {Phaser.GameObjects.Text} valueLabel
+ * @property {number} maxWidth
+ */
 
 class BootScene extends Phaser.Scene {
   constructor() {
     super({ key: "BootScene" });
   }
 
-  preload(): void {
+  preload() {
     this.createTextures();
   }
 
-  private createTextures(): void {
+  createTextures() {
     const graphics = this.make.graphics({ x: 0, y: 0, add: false });
 
     graphics.fillStyle(0xffb6c1, 1);
@@ -82,13 +86,14 @@ class BootScene extends Phaser.Scene {
     graphics.destroy();
   }
 
-  create(): void {
+  create() {
     this.scene.start("GameScene");
   }
 }
 
 class GameScene extends Phaser.Scene {
-  private readonly playerData: PlayerStats = {
+  /** @type {PlayerStats} */
+  playerData = {
     name: "PixelHero",
     level: 15,
     rank: "Adventurer",
@@ -103,11 +108,98 @@ class GameScene extends Phaser.Scene {
     shirtColor: 0x4169e1
   };
 
-  private isCustomizing = false;
+  isCustomizing = false;
 
-  private gameAreaWidth = 0;
+  gameAreaWidth = 0;
 
-  private getScaleWidth(): number {
+  /** @type {Phaser.Physics.Arcade.StaticGroup | undefined} */
+  platforms;
+
+  /** @type {Phaser.Physics.Arcade.Sprite | undefined} */
+  player;
+
+  /** @type {Phaser.Physics.Arcade.StaticGroup | undefined} */
+  interactables;
+
+  /** @type {Phaser.GameObjects.Text | undefined} */
+  interactionText;
+
+  /** @type {Phaser.Types.Input.Keyboard.CursorKeys | undefined} */
+  cursors;
+
+  /**
+   * @type {{
+   *   W?: Phaser.Input.Keyboard.Key;
+   *   A?: Phaser.Input.Keyboard.Key;
+   *   S?: Phaser.Input.Keyboard.Key;
+   *   D?: Phaser.Input.Keyboard.Key;
+   * }}
+   */
+  wasd = {};
+
+  /** @type {Phaser.Input.Keyboard.Key | undefined} */
+  interactKey;
+
+  /** @type {Phaser.Physics.Arcade.Sprite | undefined} */
+  nearObject;
+
+  uiStartX = 0;
+
+  /** @type {Phaser.GameObjects.Rectangle | undefined} */
+  uiRect;
+
+  /** @type {Phaser.GameObjects.Rectangle | undefined} */
+  charPortraitFrame;
+
+  /** @type {Phaser.GameObjects.Graphics | undefined} */
+  portraitGraphics;
+
+  /** @type {Phaser.GameObjects.Text | undefined} */
+  nameText;
+
+  /** @type {Phaser.GameObjects.Text | undefined} */
+  levelText;
+
+  /** @type {Phaser.GameObjects.Text | undefined} */
+  rankText;
+
+  /** @type {Record<StatKey, StatBar> | undefined} */
+  statBars;
+
+  /** @type {Phaser.GameObjects.Rectangle | undefined} */
+  customButton;
+
+  /** @type {Phaser.GameObjects.Text | undefined} */
+  customButtonText;
+
+  /** @type {Phaser.GameObjects.Container | undefined} */
+  customPanel;
+
+  /** @type {Phaser.GameObjects.Rectangle[]} */
+  hairButtons = [];
+
+  /** @type {Phaser.GameObjects.Rectangle[]} */
+  skinButtons = [];
+
+  /** @type {Phaser.GameObjects.Rectangle[]} */
+  shirtButtons = [];
+
+  constructor() {
+    super({ key: "GameScene" });
+  }
+
+  create() {
+    this.setupGameArea();
+    this.setupUI();
+    this.setupPlayer();
+    this.setupInteractables();
+    this.setupControls();
+    this.setupCamera();
+    this.updateCharacterAppearance();
+    this.updateUI();
+  }
+
+  getScaleWidth() {
     const width = this.scale.gameSize.width;
     if (width > 0) {
       return width;
@@ -121,7 +213,7 @@ class GameScene extends Phaser.Scene {
     return window.innerWidth;
   }
 
-  private getScaleHeight(): number {
+  getScaleHeight() {
     const height = this.scale.gameSize.height;
     if (height > 0) {
       return height;
@@ -135,71 +227,7 @@ class GameScene extends Phaser.Scene {
     return window.innerHeight;
   }
 
-  private platforms!: Phaser.Physics.Arcade.StaticGroup;
-
-  private player!: Phaser.Physics.Arcade.Sprite;
-
-  private interactables!: Phaser.Physics.Arcade.StaticGroup;
-
-  private interactionText!: Phaser.GameObjects.Text;
-
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-
-  private wasd!: {
-    W: Phaser.Input.Keyboard.Key;
-    A: Phaser.Input.Keyboard.Key;
-    S: Phaser.Input.Keyboard.Key;
-    D: Phaser.Input.Keyboard.Key;
-  };
-
-  private interactKey!: Phaser.Input.Keyboard.Key;
-
-  private nearObject?: Phaser.Physics.Arcade.Sprite;
-
-  private uiStartX = 0;
-
-  private uiRect!: Phaser.GameObjects.Rectangle;
-
-  private charPortraitFrame!: Phaser.GameObjects.Rectangle;
-
-  private portraitGraphics!: Phaser.GameObjects.Graphics;
-
-  private nameText!: Phaser.GameObjects.Text;
-
-  private levelText!: Phaser.GameObjects.Text;
-
-  private rankText!: Phaser.GameObjects.Text;
-
-  private statBars!: Record<StatKey, StatBar>;
-
-  private customButton!: Phaser.GameObjects.Rectangle;
-
-  private customButtonText!: Phaser.GameObjects.Text;
-
-  private customPanel!: Phaser.GameObjects.Container;
-
-  private hairButtons: Phaser.GameObjects.Rectangle[] = [];
-
-  private skinButtons: Phaser.GameObjects.Rectangle[] = [];
-
-  private shirtButtons: Phaser.GameObjects.Rectangle[] = [];
-
-  constructor() {
-    super({ key: "GameScene" });
-  }
-
-  create(): void {
-    this.setupGameArea();
-    this.setupUI();
-    this.setupPlayer();
-    this.setupInteractables();
-    this.setupControls();
-    this.setupCamera();
-    this.updateCharacterAppearance();
-    this.updateUI();
-  }
-
-  private setupGameArea(): void {
+  setupGameArea() {
     const scaleWidth = this.getScaleWidth();
     const scaleHeight = this.getScaleHeight();
 
@@ -224,7 +252,7 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  private setupUI(): void {
+  setupUI() {
     this.uiStartX = Math.floor(this.gameAreaWidth) + 20;
 
     const scaleWidth = this.getScaleWidth();
@@ -268,11 +296,12 @@ class GameScene extends Phaser.Scene {
     });
     this.rankText.setScrollFactor(0);
 
-    this.statBars = {
+    const safeStatBars = /** @type {Record<StatKey, StatBar>} */ ({
       hp: this.createStatBar(this.uiStartX + 20, 320, "HP", this.playerData.hp, this.playerData.maxHp, 0xff0000),
       mp: this.createStatBar(this.uiStartX + 20, 360, "MP", this.playerData.mp, this.playerData.maxMp, 0x0000ff),
       exp: this.createStatBar(this.uiStartX + 20, 400, "EXP", this.playerData.exp, this.playerData.maxExp, 0x00ff00)
-    };
+    });
+    this.statBars = safeStatBars;
 
     this.customButton = this.add.rectangle(this.uiStartX + uiWidth / 2, 450, 140, 44, 0x4169e1, 1);
     this.customButton.setStrokeStyle(2, 0xffffff);
@@ -290,14 +319,16 @@ class GameScene extends Phaser.Scene {
     this.setupCustomizationPanel(uiWidth);
   }
 
-  private createStatBar(
-    x: number,
-    y: number,
-    label: string,
-    current: number,
-    max: number,
-    color: number
-  ): StatBar {
+  /**
+   * @param {number} x
+   * @param {number} y
+   * @param {string} label
+   * @param {number} current
+   * @param {number} max
+   * @param {number} color
+   * @returns {StatBar}
+   */
+  createStatBar(x, y, label, current, max, color) {
     const labelText = this.add.text(x, y - 18, label, {
       fontSize: "14px",
       color: "#FFFFFF"
@@ -308,7 +339,8 @@ class GameScene extends Phaser.Scene {
     barBg.setOrigin(0, 0);
     barBg.setScrollFactor(0);
 
-    const barFill = this.add.rectangle(x + 2, y + 2, (current / max) * 156, 12, color, 1);
+    const safeMax = max === 0 ? 1 : max;
+    const barFill = this.add.rectangle(x + 2, y + 2, (current / safeMax) * 156, 12, color, 1);
     barFill.setOrigin(0, 0);
     barFill.setScrollFactor(0);
 
@@ -325,7 +357,7 @@ class GameScene extends Phaser.Scene {
     };
   }
 
-  private setupCustomizationPanel(uiWidth: number): void {
+  setupCustomizationPanel(uiWidth) {
     this.customPanel = this.add.container(0, 0);
     this.customPanel.setScrollFactor(0);
     this.customPanel.setDepth(2);
@@ -400,7 +432,7 @@ class GameScene extends Phaser.Scene {
     this.updateColorSelection(this.shirtButtons, this.playerData.shirtColor);
   }
 
-  private setupPlayer(): void {
+  setupPlayer() {
     const scaleHeight = this.getScaleHeight();
     this.player = this.physics.add.sprite(120, scaleHeight - 120, "player");
     this.player.setBounce(0.2);
@@ -409,11 +441,12 @@ class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this.platforms);
   }
 
-  private setupInteractables(): void {
+  setupInteractables() {
     this.interactables = this.physics.add.staticGroup();
 
     const groundY = this.getScaleHeight() - 50;
-    const items: Array<{ x: number; y: number; key: string }> = [
+    /** @type {{ x: number; y: number; key: string }[]} */
+    const items = [
       { x: 280, y: groundY, key: "tree" },
       { x: 520, y: groundY, key: "chest" },
       { x: 760, y: groundY, key: "crystal" },
@@ -422,7 +455,7 @@ class GameScene extends Phaser.Scene {
     ];
 
     items.forEach(({ x, y, key }) => {
-      const sprite = this.interactables.create(x, y, key) as Phaser.Physics.Arcade.Sprite;
+      const sprite = /** @type {Phaser.Physics.Arcade.Sprite} */ (this.interactables.create(x, y, key));
       sprite.setOrigin(0.5, 1);
       sprite.refreshBody();
       sprite.setDepth(1);
@@ -434,7 +467,7 @@ class GameScene extends Phaser.Scene {
       this.player,
       this.interactables,
       (_player, object) => {
-        this.handleInteraction(object as Phaser.Physics.Arcade.Sprite);
+        this.handleInteraction(/** @type {Phaser.Physics.Arcade.Sprite} */ (object));
       },
       undefined,
       this
@@ -450,19 +483,16 @@ class GameScene extends Phaser.Scene {
     this.interactionText.setDepth(5);
   }
 
-  private setupControls(): void {
+  setupControls() {
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.wasd = this.input.keyboard.addKeys({
-      W: Phaser.Input.Keyboard.KeyCodes.W,
-      A: Phaser.Input.Keyboard.KeyCodes.A,
-      S: Phaser.Input.Keyboard.KeyCodes.S,
-      D: Phaser.Input.Keyboard.KeyCodes.D
-    }) as {
-      W: Phaser.Input.Keyboard.Key;
-      A: Phaser.Input.Keyboard.Key;
-      S: Phaser.Input.Keyboard.Key;
-      D: Phaser.Input.Keyboard.Key;
-    };
+    this.wasd = /** @type {{ W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key; }} */ (
+      this.input.keyboard.addKeys({
+        W: Phaser.Input.Keyboard.KeyCodes.W,
+        A: Phaser.Input.Keyboard.KeyCodes.A,
+        S: Phaser.Input.Keyboard.KeyCodes.S,
+        D: Phaser.Input.Keyboard.KeyCodes.D
+      })
+    );
 
     this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.interactKey.on("down", () => {
@@ -472,13 +502,13 @@ class GameScene extends Phaser.Scene {
     });
   }
 
-  private setupCamera(): void {
+  setupCamera() {
     this.cameras.main.setBounds(0, 0, this.gameAreaWidth + 400, this.getScaleHeight());
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
     this.cameras.main.setDeadzone(120, 80);
   }
 
-  private toggleCustomization(): void {
+  toggleCustomization() {
     this.isCustomizing = !this.isCustomizing;
     this.customPanel.setVisible(this.isCustomizing);
     this.customPanel.list.forEach((child) => {
@@ -487,7 +517,7 @@ class GameScene extends Phaser.Scene {
     this.customButtonText.setText(this.isCustomizing ? "Close" : "Customize");
   }
 
-  private changeHairColor(color: number): void {
+  changeHairColor(color) {
     if (this.playerData.hairColor === color) {
       return;
     }
@@ -496,7 +526,7 @@ class GameScene extends Phaser.Scene {
     this.updateCharacterAppearance();
   }
 
-  private changeSkinColor(color: number): void {
+  changeSkinColor(color) {
     if (this.playerData.skinColor === color) {
       return;
     }
@@ -505,7 +535,7 @@ class GameScene extends Phaser.Scene {
     this.updateCharacterAppearance();
   }
 
-  private changeShirtColor(color: number): void {
+  changeShirtColor(color) {
     if (this.playerData.shirtColor === color) {
       return;
     }
@@ -514,19 +544,23 @@ class GameScene extends Phaser.Scene {
     this.updateCharacterAppearance();
   }
 
-  private updateColorSelection(buttons: Phaser.GameObjects.Rectangle[], selectedColor: number): void {
+  /**
+   * @param {Phaser.GameObjects.Rectangle[]} buttons
+   * @param {number} selectedColor
+   */
+  updateColorSelection(buttons, selectedColor) {
     buttons.forEach((button) => {
       const strokeColor = button.fillColor === selectedColor ? 0xffd700 : 0xffffff;
       button.setStrokeStyle(2, strokeColor);
     });
   }
 
-  private updateCharacterAppearance(): void {
+  updateCharacterAppearance() {
     this.refreshPlayerTexture();
     this.drawPortrait();
   }
 
-  private refreshPlayerTexture(): void {
+  refreshPlayerTexture() {
     const textureKey = "player-custom";
     if (this.textures.exists(textureKey)) {
       this.textures.remove(textureKey);
@@ -555,7 +589,7 @@ class GameScene extends Phaser.Scene {
     this.player.setOffset(0, 0);
   }
 
-  private drawPortrait(): void {
+  drawPortrait() {
     const centerX = this.uiStartX + this.uiRect.width / 2;
     const topY = 40;
 
@@ -583,7 +617,10 @@ class GameScene extends Phaser.Scene {
     this.portraitGraphics.fillEllipse(centerX, topY + 92, 30, 12);
   }
 
-  private handleInteraction(object: Phaser.Physics.Arcade.Sprite): void {
+  /**
+   * @param {Phaser.Physics.Arcade.Sprite} object
+   */
+  handleInteraction(object) {
     if (this.nearObject === object) {
       return;
     }
@@ -597,7 +634,10 @@ class GameScene extends Phaser.Scene {
     );
   }
 
-  private interactWithObject(object: Phaser.Physics.Arcade.Sprite): void {
+  /**
+   * @param {Phaser.Physics.Arcade.Sprite} object
+   */
+  interactWithObject(object) {
     let message = "";
     const objectType = object.texture.key;
 
@@ -628,7 +668,7 @@ class GameScene extends Phaser.Scene {
     this.updateUI();
   }
 
-  private levelUp(): void {
+  levelUp() {
     this.playerData.level += 1;
     this.playerData.rank = this.playerData.level >= 20 ? "Elite" : "Adventurer";
     this.playerData.exp = 0;
@@ -640,7 +680,7 @@ class GameScene extends Phaser.Scene {
     this.showMessage(`Level Up! Now level ${this.playerData.level}!`);
   }
 
-  private showMessage(text: string): void {
+  showMessage(text) {
     const message = this.add.text(this.player.x, this.player.y - 70, text, {
       fontSize: "14px",
       color: "#FFFF00",
@@ -660,12 +700,12 @@ class GameScene extends Phaser.Scene {
     });
   }
 
-  update(): void {
+  update() {
     if (!this.player) {
       return;
     }
 
-    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    const body = /** @type {Phaser.Physics.Arcade.Body} */ (this.player.body);
     const speed = 200;
 
     this.player.setVelocityX(0);
@@ -697,7 +737,7 @@ class GameScene extends Phaser.Scene {
     this.updateUI();
   }
 
-  private updateUI(): void {
+  updateUI() {
     this.nameText.setText(`Name: ${this.playerData.name}`);
     this.levelText.setText(`Level: ${this.playerData.level}`);
     this.rankText.setText(`Rank: ${this.playerData.rank}`);
@@ -707,7 +747,12 @@ class GameScene extends Phaser.Scene {
     this.updateStatBar("exp", this.playerData.exp, this.playerData.maxExp);
   }
 
-  private updateStatBar(stat: StatKey, current: number, max: number): void {
+  /**
+   * @param {StatKey} stat
+   * @param {number} current
+   * @param {number} max
+   */
+  updateStatBar(stat, current, max) {
     const bar = this.statBars[stat];
     const ratio = Phaser.Math.Clamp(max === 0 ? 0 : current / max, 0, 1);
     bar.fill.displayWidth = ratio * bar.maxWidth;
@@ -715,7 +760,8 @@ class GameScene extends Phaser.Scene {
   }
 }
 
-const config: Phaser.Types.Core.GameConfig = {
+/** @type {Phaser.Types.Core.GameConfig} */
+const config = {
   type: Phaser.AUTO,
   parent: "app",
   backgroundColor: "#1A1A28",
