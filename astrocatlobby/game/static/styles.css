@@ -1,0 +1,156 @@
+:root {
+  color-scheme: light dark;
+  font-family: "Nunito", "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top, #1a1e3f, #0b0d1d 70%);
+  color: #f4f6ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+main.layout {
+  display: flex;
+  gap: 1.5rem;
+  width: min(1200px, 100vw - 3rem);
+  height: min(620px, 100vh - 3rem);
+}
+
+.game-shell {
+  background: linear-gradient(#2c2f63 0%, #232654 60%, #1b1d3c 100%);
+  border-radius: 20px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+  padding: 1.25rem 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  width: 900px;
+}
+
+.game-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  color: #ffe6a7;
+  margin-bottom: 0.75rem;
+}
+
+.game-header h1 {
+  font-size: 1.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 0.85rem;
+  opacity: 0.85;
+  margin: 0;
+}
+
+#gameCanvas {
+  flex: 1;
+  border-radius: 16px;
+  background-color: #1b1e36;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  image-rendering: pixelated;
+}
+
+.hud {
+  width: 240px;
+  display: grid;
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.hud-panel {
+  background: rgba(11, 13, 29, 0.75);
+  border-radius: 16px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.hud-panel h2 {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9ad7ff;
+}
+
+.hud-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+#hud-roster li::before {
+  content: "✦";
+  color: #ffe6a7;
+  margin-right: 0.35rem;
+}
+
+.key {
+  display: inline-block;
+  min-width: 1.6rem;
+  text-align: center;
+  padding: 0.1rem 0.3rem;
+  margin-right: 0.3rem;
+  border-radius: 0.4rem;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.hud-chat {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  overflow: hidden;
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.chat-line {
+  background: rgba(154, 215, 255, 0.12);
+  border-radius: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  color: #d6ecff;
+}
+
+@media (max-width: 1100px) {
+  main.layout {
+    flex-direction: column;
+    align-items: stretch;
+    width: min(900px, 100vw - 2rem);
+    height: min(900px, 100vh - 2rem);
+  }
+
+  .hud {
+    width: 100%;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-rows: none;
+  }
+}

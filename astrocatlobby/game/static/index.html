@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Astrocat Lobby</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="game-shell">
+        <header class="game-header">
+          <h1>Astrocat Lobby</h1>
+          <p class="subtitle">Arrow keys to move · Space to jump &amp; interact</p>
+        </header>
+        <canvas id="gameCanvas" width="900" height="540" aria-label="Astrocat Lobby game area"></canvas>
+      </section>
+      <aside class="hud">
+        <section class="hud-panel" aria-live="polite">
+          <h2>Roster</h2>
+          <ul id="hud-roster" class="hud-list"></ul>
+        </section>
+        <section class="hud-panel">
+          <h2>Current Quest</h2>
+          <p id="hud-quest">Explore the station and check in with the crew.</p>
+        </section>
+        <section class="hud-panel">
+          <h2>Chat</h2>
+          <div id="hud-chat" class="hud-chat"></div>
+        </section>
+        <section class="hud-panel">
+          <h2>Controls</h2>
+          <ul class="hud-list">
+            <li><span class="key">←</span>/<span class="key">→</span> Move</li>
+            <li><span class="key">↑</span> Look Up</li>
+            <li><span class="key">↓</span> Sit</li>
+            <li><span class="key">Space</span> Jump / Interact</li>
+          </ul>
+        </section>
+      </aside>
+    </main>
+    <script src="game.js" type="module"></script>
+  </body>
+</html>
