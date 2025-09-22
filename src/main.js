@@ -1,8 +1,5 @@
-const backgroundImageUrl = new URL(
-  "./LobbyBackground.png",
-  document.baseURI
-).toString();
-const playerSpriteUrl = new URL("./PlayerSprite.png", document.baseURI).toString();
+import backgroundImageUrl from "./assets/LobbyBackground.png";
+import playerSpriteUrl from "./assets/PlayerSprite.png";
 
 const app = document.querySelector("#app");
 if (!app) {
