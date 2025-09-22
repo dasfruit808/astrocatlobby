@@ -107,6 +107,34 @@ class GameScene extends Phaser.Scene {
 
   private gameAreaWidth = 0;
 
+  private getScaleWidth(): number {
+    const width = this.scale.gameSize.width;
+    if (width > 0) {
+      return width;
+    }
+
+    const configWidth = this.game.config.width;
+    if (typeof configWidth === "number" && configWidth > 0) {
+      return configWidth;
+    }
+
+    return window.innerWidth;
+  }
+
+  private getScaleHeight(): number {
+    const height = this.scale.gameSize.height;
+    if (height > 0) {
+      return height;
+    }
+
+    const configHeight = this.game.config.height;
+    if (typeof configHeight === "number" && configHeight > 0) {
+      return configHeight;
+    }
+
+    return window.innerHeight;
+  }
+
   private platforms!: Phaser.Physics.Arcade.StaticGroup;
 
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -172,22 +200,25 @@ class GameScene extends Phaser.Scene {
   }
 
   private setupGameArea(): void {
-    this.gameAreaWidth = Math.max(960, Math.floor(this.scale.width * 0.65));
+    const scaleWidth = this.getScaleWidth();
+    const scaleHeight = this.getScaleHeight();
 
-    const bg = this.add.image(this.gameAreaWidth / 2, this.scale.height / 2, "background");
-    bg.setDisplaySize(this.gameAreaWidth, this.scale.height);
+    this.gameAreaWidth = Math.max(960, Math.floor(scaleWidth * 0.65));
 
-    this.physics.world.setBounds(0, 0, this.gameAreaWidth + 400, this.scale.height);
+    const bg = this.add.image(this.gameAreaWidth / 2, scaleHeight / 2, "background");
+    bg.setDisplaySize(this.gameAreaWidth, scaleHeight);
+
+    this.physics.world.setBounds(0, 0, this.gameAreaWidth + 400, scaleHeight);
 
     this.platforms = this.physics.add.staticGroup();
     for (let x = -64; x <= this.gameAreaWidth + 256; x += 64) {
-      const ground = this.platforms.create(x, this.scale.height - 50, "ground");
+      const ground = this.platforms.create(x, scaleHeight - 50, "ground");
       ground.setOrigin(0, 0);
       ground.refreshBody();
     }
 
     for (let i = 0; i < 5; i += 1) {
-      const platform = this.platforms.create(200 + i * 150, this.scale.height - 180 - i * 30, "ground");
+      const platform = this.platforms.create(200 + i * 150, scaleHeight - 180 - i * 30, "ground");
       platform.setDisplaySize(100, 20);
       platform.refreshBody();
     }
@@ -196,9 +227,11 @@ class GameScene extends Phaser.Scene {
   private setupUI(): void {
     this.uiStartX = Math.floor(this.gameAreaWidth) + 20;
 
-    const uiWidth = Math.max(260, this.scale.width - this.uiStartX - 20);
+    const scaleWidth = this.getScaleWidth();
+    const scaleHeight = this.getScaleHeight();
+    const uiWidth = Math.max(260, scaleWidth - this.uiStartX - 20);
 
-    this.uiRect = this.add.rectangle(this.uiStartX, 0, uiWidth, this.scale.height, 0x2c2c54, 0.9);
+    this.uiRect = this.add.rectangle(this.uiStartX, 0, uiWidth, scaleHeight, 0x2c2c54, 0.9);
     this.uiRect.setOrigin(0, 0);
     this.uiRect.setScrollFactor(0);
 
@@ -368,7 +401,8 @@ class GameScene extends Phaser.Scene {
   }
 
   private setupPlayer(): void {
-    this.player = this.physics.add.sprite(120, this.scale.height - 120, "player");
+    const scaleHeight = this.getScaleHeight();
+    this.player = this.physics.add.sprite(120, scaleHeight - 120, "player");
     this.player.setBounce(0.2);
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(2);
@@ -378,7 +412,7 @@ class GameScene extends Phaser.Scene {
   private setupInteractables(): void {
     this.interactables = this.physics.add.staticGroup();
 
-    const groundY = this.scale.height - 50;
+    const groundY = this.getScaleHeight() - 50;
     const items: Array<{ x: number; y: number; key: string }> = [
       { x: 280, y: groundY, key: "tree" },
       { x: 520, y: groundY, key: "chest" },
@@ -439,7 +473,7 @@ class GameScene extends Phaser.Scene {
   }
 
   private setupCamera(): void {
-    this.cameras.main.setBounds(0, 0, this.gameAreaWidth + 400, this.scale.height);
+    this.cameras.main.setBounds(0, 0, this.gameAreaWidth + 400, this.getScaleHeight());
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
     this.cameras.main.setDeadzone(120, 80);
   }
