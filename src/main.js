@@ -1,22 +1,10 @@
+import backgroundImageUrl from "./assets/LobbyBackground.png";
+import playerSpriteUrl from "./assets/PlayerSprite.png";
+
 const app = document.querySelector("#app");
 if (!app) {
   throw new Error("Missing #app container");
 }
-
-const resolveAssetUrl = (relativePath) => {
-  try {
-    return new URL(relativePath, document.baseURI).href;
-  } catch (error) {
-    console.warn(
-      `Unable to resolve asset URL for "${relativePath}" using document.baseURI. Falling back to relative path.`,
-      error
-    );
-    return relativePath;
-  }
-};
-
-const backgroundImageUrl = resolveAssetUrl("LobbyBackground.png");
-const playerSpriteUrl = resolveAssetUrl("PlayerSprite.png");
 
 const backgroundImage = new Image();
 const backgroundSource = backgroundImageUrl;
