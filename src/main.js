@@ -1,10 +1,16 @@
-import backgroundImageUrl from "./assets/LobbyBackground.png";
-import playerSpriteUrl from "./assets/PlayerSprite.png";
-
 const app = document.querySelector("#app");
 if (!app) {
   throw new Error("Missing #app container");
 }
+
+const baseAssetPath =
+  (typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    typeof import.meta.env.BASE_URL === "string"
+    ? import.meta.env.BASE_URL
+    : "./");
+const backgroundImageUrl = `${baseAssetPath}LobbyBackground.png`;
+const playerSpriteUrl = `${baseAssetPath}PlayerSprite.png`;
 
 const backgroundImage = new Image();
 const backgroundSource = backgroundImageUrl;
