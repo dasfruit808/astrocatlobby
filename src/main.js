@@ -1,5 +1,11 @@
-import backgroundImageUrl from "./assets/LobbyBackground.png";
-import playerSpriteUrl from "./assets/PlayerSprite.png";
+const backgroundImageUrl = new URL(
+  "./assets/LobbyBackground.png",
+  import.meta.url
+).href;
+const playerSpriteUrl = new URL(
+  "./assets/PlayerSprite.png",
+  import.meta.url
+).href;
 
 const app = document.querySelector("#app");
 if (!app) {
