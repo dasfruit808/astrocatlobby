@@ -61,3 +61,47 @@ pytest
 
 The CLI tests exercise the command in-process, so they run quickly and do not
 require writing to user directories.
+
+## Game assets
+
+The experimental arcade client in `astrocatlobby.game.client` loads its sprite
+animations from a manifest-driven asset pack. To prepare a pack, create a
+directory containing a sprite sheet image and a `manifest.json` file with the
+following structure:
+
+```json
+{
+  "sprite_sheet": {
+    "image": "cats.png",
+    "frame_width": 32,
+    "frame_height": 32,
+    "margin": 0,
+    "spacing": 0
+  },
+  "animations": {
+    "idle": {
+      "frames": [0, 1, 2, 1],
+      "frame_duration": 0.12,
+      "loop": true
+    },
+    "pounce": {
+      "frames": [8, 9, 10, 11, 12],
+      "frame_duration": 0.08,
+      "loop": false
+    }
+  }
+}
+```
+
+The frame indices reference tiles sliced from the sprite sheet using the
+dimensions, margin and spacing specified in the manifest. Sprite sheets should
+be PNG images so the loader can determine their dimensions. When running the
+client you can point to a custom asset pack by supplying the directory via the
+`--assets` flag:
+
+```bash
+python -m astrocatlobby.game.client --assets /path/to/asset-pack
+```
+
+If your pack uses a different manifest filename you can provide it with
+`--manifest custom.json`.
