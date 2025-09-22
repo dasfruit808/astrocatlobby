@@ -7,6 +7,54 @@ const playerSpriteUrl = new URL(
   import.meta.url
 ).href;
 
+const assetManifest = import.meta.glob("./assets/*.{png,PNG}", {
+  eager: true,
+  import: "default"
+});
+
+function createOptionalSprite(assetPath) {
+  const source = assetManifest[assetPath];
+  if (!source) {
+    return {
+      image: null,
+      isReady: () => false
+    };
+  }
+
+  const image = new Image();
+  let ready = false;
+
+  const markReady = () => {
+    ready = true;
+  };
+  const handleError = () => {
+    ready = false;
+    console.warn(
+      `Failed to load sprite asset at ${assetPath}. Falling back to canvas drawing.`
+    );
+  };
+
+  image.addEventListener("load", markReady);
+  image.addEventListener("error", handleError);
+  image.src = source;
+  if (image.complete && image.naturalWidth > 0) {
+    markReady();
+  }
+
+  return {
+    image,
+    isReady: () => ready
+  };
+}
+
+// Drop replacement PNG files into src/assets with these names to override
+// the procedural drawings for each element.
+const chestSprite = createOptionalSprite("./assets/ChestSprite.png");
+const fountainSprite = createOptionalSprite("./assets/FountainSprite.png");
+const guideSprite = createOptionalSprite("./assets/GuideSprite.png");
+const crystalSprite = createOptionalSprite("./assets/CrystalSprite.png");
+const platformSprite = createOptionalSprite("./assets/PlatformSprite.png");
+
 const app = document.querySelector("#app");
 if (!app) {
   throw new Error("Missing #app container");
@@ -326,9 +374,28 @@ function render(timestamp) {
   ctx.fillStyle = "#243b25";
   ctx.fillRect(0, groundY, canvas.width, 16);
 
-  ctx.fillStyle = "#3b5e3f";
-  for (const platform of platforms) {
-    drawRoundedRect(platform.x, platform.y, platform.width, platform.height, 6);
+  if (platformSprite.isReady() && platformSprite.image) {
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    for (const platform of platforms) {
+      ctx.drawImage(
+        platformSprite.image,
+        0,
+        0,
+        platformSprite.image.width,
+        platformSprite.image.height,
+        platform.x,
+        platform.y,
+        platform.width,
+        platform.height
+      );
+    }
+    ctx.restore();
+  } else {
+    ctx.fillStyle = "#3b5e3f";
+    for (const platform of platforms) {
+      drawRoundedRect(platform.x, platform.y, platform.width, platform.height, 6);
+    }
   }
 
   drawPortal(time);
@@ -450,6 +517,22 @@ function drawPlayer(entity, time) {
 function drawChest(chest) {
   ctx.save();
   ctx.translate(chest.x, chest.y);
+  if (chestSprite.isReady() && chestSprite.image) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(
+      chestSprite.image,
+      0,
+      0,
+      chestSprite.image.width,
+      chestSprite.image.height,
+      0,
+      0,
+      chest.width,
+      chest.height
+    );
+    ctx.restore();
+    return;
+  }
   ctx.fillStyle = chest.opened ? "#a77b3b" : "#c58f3d";
   drawRoundedRect(0, 10, chest.width, chest.height - 10, 6);
   ctx.fillStyle = chest.opened ? "#8a5f23" : "#a16b22";
@@ -462,6 +545,22 @@ function drawChest(chest) {
 function drawFountain(fountain, time) {
   ctx.save();
   ctx.translate(fountain.x, fountain.y);
+  if (fountainSprite.isReady() && fountainSprite.image) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(
+      fountainSprite.image,
+      0,
+      0,
+      fountainSprite.image.width,
+      fountainSprite.image.height,
+      0,
+      0,
+      fountain.width,
+      fountain.height
+    );
+    ctx.restore();
+    return;
+  }
   ctx.fillStyle = "#3c4a62";
   drawRoundedRect(0, fountain.height - 18, fountain.width, 18, 8);
   ctx.fillStyle = "#556b8f";
@@ -475,6 +574,22 @@ function drawFountain(fountain, time) {
 function drawGuide(guide, time) {
   ctx.save();
   ctx.translate(guide.x, guide.y);
+  if (guideSprite.isReady() && guideSprite.image) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(
+      guideSprite.image,
+      0,
+      0,
+      guideSprite.image.width,
+      guideSprite.image.height,
+      0,
+      0,
+      guide.width,
+      guide.height
+    );
+    ctx.restore();
+    return;
+  }
   ctx.fillStyle = "#f4dede";
   drawRoundedRect(4, 8, guide.width - 8, guide.height - 12, 10);
   ctx.fillStyle = "#dba6ff";
@@ -496,6 +611,23 @@ function drawGuide(guide, time) {
 function drawCrystal(crystal, time) {
   ctx.save();
   ctx.translate(crystal.x, crystal.y);
+  if (crystalSprite.isReady() && crystalSprite.image) {
+    const targetSize = crystal.radius * 2 + 12;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(
+      crystalSprite.image,
+      0,
+      0,
+      crystalSprite.image.width,
+      crystalSprite.image.height,
+      -targetSize / 2,
+      -targetSize / 2,
+      targetSize,
+      targetSize
+    );
+    ctx.restore();
+    return;
+  }
   ctx.rotate(Math.sin(time * 2 + crystal.x * 0.01) * 0.1);
   const gradient = ctx.createLinearGradient(-crystal.radius, -crystal.radius, crystal.radius, crystal.radius);
   gradient.addColorStop(0, "#d9baff");
