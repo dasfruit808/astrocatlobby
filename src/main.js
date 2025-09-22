@@ -1,13 +1,13 @@
+import backgroundImageUrl from "./assets/LobbyBackground.png";
+import playerSpriteUrl from "./assets/PlayerSprite.png";
+
 const app = document.querySelector("#app");
 if (!app) {
   throw new Error("Missing #app container");
 }
 
 const backgroundImage = new Image();
-const backgroundSource = new URL(
-  "./assets/LobbyBackground.png",
-  import.meta.url
-).href;
+const backgroundSource = backgroundImageUrl;
 let backgroundReady = false;
 const markBackgroundReady = () => {
   backgroundReady = true;
@@ -62,7 +62,7 @@ let playerSpriteReady = false;
 playerSprite.onload = () => {
   playerSpriteReady = true;
 };
-playerSprite.src = new URL("./assets/PlayerSprite.png", import.meta.url).href;
+playerSprite.src = playerSpriteUrl;
 if (playerSprite.complete) {
   playerSpriteReady = true;
 }
