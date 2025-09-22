@@ -3,14 +3,20 @@ if (!app) {
   throw new Error("Missing #app container");
 }
 
-const baseAssetPath =
-  (typeof import.meta !== "undefined" &&
-    import.meta.env &&
-    typeof import.meta.env.BASE_URL === "string"
-    ? import.meta.env.BASE_URL
-    : "./");
-const backgroundImageUrl = `${baseAssetPath}LobbyBackground.png`;
-const playerSpriteUrl = `${baseAssetPath}PlayerSprite.png`;
+const resolveAssetUrl = (relativePath) => {
+  try {
+    return new URL(relativePath, document.baseURI).href;
+  } catch (error) {
+    console.warn(
+      `Unable to resolve asset URL for "${relativePath}" using document.baseURI. Falling back to relative path.`,
+      error
+    );
+    return relativePath;
+  }
+};
+
+const backgroundImageUrl = resolveAssetUrl("LobbyBackground.png");
+const playerSpriteUrl = resolveAssetUrl("PlayerSprite.png");
 
 const backgroundImage = new Image();
 const backgroundSource = backgroundImageUrl;
