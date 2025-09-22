@@ -4,7 +4,10 @@ if (!app) {
 }
 
 const backgroundImage = new Image();
-const backgroundSource = "./assets/LobbyBackground.png";
+const backgroundSource = new URL(
+  "./assets/LobbyBackground.png",
+  import.meta.url
+).href;
 let backgroundReady = false;
 const markBackgroundReady = () => {
   backgroundReady = true;
@@ -17,9 +20,7 @@ const handleBackgroundError = () => {
 };
 backgroundImage.addEventListener("load", markBackgroundReady);
 backgroundImage.addEventListener("error", handleBackgroundError);
-if (backgroundSource) {
-  backgroundImage.src = backgroundSource;
-}
+backgroundImage.src = backgroundSource;
 if (backgroundImage.complete && backgroundImage.naturalWidth > 0) {
   markBackgroundReady();
 }
