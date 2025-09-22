@@ -13,6 +13,7 @@ dependencies = []
 
 [project.scripts]
 astrocatlobby = "astrocatlobby.cli:main"
+astrocatlobby-game = "astrocatlobby.game.__main__:main"
 
 [project.optional-dependencies]
 test = ["pytest"]
