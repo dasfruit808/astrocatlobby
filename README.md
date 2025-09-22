@@ -3,7 +3,8 @@
 Astrocat Lobby is a tiny reference project that tracks a roster of astronaut cats
 and the missions they are scheduled to fly. The package ships with a reusable
 service layer, a simple JSON-backed controller, and an ergonomic command-line
-interface.
+interface. It now also includes a Maple Story-inspired side scrolling web lobby
+that you can launch locally once you provide your own sprite art.
 
 ## Installation
 
@@ -35,6 +36,51 @@ this with the `--storage` flag:
 ```bash
 astrocatlobby --storage /tmp/cats.json summary
 ```
+
+## Maple Story-style lobby
+
+Follow these steps to explore the side scrolling lobby experience:
+
+1. **Collect your sprites.** The game looks for the following PNG files inside
+   `astrocatlobby/game/static/assets/`:
+   * `background.png`
+   * `foreground.png`
+   * `interact.png`
+   * `npc.png`
+   * `player_idle.png`
+   * `player_jump.png`
+
+   The canvas renders at 900×540 pixels. Background and foreground layers that
+   are at least that wide will tile cleanly as you walk. Character sprites are
+   drawn into a 64×64 box, so framing them with a little transparent padding
+   helps them read well in-game.
+
+2. **Drop the art in place.** Copy or create the PNGs in the
+   `astrocatlobby/game/static/assets/` folder. A `.gitkeep` placeholder keeps
+   the directory in version control, so you only need to supply the actual art
+   files themselves.
+
+3. **Launch the lobby.** You can either execute the module directly during
+   development:
+
+   ```bash
+   python -m astrocatlobby.game
+   ```
+
+   or, after installing the package, use the convenience script:
+
+   ```bash
+   astrocatlobby-game
+   ```
+
+   The command prints the local URL of the static server. Open it in a browser
+   and use the arrow keys to move while tapping the space bar to jump or interact
+   with consoles and crew members.
+
+4. **Customize as needed.** The static files live under
+   `astrocatlobby/game/static/`. You can tweak `styles.css`, edit the HUD layout
+   in `index.html`, or expand the gameplay loop in `game.js` without touching
+   any build tooling.
 
 ## Python API
 
