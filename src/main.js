@@ -41,11 +41,21 @@ const stars = Array.from({ length: 48 }, () => ({
   twinkle: Math.random() * Math.PI * 2
 }));
 
+const playerSprite = new Image();
+let playerSpriteReady = false;
+playerSprite.onload = () => {
+  playerSpriteReady = true;
+};
+playerSprite.src = new URL("./assets/PlayerSprite.png", import.meta.url).href;
+if (playerSprite.complete) {
+  playerSpriteReady = true;
+}
+
 const player = {
-  x: canvas.width / 2 - 16,
-  y: groundY - 48,
-  width: 32,
-  height: 48,
+  x: canvas.width / 2 - 24,
+  y: groundY - 54,
+  width: 48,
+  height: 54,
   vx: 0,
   vy: 0,
   direction: 1,
@@ -387,23 +397,38 @@ function drawPlayer(entity, time) {
   ctx.scale(entity.direction, 1);
   ctx.translate(-entity.width / 2, -entity.height);
 
-  ctx.fillStyle = "#4b6cff";
-  drawRoundedRect(4, 12, entity.width - 8, entity.height - 18, 6);
+  if (playerSpriteReady) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(
+      playerSprite,
+      0,
+      0,
+      playerSprite.width,
+      playerSprite.height,
+      0,
+      0,
+      entity.width,
+      entity.height
+    );
+  } else {
+    ctx.fillStyle = "#4b6cff";
+    drawRoundedRect(4, 12, entity.width - 8, entity.height - 18, 6);
 
-  ctx.fillStyle = "#ffb6c1";
-  drawRoundedRect(6, 0, entity.width - 12, 18, 6);
+    ctx.fillStyle = "#ffb6c1";
+    drawRoundedRect(6, 0, entity.width - 12, 18, 6);
 
-  ctx.fillStyle = "#8b5a2b";
-  ctx.fillRect(8, 16, entity.width - 16, 6);
+    ctx.fillStyle = "#8b5a2b";
+    ctx.fillRect(8, 16, entity.width - 16, 6);
 
-  ctx.fillStyle = "#111";
-  const blink = Math.sin(time * 3.2) > -0.2 ? 1 : 0.2;
-  ctx.fillRect(12, 6, 4, 4 * blink);
-  ctx.fillRect(entity.width - 16, 6, 4, 4 * blink);
+    ctx.fillStyle = "#111";
+    const blink = Math.sin(time * 3.2) > -0.2 ? 1 : 0.2;
+    ctx.fillRect(12, 6, 4, 4 * blink);
+    ctx.fillRect(entity.width - 16, 6, 4, 4 * blink);
 
-  ctx.fillStyle = "#c9d7ff";
-  ctx.fillRect(0, entity.height - 12, entity.width - 12, 12);
-  ctx.fillRect(entity.width - 12, entity.height - 8, 12, 8);
+    ctx.fillStyle = "#c9d7ff";
+    ctx.fillRect(0, entity.height - 12, entity.width - 12, 12);
+    ctx.fillRect(entity.width - 12, entity.height - 8, 12, 8);
+  }
   ctx.restore();
 }
 
