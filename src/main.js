@@ -3,6 +3,27 @@ if (!app) {
   throw new Error("Missing #app container");
 }
 
+const backgroundImage = new Image();
+const backgroundSource = "./assets/LobbyBackground.png";
+let backgroundReady = false;
+const markBackgroundReady = () => {
+  backgroundReady = true;
+};
+const handleBackgroundError = () => {
+  backgroundReady = false;
+  console.warn(
+    "Background image failed to load. The gradient fallback will be used instead."
+  );
+};
+backgroundImage.addEventListener("load", markBackgroundReady);
+backgroundImage.addEventListener("error", handleBackgroundError);
+if (backgroundSource) {
+  backgroundImage.src = backgroundSource;
+}
+if (backgroundImage.complete && backgroundImage.naturalWidth > 0) {
+  markBackgroundReady();
+}
+
 const playerStats = {
   name: "PixelHero",
   level: 15,
@@ -34,12 +55,6 @@ if (!ctx) {
 }
 
 const groundY = canvas.height - 96;
-const stars = Array.from({ length: 48 }, () => ({
-  x: Math.random() * canvas.width,
-  y: Math.random() * (groundY - 120),
-  size: Math.random() * 2 + 0.5,
-  twinkle: Math.random() * Math.PI * 2
-}));
 
 const playerSprite = new Image();
 let playerSpriteReady = false;
@@ -287,23 +302,16 @@ function update(delta) {
 function render(timestamp) {
   const time = timestamp / 1000;
 
-  const backgroundGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  backgroundGradient.addColorStop(0, "#1a1a28");
-  backgroundGradient.addColorStop(0.6, "#25253a");
-  backgroundGradient.addColorStop(1, "#2f3d3f");
-  ctx.fillStyle = backgroundGradient;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  ctx.save();
-  ctx.globalAlpha = 0.85;
-  for (const star of stars) {
-    const twinkle = (Math.sin(time * 2 + star.twinkle) + 1) / 2;
-    ctx.fillStyle = `rgba(255, 255, 255, ${0.2 + twinkle * 0.8})`;
-    ctx.beginPath();
-    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-    ctx.fill();
+  if (backgroundReady) {
+    ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+  } else {
+    const backgroundGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    backgroundGradient.addColorStop(0, "#1a1a28");
+    backgroundGradient.addColorStop(0.6, "#25253a");
+    backgroundGradient.addColorStop(1, "#2f3d3f");
+    ctx.fillStyle = backgroundGradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
-  ctx.restore();
 
   ctx.fillStyle = "#1c2b33";
   ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
