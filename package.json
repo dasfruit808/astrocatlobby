@@ -9,9 +9,7 @@
     "preview": "vite preview",
     "lint": "tsc --noEmit"
   },
-  "dependencies": {
-    "phaser": "^3.70.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "^20.11.30",
     "typescript": "^5.4.5",
