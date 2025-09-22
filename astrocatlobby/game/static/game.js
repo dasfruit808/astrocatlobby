@@ -3,6 +3,44 @@ const ctx = canvas.getContext("2d");
 const hudChat = document.getElementById("hud-chat");
 const hudRoster = document.getElementById("hud-roster");
 const hudQuest = document.getElementById("hud-quest");
+const statusBox = document.getElementById("game-status");
+
+let statusDismissTimer;
+
+function showStatus(lines, options = {}) {
+  if (!statusBox) {
+    return;
+  }
+
+  if (statusDismissTimer) {
+    window.clearTimeout(statusDismissTimer);
+    statusDismissTimer = undefined;
+  }
+
+  const messages = Array.isArray(lines) ? lines : [lines];
+  statusBox.innerHTML = "";
+
+  if (!messages.length) {
+    statusBox.hidden = true;
+    statusBox.classList.remove("is-visible");
+    return;
+  }
+
+  statusBox.hidden = false;
+  statusBox.classList.add("is-visible");
+
+  messages.forEach((message) => {
+    const paragraph = document.createElement("p");
+    paragraph.textContent = message;
+    statusBox.appendChild(paragraph);
+  });
+
+  if (options.dismissAfter) {
+    statusDismissTimer = window.setTimeout(() => {
+      showStatus([]);
+    }, options.dismissAfter);
+  }
+}
 
 const assets = {
   background: new URL("./assets/background.png", import.meta.url).href,
@@ -12,6 +50,160 @@ const assets = {
   npc: new URL("./assets/npc.png", import.meta.url).href,
   interact: new URL("./assets/interact.png", import.meta.url).href,
 };
+
+function createPlaceholder(width, height, paint) {
+  const buffer = document.createElement("canvas");
+  buffer.width = width;
+  buffer.height = height;
+  const context = buffer.getContext("2d");
+  if (!context) {
+    return buffer;
+  }
+  paint(context);
+  return buffer;
+}
+
+function placeholderBackground() {
+  return createPlaceholder(canvas.width, canvas.height, (context) => {
+    const gradient = context.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, "#1c245f");
+    gradient.addColorStop(1, "#090a1b");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    context.fillStyle = "rgba(111, 202, 255, 0.16)";
+    for (let i = 0; i < 6; i += 1) {
+      const peakX = i * 200 - 120;
+      context.beginPath();
+      context.moveTo(peakX, canvas.height * 0.75);
+      context.lineTo(peakX + 200, canvas.height * 0.75);
+      context.lineTo(peakX + 100, canvas.height * 0.5);
+      context.closePath();
+      context.fill();
+    }
+
+    context.fillStyle = "rgba(255, 255, 255, 0.7)";
+    for (let i = 0; i < 80; i += 1) {
+      const x = (i * 97) % canvas.width;
+      const y = (i * 53) % Math.floor(canvas.height * 0.6);
+      context.fillRect(x, y, 2, 2);
+    }
+  });
+}
+
+function placeholderForeground() {
+  return createPlaceholder(canvas.width, 160, (context) => {
+    const gradient = context.createLinearGradient(0, 0, 0, 160);
+    gradient.addColorStop(0, "rgba(24, 40, 88, 0.92)");
+    gradient.addColorStop(1, "rgba(12, 18, 42, 0.96)");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, canvas.width, 160);
+
+    context.fillStyle = "rgba(120, 210, 255, 0.4)";
+    context.fillRect(0, 18, canvas.width, 3);
+
+    context.fillStyle = "rgba(27, 220, 255, 0.18)";
+    for (let i = 0; i < canvas.width; i += 90) {
+      context.fillRect(i + 36, 40, 18, 80);
+    }
+  });
+}
+
+function placeholderPlayerIdle() {
+  return createPlaceholder(64, 64, (context) => {
+    context.fillStyle = "#80d8ff";
+    context.fillRect(18, 22, 28, 30);
+    context.fillRect(22, 10, 20, 18);
+    context.fillStyle = "#0b0d1d";
+    context.fillRect(26, 28, 12, 8);
+    context.fillStyle = "#ffe6a7";
+    context.fillRect(24, 14, 16, 12);
+    context.fillStyle = "#0b0d1d";
+    context.fillRect(28, 18, 3, 3);
+    context.fillRect(33, 18, 3, 3);
+    context.fillRect(30, 22, 4, 2);
+    context.fillStyle = "#80d8ff";
+    context.fillRect(16, 42, 8, 18);
+    context.fillRect(40, 42, 8, 18);
+    context.fillRect(18, 18, 6, 6);
+    context.fillRect(38, 18, 6, 6);
+  });
+}
+
+function placeholderPlayerJump() {
+  return createPlaceholder(64, 64, (context) => {
+    context.fillStyle = "#80d8ff";
+    context.fillRect(20, 18, 24, 28);
+    context.fillRect(22, 6, 20, 18);
+    context.fillStyle = "#ffe6a7";
+    context.fillRect(24, 10, 16, 12);
+    context.fillStyle = "#0b0d1d";
+    context.fillRect(28, 14, 3, 3);
+    context.fillRect(33, 14, 3, 3);
+    context.fillRect(30, 18, 4, 2);
+    context.fillStyle = "#80d8ff";
+    context.fillRect(16, 20, 8, 18);
+    context.fillRect(40, 20, 8, 18);
+    context.fillRect(18, 6, 6, 6);
+    context.fillRect(38, 6, 6, 6);
+    context.fillStyle = "#ffe6a7";
+    context.fillRect(18, 40, 28, 10);
+  });
+}
+
+function placeholderNpc() {
+  return createPlaceholder(64, 64, (context) => {
+    context.fillStyle = "#8c7dff";
+    context.fillRect(18, 24, 28, 28);
+    context.fillRect(22, 12, 20, 20);
+    context.fillStyle = "#e1d8ff";
+    context.fillRect(24, 16, 16, 12);
+    context.fillStyle = "#0b0d1d";
+    context.fillRect(28, 20, 3, 3);
+    context.fillRect(33, 20, 3, 3);
+    context.fillRect(30, 24, 4, 2);
+    context.fillStyle = "#8c7dff";
+    context.fillRect(16, 44, 8, 16);
+    context.fillRect(40, 44, 8, 16);
+    context.fillRect(18, 20, 6, 6);
+    context.fillRect(38, 20, 6, 6);
+  });
+}
+
+function placeholderInteract() {
+  return createPlaceholder(40, 40, (context) => {
+    context.fillStyle = "rgba(13, 17, 38, 0.9)";
+    context.beginPath();
+    context.moveTo(10, 8);
+    context.lineTo(30, 8);
+    context.quadraticCurveTo(36, 8, 36, 14);
+    context.lineTo(36, 26);
+    context.quadraticCurveTo(36, 32, 30, 32);
+    context.lineTo(22, 32);
+    context.lineTo(16, 36);
+    context.lineTo(16, 32);
+    context.lineTo(10, 32);
+    context.quadraticCurveTo(4, 32, 4, 26);
+    context.lineTo(4, 14);
+    context.quadraticCurveTo(4, 8, 10, 8);
+    context.closePath();
+    context.fill();
+    context.strokeStyle = "rgba(154, 215, 255, 0.4)";
+    context.lineWidth = 2;
+    context.stroke();
+    context.beginPath();
+    context.moveTo(20, 32);
+    context.lineTo(16, 36);
+    context.lineTo(24, 36);
+    context.closePath();
+    context.fill();
+    context.font = "700 10px 'Nunito', 'Segoe UI', sans-serif";
+    context.fillStyle = "#ffe6a7";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText("SPACE", 20, 20);
+  });
+}
 
 const roster = [
   { name: "Nova", role: "Captain" },
@@ -60,6 +252,7 @@ const player = {
   onGround: false,
   state: "idle",
   lastInteraction: 0,
+  lastJump: 0,
 };
 
 const platforms = [
@@ -74,6 +267,7 @@ const platforms = [
 const interactables = [
   {
     id: "console",
+    type: "station",
     x: 640,
     y: world.groundLevel - 192,
     width: 56,
@@ -82,6 +276,7 @@ const interactables = [
   },
   {
     id: "npc",
+    type: "crew",
     x: 1180,
     y: world.groundLevel - 156,
     width: 56,
@@ -90,6 +285,7 @@ const interactables = [
   },
   {
     id: "terminal",
+    type: "station",
     x: 1825,
     y: world.groundLevel - 168,
     width: 56,
@@ -110,12 +306,31 @@ async function loadImage(src) {
 }
 
 async function loadAssets() {
-  const [background, foreground, playerIdle, playerJump, npc, interact] = await Promise.all(
-    Object.values(assets).map((src) => loadImage(src))
-  );
+  const missing = [];
+
+  async function loadWithFallback(label, src, fallbackFactory) {
+    try {
+      return await loadImage(src);
+    } catch (error) {
+      console.warn(`Unable to load ${label}; falling back to placeholder art.`, error);
+      missing.push(label);
+      return fallbackFactory();
+    }
+  }
+
+  const background = await loadWithFallback("background.png", assets.background, placeholderBackground);
+  const foreground = await loadWithFallback("foreground.png", assets.foreground, placeholderForeground);
+  const playerIdle = await loadWithFallback("player_idle.png", assets.playerIdle, placeholderPlayerIdle);
+  const playerJump = await loadWithFallback("player_jump.png", assets.playerJump, placeholderPlayerJump);
+  const npc = await loadWithFallback("npc.png", assets.npc, placeholderNpc);
+  const interact = await loadWithFallback("interact.png", assets.interact, placeholderInteract);
+
+  parallaxLayers.length = 0;
   parallaxLayers.push({ image: background, factor: 0.2 });
   parallaxLayers.push({ image: foreground, factor: 0.5 });
-  return { background, foreground, playerIdle, playerJump, npc, interact };
+
+  missing.sort();
+  return { textures: { background, foreground, playerIdle, playerJump, npc, interact }, missing };
 }
 
 function appendChatLine(text) {
@@ -123,6 +338,9 @@ function appendChatLine(text) {
   line.className = "chat-line";
   line.textContent = text;
   hudChat.appendChild(line);
+  while (hudChat.children.length > 8) {
+    hudChat.removeChild(hudChat.firstChild);
+  }
   hudChat.scrollTop = hudChat.scrollHeight;
 }
 
@@ -148,7 +366,7 @@ function resolvePlatformCollision(entity, platform) {
   }
 }
 
-function updatePlayer(delta, textures) {
+function updatePlayer(delta, now) {
   const speed = 230;
   const jumpVelocity = -360;
   player.vx = 0;
@@ -162,10 +380,31 @@ function updatePlayer(delta, textures) {
     player.facing = 1;
   }
 
-  if (keys.get("Space") && player.onGround) {
+  const interactPressed = keys.get("Space");
+  let interacted = false;
+
+  if (interactPressed && now - player.lastInteraction > 600) {
+    for (const object of interactables) {
+      if (inRange(player, object)) {
+        interacted = true;
+        player.lastInteraction = now;
+        hudQuest.dataset.locked = "true";
+        hudQuest.textContent = "Objective updated: Check the chat log for your next task.";
+        appendChatLine(object.message);
+        break;
+      }
+    }
+  }
+
+  if (!interactPressed && now - player.lastInteraction > 1500) {
+    hudQuest.dataset.locked = "false";
+  }
+
+  if (interactPressed && player.onGround && !interacted && now - player.lastJump > 250) {
     player.vy = jumpVelocity;
     player.onGround = false;
     player.state = "jump";
+    player.lastJump = now;
   }
 
   player.vy += world.gravity * delta;
@@ -173,7 +412,6 @@ function updatePlayer(delta, textures) {
   player.x += player.vx * delta;
   player.y += player.vy * delta;
 
-  // Horizontal bounds
   player.x = Math.max(0, Math.min(world.width - player.width, player.x));
 
   player.onGround = false;
@@ -195,21 +433,6 @@ function updatePlayer(delta, textures) {
     hudQuest.textContent = "Taking a quick breather on the platform.";
   } else if (hudQuest.dataset.locked !== "true") {
     hudQuest.textContent = "Explore the station and check in with the crew.";
-  }
-
-  const now = performance.now();
-  const interactPressed = keys.get("Space");
-  interactables.forEach((object) => {
-    if (inRange(player, object) && interactPressed && now - player.lastInteraction > 600) {
-      player.lastInteraction = now;
-      hudQuest.dataset.locked = "true";
-      hudQuest.textContent = "Objective updated: Check the chat log for your next task.";
-      appendChatLine(object.message);
-    }
-  });
-
-  if (!interactPressed && now - player.lastInteraction > 1500) {
-    hudQuest.dataset.locked = "false";
   }
 }
 
@@ -279,12 +502,36 @@ function drawInteractables(textures) {
   ctx.save();
   ctx.translate(-camera.x, 0);
   interactables.forEach((object) => {
-    ctx.drawImage(textures.npc, object.x, object.y, object.width, object.height);
+    if (object.type === "crew") {
+      ctx.drawImage(textures.npc, object.x, object.y, object.width, object.height);
+    } else {
+      drawStation(object);
+    }
     if (inRange(player, object)) {
       ctx.drawImage(textures.interact, object.x + object.width / 2 - 20, object.y - 28, 40, 40);
     }
   });
   ctx.restore();
+}
+
+function drawStation(object) {
+  const { x, y, width, height } = object;
+  ctx.fillStyle = "rgba(16, 22, 48, 0.95)";
+  ctx.fillRect(x, y, width, height);
+  ctx.fillStyle = "rgba(41, 206, 255, 0.3)";
+  ctx.fillRect(x + 6, y + 10, width - 12, height - 24);
+  ctx.fillStyle = "rgba(64, 226, 255, 0.55)";
+  ctx.fillRect(x + 6, y + 10, width - 12, 12);
+  ctx.fillStyle = "rgba(11, 13, 29, 0.95)";
+  ctx.fillRect(x + 4, y + height - 12, width - 8, 10);
+  ctx.fillStyle = "rgba(154, 215, 255, 0.7)";
+  ctx.fillRect(x + width / 2 - 14, y + height - 10, 28, 4);
+  ctx.fillStyle = "rgba(255, 230, 167, 0.55)";
+  ctx.fillRect(x + width / 2 - 8, y + height - 6, 16, 2);
+  ctx.fillStyle = "rgba(255, 159, 110, 0.75)";
+  ctx.fillRect(x + 10, y + height - 10, 6, 6);
+  ctx.fillStyle = "rgba(120, 255, 190, 0.75)";
+  ctx.fillRect(x + width - 16, y + height - 10, 6, 6);
 }
 
 function updateCamera() {
@@ -296,15 +543,31 @@ function updateCamera() {
 let previousTimestamp = performance.now();
 
 async function start() {
+  showStatus([
+    "Drop your PNG sprites into astrocatlobby/game/static/assets/ to reskin the lobby.",
+    "Missing files are replaced with glowing placeholders so you can prototype immediately.",
+  ]);
   populateRoster();
   appendChatLine("Nova: Welcome to the lobby! Feel free to explore.");
-  const textures = await loadAssets();
+  const { textures, missing } = await loadAssets();
+
+  if (missing.length > 0) {
+    const missingList = missing.join(", ");
+    showStatus([
+      `Using placeholder art for: ${missingList}.`,
+      "Add PNG files with those names and refresh to see your custom art.",
+    ]);
+  } else {
+    showStatus([
+      "All art assets loaded. Spacebar interacts with nearby crew consoles.",
+    ], { dismissAfter: 4500 });
+  }
 
   function frame(now) {
     const delta = Math.min((now - previousTimestamp) / 1000, 0.05);
     previousTimestamp = now;
 
-    updatePlayer(delta, textures);
+    updatePlayer(delta, now);
     updateCamera();
 
     drawBackground(textures);
@@ -320,4 +583,7 @@ async function start() {
 
 start().catch((error) => {
   console.error("Failed to start Astrocat Lobby", error);
+  showStatus([
+    "The lobby failed to start. Open the browser console for technical details.",
+  ]);
 });

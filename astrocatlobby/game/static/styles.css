@@ -61,6 +61,29 @@ main.layout {
   margin: 0;
 }
 
+.game-status {
+  display: none;
+  background: rgba(13, 17, 38, 0.78);
+  border: 1px solid rgba(154, 215, 255, 0.24);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+  font-size: 0.86rem;
+  line-height: 1.4;
+  color: #d6ecff;
+  gap: 0.4rem;
+}
+
+.game-status.is-visible {
+  display: grid;
+}
+
+.game-status p {
+  margin: 0;
+}
+
+#gameCanvas {
 #gameCanvas {
   flex: 1;
   border-radius: 16px;
