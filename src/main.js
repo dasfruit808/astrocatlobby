@@ -669,26 +669,49 @@ if (currentAppearancePresetIndex === undefined || currentAppearancePresetIndex =
   currentAppearancePresetIndex = 0;
 }
 
+const rankThresholds = [
+  { level: 1, title: "Recruit" },
+  { level: 3, title: "Astrocat Cadet" },
+  { level: 5, title: "Star Voyager" },
+  { level: 8, title: "Cosmic Trailblazer" }
+];
+
 const playerStats = {
   name: activeAccount?.catName ?? fallbackAccount.catName,
   handle: activeAccount?.handle ?? fallbackAccount.handle,
   starterId: activeAccount?.starterId ?? fallbackAccount.starterId,
-  level: 15,
-  rank: "Adventurer",
-  exp: 750,
-  maxExp: 1000,
+  level: 1,
+  rank: rankThresholds[0].title,
+  exp: 0,
+  maxExp: 120,
   hp: 85,
   maxHp: 100,
   mp: 40,
   maxMp: 60
 };
 
-const defaultMessage = "Use A/D or ←/→ to move. Press Space to jump.";
+const defaultMessage =
+  "Check the Recruit Missions panel for onboarding tasks. Use A/D or ←/→ to move. Press Space to jump.";
 let messageTimerId = 0;
+
+function updateRankFromLevel() {
+  let resolvedTitle = rankThresholds[0].title;
+  for (const threshold of rankThresholds) {
+    if (playerStats.level >= threshold.level) {
+      resolvedTitle = threshold.title;
+    } else {
+      break;
+    }
+  }
+  playerStats.rank = resolvedTitle;
+}
+
+updateRankFromLevel();
 
 const ui = createInterface(playerStats, playerAppearance, {
   onRequestLogin: requestAccountLogin,
-  onRequestLogout: handleLogout
+  onRequestLogout: handleLogout,
+  portalLevelRequirement: portalRequiredLevel
 });
 app.innerHTML = "";
 app.append(ui.root);
@@ -741,7 +764,10 @@ function completeAccountSetup(account, options = {}) {
   ui.setAccount(sanitized, chosenStarter);
   ui.refresh(playerStats);
   if (welcome) {
-    showMessage(`Welcome aboard, ${sanitized.catName}!`, 6000);
+    showMessage(
+      `Welcome aboard, ${sanitized.catName}! Check the Recruit Missions panel to begin your onboarding.`,
+      6000
+    );
   } else {
     showMessage(defaultMessage, 0);
   }
@@ -841,7 +867,18 @@ const portal = {
   interactionPadding: 36
 };
 
+const portalRequiredLevel = 3;
+
 const interactables = [
+  {
+    type: "bulletin",
+    label: "Star Bulletin Board",
+    missionId: "mission-broadcast",
+    x: 24,
+    y: groundY - 82,
+    width: 64,
+    height: 82
+  },
   {
     type: "chest",
     label: "Treasure Chest",
@@ -850,6 +887,22 @@ const interactables = [
     width: 44,
     height: 36,
     opened: false
+  },
+  {
+    type: "npc",
+    name: "Nova",
+    label: "Nova the Guide",
+    x: 320,
+    y: groundY - 60,
+    width: 42,
+    height: 54,
+    missionId: "mission-briefing",
+    dialogue: [
+      "Welcome to the Astrocat Lobby! The Recruit Missions panel tracks your onboarding tasks.",
+      "The bulletin board lets you broadcast your arrival across the cosmos.",
+      "Need to sync up? Use the comms console to follow Mission Control."
+    ],
+    lineIndex: 0
   },
   {
     type: "fountain",
@@ -861,21 +914,90 @@ const interactables = [
     charges: 2
   },
   {
-    type: "npc",
-    name: "Nova",
-    label: "Nova the Guide",
-    x: 320,
-    y: groundY - 60,
-    width: 42,
-    height: 54,
-    dialogue: [
-      "Welcome to the Astrocat Lobby!",
-      "Collect the floating crystals to charge the portal.",
-      "Need a boost? Try the chest or the fountain nearby."
-    ],
-    lineIndex: 0
+    type: "comms",
+    label: "Comms Console",
+    missionId: "mission-follow",
+    x: 880,
+    y: groundY - 78,
+    width: 56,
+    height: 78
   }
 ];
+
+const missionDefinitions = [
+  {
+    id: "mission-briefing",
+    title: "Receive Your Briefing",
+    description: "Speak with Nova to learn how to progress through the lobby.",
+    xp: 160
+  },
+  {
+    id: "mission-broadcast",
+    title: "Broadcast Your Arrival",
+    description: "Interact with the bulletin board to draft your enlistment post on the X platform.",
+    xp: 120
+  },
+  {
+    id: "mission-follow",
+    title: "Follow Mission Control",
+    description: "Use the comms console to follow the official Astronaut account.",
+    xp: 140
+  }
+];
+
+const missions = missionDefinitions.map((mission) => ({
+  ...mission,
+  completed: false
+}));
+
+const missionRegistry = new Map(missions.map((mission) => [mission.id, mission]));
+
+function refreshMissionDisplay() {
+  if (!ui || typeof ui.updateMissions !== "function") {
+    return;
+  }
+  ui.updateMissions(missions);
+}
+
+function completeMission(missionId) {
+  if (!missionId) {
+    return {
+      completed: false,
+      alreadyComplete: false,
+      leveledUp: false,
+      mission: null
+    };
+  }
+
+  const mission = missionRegistry.get(missionId);
+  if (!mission) {
+    return {
+      completed: false,
+      alreadyComplete: false,
+      leveledUp: false,
+      mission: null
+    };
+  }
+
+  if (mission.completed) {
+    return {
+      completed: false,
+      alreadyComplete: true,
+      leveledUp: false,
+      mission
+    };
+  }
+
+  mission.completed = true;
+  const leveledUp = gainExperience(mission.xp);
+  refreshMissionDisplay();
+  return {
+    completed: true,
+    alreadyComplete: false,
+    leveledUp,
+    mission
+  };
+}
 
 const keys = new Set();
 const justPressed = new Set();
@@ -903,6 +1025,7 @@ if (activeAccount) {
 }
 ui.updateCrystals(0, crystals.length);
 ui.refresh(playerStats);
+refreshMissionDisplay();
 
 let lastTimestamp = performance.now();
 requestAnimationFrame(loop);
@@ -1017,15 +1140,16 @@ function update(delta) {
       }
       const leveledUp = gainExperience(60);
       let message = "Crystal energy surges through you! +60 EXP.";
-      if (leveledUp) {
-        message += ` Level up! You reached level ${playerStats.level}.`;
-      }
       if (fullyCharged) {
-        message =
-          "The final crystal ignites the portal! Return and press E to travel onward.";
+        const portalReady = playerStats.level >= portalRequiredLevel;
+        message = portalReady
+          ? "The final crystal ignites the portal! Return and press E to travel onward."
+          : `The final crystal ignites the portal! Reach Level ${portalRequiredLevel} before entering.`;
         if (leveledUp) {
-          message += ` (Level ${playerStats.level} achieved!)`;
+          message += ` Level up! You reached level ${playerStats.level}.`;
         }
+      } else if (leveledUp) {
+        message += ` Level up! You reached level ${playerStats.level}.`;
       }
       showMessage(message, fullyCharged ? 5200 : 4200);
     }
@@ -1037,7 +1161,32 @@ function update(delta) {
       continue;
     }
 
-    if (interactable.type === "chest") {
+    if (interactable.type === "bulletin") {
+      promptText = "Press E to review the bulletin board";
+      if (justPressed.has("KeyE")) {
+        const result = completeMission(interactable.missionId);
+        audio.playEffect("dialogue");
+        if (result.completed) {
+          const xpAward = result.mission?.xp ?? 0;
+          let message =
+            `You craft a triumphant enlistment post for the cosmos. +${xpAward} EXP.`;
+          if (result.leveledUp) {
+            message += ` Level up! You reached level ${playerStats.level}.`;
+          }
+          showMessage(message, 5600);
+        } else if (result.alreadyComplete) {
+          showMessage(
+            "Your arrival announcement already glows across the bulletin board.",
+            4200
+          );
+        } else {
+          showMessage(
+            "Mission updates shimmer across the bulletin board display.",
+            3800
+          );
+        }
+      }
+    } else if (interactable.type === "chest") {
       promptText = "Press E to open the chest";
       if (justPressed.has("KeyE")) {
         if (!interactable.opened) {
@@ -1068,11 +1217,45 @@ function update(delta) {
     } else if (interactable.type === "npc") {
       promptText = "Press E to talk to Nova";
       if (justPressed.has("KeyE")) {
-        const line = interactable.dialogue[interactable.lineIndex];
-        interactable.lineIndex =
-          (interactable.lineIndex + 1) % interactable.dialogue.length;
-        showMessage(`${interactable.name}: ${line}`, 4600);
+        const missionResult = completeMission(interactable.missionId);
         audio.playEffect("dialogue");
+        if (missionResult.completed) {
+          const xpAward = missionResult.mission?.xp ?? 0;
+          const briefingLine = interactable.dialogue[0];
+          interactable.lineIndex = Math.min(1, interactable.dialogue.length - 1);
+          let message = `${interactable.name}: ${briefingLine} +${xpAward} EXP.`;
+          if (missionResult.leveledUp) {
+            message += ` Level up! You reached level ${playerStats.level}.`;
+          }
+          showMessage(message, 5600);
+        } else {
+          const line = interactable.dialogue[interactable.lineIndex];
+          interactable.lineIndex =
+            (interactable.lineIndex + 1) % interactable.dialogue.length;
+          showMessage(`${interactable.name}: ${line}`, 4600);
+        }
+      }
+    } else if (interactable.type === "comms") {
+      promptText = "Press E to access the comms console";
+      if (justPressed.has("KeyE")) {
+        const result = completeMission(interactable.missionId);
+        audio.playEffect("dialogue");
+        if (result.completed) {
+          const xpAward = result.mission?.xp ?? 0;
+          let message =
+            `You sync with the Astronaut account. Mission Control now follows your journey. +${xpAward} EXP.`;
+          if (result.leveledUp) {
+            message += ` Level up! You reached level ${playerStats.level}.`;
+          }
+          showMessage(message, 5600);
+        } else if (result.alreadyComplete) {
+          showMessage(
+            "Mission Control feed already streams updates to your visor.",
+            4200
+          );
+        } else {
+          showMessage("The console hums, waiting for your next command.", 3600);
+        }
       }
     }
   }
@@ -1080,7 +1263,16 @@ function update(delta) {
   const nearPortal = isNear(player, portal, portal.interactionPadding);
   if (nearPortal) {
     if (portalCharged) {
-      if (portalCompleted) {
+      if (playerStats.level < portalRequiredLevel) {
+        promptText = `Reach Level ${portalRequiredLevel} to activate the portal.`;
+        if (justPressed.has("KeyE")) {
+          audio.playEffect("dialogue");
+          showMessage(
+            `The portal resists you. Train until Level ${portalRequiredLevel} to stabilize the jump.`,
+            5200
+          );
+        }
+      } else if (portalCompleted) {
         promptText = "The portal hums softly, its gateway already opened.";
       } else {
         promptText = "Press E to step through the charged portal";
@@ -1090,7 +1282,6 @@ function update(delta) {
           const bonusExp = gainExperience(120);
           playerStats.hp = playerStats.maxHp;
           playerStats.mp = playerStats.maxMp;
-          playerStats.rank = "Star Voyager";
           ui.refresh(playerStats);
           let completionMessage =
             "You stride into the energized portal! All stats restored for the journey ahead.";
@@ -1156,12 +1347,16 @@ function render(timestamp) {
   drawPortal(time);
 
   for (const interactable of interactables) {
-    if (interactable.type === "chest") {
+    if (interactable.type === "bulletin") {
+      drawBulletin(interactable, time);
+    } else if (interactable.type === "chest") {
       drawChest(interactable);
     } else if (interactable.type === "fountain") {
       drawFountain(interactable, time);
     } else if (interactable.type === "npc") {
       drawGuide(interactable, time);
+    } else if (interactable.type === "comms") {
+      drawComms(interactable, time);
     }
   }
 
@@ -1309,6 +1504,29 @@ function drawPlayer(entity, time) {
   ctx.restore();
 }
 
+function drawBulletin(board, time) {
+  ctx.save();
+  ctx.translate(board.x, board.y);
+  const pulse = (Math.sin(time * 2.2) + 1) / 2;
+  ctx.fillStyle = "#1d253f";
+  drawRoundedRect(0, 10, board.width, board.height - 10, 10);
+  ctx.fillStyle = "#151c2c";
+  ctx.fillRect(6, board.height - 12, 12, 12);
+  ctx.fillRect(board.width - 18, board.height - 12, 12, 12);
+  ctx.fillStyle = `rgba(120, 150, 255, ${0.35 + pulse * 0.25})`;
+  drawRoundedRect(8, 16, board.width - 16, board.height - 38, 8);
+  ctx.fillStyle = "rgba(15, 20, 40, 0.85)";
+  drawRoundedRect(14, 24, board.width - 28, 32, 6);
+  ctx.fillStyle = "rgba(215, 230, 255, 0.82)";
+  ctx.fillRect(20, 30, board.width - 40, 6);
+  ctx.fillRect(20, 40, board.width - 56, 4);
+  ctx.fillStyle = `rgba(255, 200, 255, ${0.3 + pulse * 0.3})`;
+  ctx.fillRect(20, 48, board.width - 40, 4);
+  ctx.fillStyle = `rgba(140, 200, 255, ${0.35 + pulse * 0.35})`;
+  drawRoundedRect(14, board.height - 28, board.width - 28, 10, 4);
+  ctx.restore();
+}
+
 function drawChest(chest) {
   ctx.save();
   ctx.translate(chest.x, chest.y);
@@ -1403,6 +1621,30 @@ function drawGuide(guide, time) {
   ctx.restore();
 }
 
+function drawComms(consoleUnit, time) {
+  ctx.save();
+  ctx.translate(consoleUnit.x, consoleUnit.y);
+  const pulse = (Math.sin(time * 3.4) + 1) / 2;
+  ctx.fillStyle = "#1c273a";
+  drawRoundedRect(0, 12, consoleUnit.width, consoleUnit.height - 12, 12);
+  ctx.fillStyle = "#2f3f62";
+  drawRoundedRect(6, 0, consoleUnit.width - 12, 36, 10);
+  ctx.fillStyle = `rgba(110, 215, 255, ${0.45 + pulse * 0.35})`;
+  drawRoundedRect(12, 8, consoleUnit.width - 24, 22, 8);
+  ctx.strokeStyle = `rgba(140, 200, 255, ${0.6 + pulse * 0.2})`;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(consoleUnit.width / 2, -6);
+  ctx.lineTo(consoleUnit.width / 2, 6);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(consoleUnit.width / 2, -8, 6 + pulse * 3, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = `rgba(90, 255, 200, ${0.3 + pulse * 0.4})`;
+  drawRoundedRect(10, consoleUnit.height - 20, consoleUnit.width - 20, 10, 4);
+  ctx.restore();
+}
+
 function drawCrystal(crystal, time) {
   ctx.save();
   ctx.translate(crystal.x, crystal.y);
@@ -1472,6 +1714,7 @@ function gainExperience(amount) {
     playerStats.maxExp = Math.round(playerStats.maxExp * 1.2);
     leveledUp = true;
   }
+  updateRankFromLevel();
   if (leveledUp) {
     audio.playEffect("levelUp");
   }
@@ -1710,7 +1953,7 @@ function createOnboardingExperience(options, config = {}) {
 }
 
 function createInterface(stats, appearance, options = {}) {
-  const { onRequestLogin, onRequestLogout } = options;
+  const { onRequestLogin, onRequestLogout, portalLevelRequirement = 1 } = options;
   const root = document.createElement("div");
   root.className = "game-root";
 
@@ -1800,6 +2043,20 @@ function createInterface(stats, appearance, options = {}) {
   const message = document.createElement("p");
   message.className = "message";
   panel.append(message);
+
+  const missionSection = document.createElement("section");
+  missionSection.className = "mission-log";
+  const missionTitle = document.createElement("h2");
+  missionTitle.className = "mission-log__title";
+  missionTitle.textContent = "Recruit Missions";
+  const missionSummary = document.createElement("p");
+  missionSummary.className = "mission-log__summary";
+  const missionRequirement = document.createElement("p");
+  missionRequirement.className = "mission-log__requirement";
+  const missionList = document.createElement("ul");
+  missionList.className = "mission-log__list";
+  missionSection.append(missionTitle, missionSummary, missionRequirement, missionList);
+  panel.append(missionSection);
 
   const appearanceSection = document.createElement("div");
   appearanceSection.className = "appearance-section";
@@ -1915,6 +2172,17 @@ function createInterface(stats, appearance, options = {}) {
       updateBar(hpBar, updatedStats.hp, updatedStats.maxHp);
       updateBar(mpBar, updatedStats.mp, updatedStats.maxMp);
       updateBar(expBar, updatedStats.exp, updatedStats.maxExp);
+      const portalCleared = updatedStats.level >= portalLevelRequirement;
+      missionRequirement.classList.toggle("is-complete", portalCleared);
+      if (portalCleared) {
+        missionRequirement.textContent =
+          "Portal clearance secured. Charge it to travel onward.";
+      } else {
+        missionRequirement.textContent =
+          portalLevelRequirement > 1
+            ? `Reach Level ${portalLevelRequirement} to unlock the portal.`
+            : "Charge the portal to travel onward.";
+      }
     },
     updateCrystals(collected, total) {
       crystalsLabel.textContent = `Crystals collected: ${collected} / ${total}`;
@@ -1927,6 +2195,43 @@ function createInterface(stats, appearance, options = {}) {
     },
     setAccount(account, starter) {
       updateAccountCard(account, starter);
+    },
+    updateMissions(missionState) {
+      const total = missionState.length;
+      const completed = missionState.filter((mission) => mission.completed).length;
+      missionSummary.textContent =
+        total > 0 ? `${completed} / ${total} completed` : "No missions available";
+      missionList.innerHTML = "";
+      for (const mission of missionState) {
+        const item = document.createElement("li");
+        item.className = "mission-log__item";
+        if (mission.completed) {
+          item.classList.add("is-completed");
+        }
+
+        const status = document.createElement("span");
+        status.className = "mission-log__status";
+        status.textContent = mission.completed ? "✓" : "•";
+
+        const content = document.createElement("div");
+        content.className = "mission-log__content";
+
+        const name = document.createElement("p");
+        name.className = "mission-log__name";
+        name.textContent = mission.title;
+
+        const description = document.createElement("p");
+        description.className = "mission-log__description";
+        description.textContent = mission.description;
+
+        const reward = document.createElement("span");
+        reward.className = "mission-log__reward";
+        reward.textContent = `+${mission.xp} EXP`;
+
+        content.append(name, description, reward);
+        item.append(status, content);
+        missionList.append(item);
+      }
     }
   };
 
