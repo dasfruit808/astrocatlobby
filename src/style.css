@@ -468,6 +468,12 @@ body {
   flex-direction: column;
   gap: 22px;
   border: 4px solid #2f47ff;
+  align-items: center;
+  text-align: center;
+}
+
+.stats-panel > * {
+  width: 100%;
 }
 
 .stats-panel h1 {
@@ -475,6 +481,7 @@ body {
   font-size: 32px;
   letter-spacing: 1px;
   color: #2f47ff;
+  text-align: center;
 }
 
 .player-subtitle {
@@ -488,13 +495,16 @@ body {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  width: 100%;
 }
 
 .stat-row {
   display: grid;
-  grid-template-columns: 52px 1fr auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr);
   gap: 12px;
   align-items: center;
+  justify-items: center;
+  width: 100%;
 }
 
 .stat-label {
@@ -502,6 +512,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: rgba(47, 71, 255, 0.8);
+  justify-self: center;
 }
 
 .stat-bar {
@@ -511,6 +522,7 @@ body {
   overflow: hidden;
   background: rgba(47, 71, 255, 0.15);
   border: 2px solid rgba(47, 71, 255, 0.3);
+  justify-self: stretch;
 }
 
 .stat-bar__fill {
@@ -525,12 +537,14 @@ body {
   font-variant-numeric: tabular-nums;
   font-size: 15px;
   color: #2a1d4f;
+  justify-self: center;
 }
 
 .crystal-label {
   margin: 0;
   font-size: 16px;
   color: #2f47ff;
+  text-align: center;
 }
 
 .message {
@@ -538,6 +552,7 @@ body {
   min-height: 56px;
   display: flex;
   align-items: center;
+  justify-content: center;
   color: #2a1d4f;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 231, 218, 0.95));
   border: 4px solid #2f47ff;
@@ -547,6 +562,7 @@ body {
   box-shadow:
     0 10px 0 rgba(255, 206, 115, 0.8),
     0 18px 30px rgba(35, 20, 68, 0.2);
+  text-align: center;
 }
 
 .mission-log {
@@ -955,6 +971,8 @@ body {
   border-radius: 14px;
   background: rgba(35, 44, 70, 0.35);
   border: 1px solid rgba(94, 132, 255, 0.16);
+  align-items: center;
+  text-align: center;
 }
 
 .appearance-header {
@@ -962,6 +980,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  width: 100%;
 }
 
 .appearance-title {
@@ -993,11 +1012,14 @@ body {
   margin: 0;
   font-size: 13px;
   color: rgba(209, 219, 255, 0.85);
+  text-align: center;
+  width: 100%;
 }
 
 .appearance-swatches {
   display: flex;
   gap: 10px;
+  justify-content: center;
 }
 
 .appearance-swatch {
@@ -1012,25 +1034,29 @@ body {
 .appearance-controls {
   display: grid;
   gap: 10px;
+  width: 100%;
 }
 
 .appearance-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .appearance-row__label {
   font-size: 13px;
   color: rgba(204, 215, 255, 0.85);
   min-width: 50px;
+  text-align: center;
 }
 
 .appearance-row__options {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
 .appearance-color {
@@ -1056,11 +1082,13 @@ body {
 
 .instruction-list {
   margin: 0;
-  padding-left: 18px;
+  padding-left: 0;
   color: rgba(210, 220, 255, 0.75);
   font-size: 13px;
   display: grid;
   gap: 6px;
+  text-align: center;
+  list-style-position: inside;
 }
 
 .instruction-list li::marker {
