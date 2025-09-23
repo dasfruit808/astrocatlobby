@@ -33,4 +33,4 @@ Add a `webpagebackground.png` file to the `public/` directory to replace the def
 2. Run the lobby (`npm run dev`) and approach the glowing arcade cabinet labeled **Starcade**. Press <kbd>E</kbd> to launch the mini game inside the lobby.
 3. Close the in-game console with the **Back to lobby** button or the <kbd>Escape</kbd> key when you are finished playing.
 
-The cabinet loads `/AstroCats3/index.html` inside an iframe, so ensure all asset paths remain relative to that file. You can also open the mini game directly in a new browser tab at `/AstroCats3/index.html` to verify it deploys correctly.
+The cabinet now looks for `/public/AstroCats3/index.html` inside an iframe, falling back to `/AstroCats3/index.html` when needed, so ensure all asset paths remain relative to those files. You can also open the mini game directly in a new browser tab at `/public/AstroCats3/index.html` (or `/AstroCats3/index.html` if you rely on the legacy location) to verify it deploys correctly.
