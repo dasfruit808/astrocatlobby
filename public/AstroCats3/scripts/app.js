@@ -7285,6 +7285,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const META_PROGRESS_VERSION = 1;
 
+        let missingGrantCosmeticWarningLogged = false;
+
         const defaultState = () => ({
             version: META_PROGRESS_VERSION,
             achievements: {},
@@ -7558,11 +7560,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         text: `Season pass tier unlocked: ${tier.label ?? tier.id}`,
                         meta: { type: 'season' }
                     });
-                    if (tier.reward && challengeManager?.grantCosmeticReward) {
-                        try {
-                            challengeManager.grantCosmeticReward(tier.reward, { reason: `season-${tier.id}` });
-                        } catch (error) {
-                            console.error('season reward grant failed', error);
+                    if (tier.reward) {
+                        if (typeof challengeManager?.grantCosmeticReward === 'function') {
+                            try {
+                                challengeManager.grantCosmeticReward(tier.reward, { reason: `season-${tier.id}` });
+                            } catch (error) {
+                                console.error('season reward grant failed', error);
+                            }
+                        } else if (!missingGrantCosmeticWarningLogged) {
+                            console.warn('season reward grant skipped: grantCosmeticReward callback missing');
+                            missingGrantCosmeticWarningLogged = true;
                         }
                     }
                 }
