@@ -4155,12 +4155,16 @@ document.addEventListener('DOMContentLoaded', () => {
         metaProgress: 'nyanEscape.metaProgress'
     };
 
-    let storageAvailable = false;
+    var storageAvailable = false;
     try {
-        const testKey = '__nyanEscapeTest__';
-        localStorage.setItem(testKey, '1');
-        localStorage.removeItem(testKey);
-        storageAvailable = true;
+        if (typeof localStorage === 'undefined') {
+            storageAvailable = false;
+        } else {
+            const testKey = '__nyanEscapeTest__';
+            localStorage.setItem(testKey, '1');
+            localStorage.removeItem(testKey);
+            storageAvailable = true;
+        }
     } catch (error) {
         storageAvailable = false;
     }
