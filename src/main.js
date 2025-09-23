@@ -462,12 +462,39 @@ function shouldUseCustomPageBackground() {
   return customBackgroundAvailabilityProbe;
 }
 // The mini game entry point that loads inside the arcade cabinet overlay.
+function normaliseMiniGameEntryPoint(entry) {
+  if (!entry) {
+    return null;
+  }
+
+  const trimmed = `${entry}`.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const hasExplicitProtocol = /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(trimmed);
+  if (hasExplicitProtocol || trimmed.startsWith("//")) {
+    return trimmed;
+  }
+
+  if (
+    trimmed.startsWith("./") ||
+    trimmed.startsWith("../") ||
+    trimmed.startsWith("/")
+  ) {
+    return trimmed;
+  }
+
+  return `./${trimmed}`;
+}
+
 function resolveMiniGameEntryPoint() {
   const fallback = "./AstroCats3/index.html";
   const resolvedEntry = resolvePublicAssetUrl("AstroCats3/index.html");
+  const normalisedEntry = normaliseMiniGameEntryPoint(resolvedEntry);
 
-  if (resolvedEntry && resolvedEntry !== "/") {
-    return resolvedEntry;
+  if (normalisedEntry && normalisedEntry !== "/") {
+    return normalisedEntry;
   }
 
   console.warn(
