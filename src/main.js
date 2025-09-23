@@ -522,14 +522,27 @@ function normaliseMiniGameEntryPoint(entry) {
 }
 
 function resolveMiniGameEntryPoint() {
-  const fallback = "./AstroCats3/index.html";
-  const resolvedEntry = resolvePublicAssetUrl("AstroCats3/index.html");
-  const normalisedEntry = normaliseMiniGameEntryPoint(resolvedEntry);
+  const candidateEntries = [
+    {
+      relative: "public/AstroCats3/index.html",
+      fallback: "./public/AstroCats3/index.html",
+    },
+    {
+      relative: "AstroCats3/index.html",
+      fallback: "./AstroCats3/index.html",
+    },
+  ];
 
-  if (normalisedEntry && normalisedEntry !== "/") {
-    return normalisedEntry;
+  for (const candidate of candidateEntries) {
+    const resolvedEntry = resolvePublicAssetUrl(candidate.relative);
+    const normalisedEntry = normaliseMiniGameEntryPoint(resolvedEntry);
+
+    if (normalisedEntry && normalisedEntry !== "/") {
+      return normalisedEntry;
+    }
   }
 
+  const [{ fallback }] = candidateEntries;
   console.warn(
     "Falling back to a relative AstroCats3 mini game entry point. Ensure public/AstroCats3/index.html is reachable from the current path."
   );
