@@ -17,6 +17,13 @@ const assetManifest = supportsImportMetaGlob
     })
   : null;
 
+const audioManifest = supportsImportMetaGlob
+  ? import.meta.glob("./assets/audio/*.{wav,mp3,ogg}", {
+      eager: true,
+      import: "default"
+    })
+  : null;
+
 function createEmptySprite() {
   return {
     image: null,
@@ -119,6 +126,197 @@ function createOptionalSpriteWithoutManifest(assetPath) {
   };
 }
 
+function createSilentAudioHandle() {
+  return {
+    play() {},
+    stop() {},
+    setVolume() {},
+    isReady: () => false,
+    element: null
+  };
+}
+
+function resolveAudioSource(assetPath) {
+  if (audioManifest) {
+    return audioManifest[assetPath] ?? null;
+  }
+
+  try {
+    return new URL(assetPath, import.meta.url).href;
+  } catch (error) {
+    console.warn(`Failed to resolve audio asset at ${assetPath}`, error);
+    return null;
+  }
+}
+
+function createOptionalAudio(assetPath, options = {}) {
+  const settings = {
+    loop: false,
+    volume: 1,
+    playbackRate: 1,
+    ...options
+  };
+
+  if (typeof Audio === "undefined") {
+    return createSilentAudioHandle();
+  }
+
+  const element = new Audio();
+  let warned = false;
+  let ready = false;
+
+  const source = resolveAudioSource(assetPath);
+  if (!source) {
+    console.info(
+      `Audio asset missing for ${assetPath}. Place the file in src/assets/audio or update the sound mapping if you want this sound.`
+    );
+    warned = true;
+    return createSilentAudioHandle();
+  }
+
+  element.loop = Boolean(settings.loop);
+  element.volume = Math.min(Math.max(settings.volume ?? 1, 0), 1);
+  element.playbackRate = settings.playbackRate ?? 1;
+
+  const markReady = () => {
+    ready = true;
+  };
+  const handleError = () => {
+    ready = false;
+    if (!warned) {
+      console.warn(
+        `Failed to load audio asset at ${assetPath}. Add the matching file in src/assets/audio to enable this sound.`
+      );
+      warned = true;
+    }
+  };
+
+  element.addEventListener("canplaythrough", markReady, { once: true });
+  element.addEventListener("error", handleError);
+
+  element.src = source;
+  if (element.readyState >= 2) {
+    markReady();
+  }
+
+  const play = ({ restart = true } = {}) => {
+    if (!ready && element.readyState < 2) {
+      // Allow the browser to finish buffering; playback will begin once ready.
+    }
+
+    if (restart) {
+      try {
+        element.currentTime = 0;
+      } catch (error) {
+        // Some browsers may throw if the media has not started loading yet.
+      }
+    }
+
+    const attempt = element.play();
+    if (attempt && typeof attempt.catch === "function") {
+      attempt.catch(() => {
+        /* Autoplay restrictions can reject the promise. */
+      });
+    }
+  };
+
+  const stop = () => {
+    element.pause();
+    try {
+      element.currentTime = 0;
+    } catch (error) {
+      // Ignore errors while resetting the playback position.
+    }
+  };
+
+  return {
+    play,
+    stop,
+    setVolume(value) {
+      element.volume = Math.min(Math.max(value, 0), 1);
+    },
+    isReady: () => ready,
+    element
+  };
+}
+
+function createAudioManager() {
+  const soundMap = {
+    // Drop .wav (or .mp3/.ogg) files into src/assets/audio using these paths
+    // or update the mapping below to match your filenames.
+    background: { path: "./assets/audio/background.wav", loop: true, volume: 0.48 },
+    jump: { path: "./assets/audio/jump.wav", volume: 0.55 },
+    crystal: { path: "./assets/audio/crystal.wav", volume: 0.62 },
+    chestOpen: { path: "./assets/audio/chest.wav", volume: 0.6 },
+    fountain: { path: "./assets/audio/fountain.wav", volume: 0.6 },
+    dialogue: { path: "./assets/audio/dialogue.wav", volume: 0.45 },
+    portalCharge: { path: "./assets/audio/portal-charge.wav", volume: 0.65 },
+    portalActivate: { path: "./assets/audio/portal-activate.wav", volume: 0.7 },
+    portalComplete: { path: "./assets/audio/portal-complete.wav", volume: 0.7 },
+    levelUp: { path: "./assets/audio/level-up.wav", volume: 0.68 }
+  };
+
+  const sounds = {};
+  for (const [key, config] of Object.entries(soundMap)) {
+    sounds[key] = createOptionalAudio(config.path, config);
+  }
+
+  let unlocked = false;
+  let pendingBackground = false;
+
+  const playBackground = ({ restart = false } = {}) => {
+    const music = sounds.background;
+    if (!music) {
+      return;
+    }
+
+    if (!unlocked) {
+      pendingBackground = true;
+      return;
+    }
+
+    music.play({ restart });
+  };
+
+  const handleUserGesture = () => {
+    if (unlocked) {
+      return;
+    }
+    unlocked = true;
+    if (pendingBackground) {
+      pendingBackground = false;
+      playBackground({ restart: false });
+    }
+  };
+
+  const playEffect = (key) => {
+    const effect = sounds[key];
+    if (!effect) {
+      return;
+    }
+    if (!unlocked && key !== "background") {
+      return;
+    }
+    effect.play();
+  };
+
+  const stopBackground = () => {
+    const music = sounds.background;
+    if (!music) {
+      return;
+    }
+    music.stop();
+  };
+
+  return {
+    playBackground,
+    playEffect,
+    stopBackground,
+    handleUserGesture,
+    mappings: soundMap
+  };
+}
+
 // Drop replacement PNG files into src/assets with these names to override
 // the procedural drawings for each element.
 const chestSprite = createOptionalSprite("./assets/ChestSprite.png");
@@ -131,6 +329,9 @@ const app = document.querySelector("#app");
 if (!app) {
   throw new Error("Missing #app container");
 }
+
+const audio = createAudioManager();
+audio.playBackground();
 
 const backgroundImage = new Image();
 const backgroundSource = backgroundImageUrl;
@@ -390,6 +591,7 @@ const keys = new Set();
 const justPressed = new Set();
 
 window.addEventListener("keydown", (event) => {
+  audio.handleUserGesture();
   if (!event.repeat) {
     justPressed.add(event.code);
   }
@@ -398,6 +600,10 @@ window.addEventListener("keydown", (event) => {
 
 window.addEventListener("keyup", (event) => {
   keys.delete(event.code);
+});
+
+window.addEventListener("pointerdown", () => {
+  audio.handleUserGesture();
 });
 
 showMessage(defaultMessage, 0);
@@ -419,6 +625,7 @@ function loop(timestamp) {
 }
 
 function update(delta) {
+  const portalWasCharged = portalCharged;
   const previousX = player.x;
   const previousY = player.y;
 
@@ -450,6 +657,7 @@ function update(delta) {
   if (jumpPressed && player.onGround) {
     player.vy = -10.8;
     player.onGround = false;
+    audio.playEffect("jump");
   }
 
   player.vy += gravity;
@@ -503,10 +711,14 @@ function update(delta) {
 
     if (overlapX && overlapY) {
       crystal.collected = true;
+      audio.playEffect("crystal");
       portalCharge = Math.min(portalCharge + 1, crystals.length);
       ui.updateCrystals(portalCharge, crystals.length);
       const fullyCharged = portalCharge === crystals.length;
       if (fullyCharged) {
+        if (!portalWasCharged) {
+          audio.playEffect("portalCharge");
+        }
         portalCharged = true;
       }
       const leveledUp = gainExperience(60);
@@ -538,8 +750,10 @@ function update(delta) {
           interactable.opened = true;
           playerStats.hp = clamp(playerStats.hp + 12, 0, playerStats.maxHp);
           ui.refresh(playerStats);
+          audio.playEffect("chestOpen");
           showMessage("You found herbal tonics! HP restored.", 3600);
         } else {
+          audio.playEffect("dialogue");
           showMessage("The chest is empty now, but still shiny.", 2800);
         }
       }
@@ -550,8 +764,10 @@ function update(delta) {
           interactable.charges -= 1;
           playerStats.mp = clamp(playerStats.mp + 18, 0, playerStats.maxMp);
           ui.refresh(playerStats);
+          audio.playEffect("fountain");
           showMessage("Mana rush! Your MP was restored.", 3200);
         } else {
+          audio.playEffect("dialogue");
           showMessage("The fountain needs time to recharge.", 3000);
         }
       }
@@ -562,6 +778,7 @@ function update(delta) {
         interactable.lineIndex =
           (interactable.lineIndex + 1) % interactable.dialogue.length;
         showMessage(`${interactable.name}: ${line}`, 4600);
+        audio.playEffect("dialogue");
       }
     }
   }
@@ -574,6 +791,7 @@ function update(delta) {
       } else {
         promptText = "Press E to step through the charged portal";
         if (justPressed.has("KeyE")) {
+          audio.playEffect("portalActivate");
           portalCompleted = true;
           const bonusExp = gainExperience(120);
           playerStats.hp = playerStats.maxHp;
@@ -585,6 +803,7 @@ function update(delta) {
           if (bonusExp) {
             completionMessage += ` Level up! You reached level ${playerStats.level}.`;
           }
+          audio.playEffect("portalComplete");
           showMessage(completionMessage, 6200);
         }
       }
@@ -958,6 +1177,9 @@ function gainExperience(amount) {
     playerStats.level += 1;
     playerStats.maxExp = Math.round(playerStats.maxExp * 1.2);
     leveledUp = true;
+  }
+  if (leveledUp) {
+    audio.playEffect("levelUp");
   }
   ui.refresh(playerStats);
   return leveledUp;
