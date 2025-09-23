@@ -2282,9 +2282,11 @@ function createTouchControls({ onPress, onRelease, onGesture } = {}) {
   };
 }
 
+const lobbySpriteScale = 1.25;
+
 const groundY = viewport.height - 96;
-const playerWidth = Math.round(72 * 1.1);
-const playerHeight = Math.round(81 * 1.1);
+const playerWidth = Math.round(72 * 1.1 * lobbySpriteScale);
+const playerHeight = Math.round(81 * 1.1 * lobbySpriteScale);
 
 const player = {
   x: viewport.width / 2 - playerWidth / 2,
@@ -2333,6 +2335,25 @@ const guideFloatOffset = 6;
 const guideCenterX = guideBaseX + guideBaseWidth / 2;
 const guideX = Math.round(guideCenterX - guideWidth / 2);
 const guideY = groundY - guideFloatOffset - guideHeight;
+
+const scaleLobbyEntity = (entity) => {
+  if (!entity || typeof entity !== "object") {
+    return entity;
+  }
+
+  const scaledWidth = Math.round(entity.width * lobbySpriteScale);
+  const scaledHeight = Math.round(entity.height * lobbySpriteScale);
+  const bottom = entity.y + entity.height;
+  const centerX = entity.x + entity.width / 2;
+
+  return {
+    ...entity,
+    width: scaledWidth,
+    height: scaledHeight,
+    x: Math.round(centerX - scaledWidth / 2),
+    y: Math.round(bottom - scaledHeight)
+  };
+};
 
 const interactables = [
   {
@@ -2395,7 +2416,7 @@ const interactables = [
     width: 56,
     height: 78
   }
-];
+].map((interactable) => scaleLobbyEntity(interactable));
 
 const missionDefinitions = [
   {
@@ -2475,6 +2496,8 @@ function completeMission(missionId) {
 const keys = new Set();
 const justPressed = new Set();
 
+const movementKeyCodes = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"]);
+
 const pressVirtualKey = (code) => {
   if (!code) {
     return;
@@ -2492,7 +2515,32 @@ const releaseVirtualKey = (code) => {
   keys.delete(code);
 };
 
+const interactiveTagNames = new Set(["INPUT", "TEXTAREA", "SELECT", "BUTTON"]);
+
+const isInteractiveElement = (target) => {
+  if (typeof Element === "undefined" || !(target instanceof Element)) {
+    return false;
+  }
+
+  let element = target;
+  while (element && element instanceof Element) {
+    if (element.isContentEditable) {
+      return true;
+    }
+    const tagName = element.tagName;
+    if (tagName && interactiveTagNames.has(tagName)) {
+      return true;
+    }
+    element = element.parentElement;
+  }
+
+  return false;
+};
+
 window.addEventListener("keydown", (event) => {
+  if (movementKeyCodes.has(event.code) && !isInteractiveElement(event.target)) {
+    event.preventDefault();
+  }
   audio.handleUserGesture();
   pressVirtualKey(event.code);
 });
