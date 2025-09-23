@@ -7,43 +7,115 @@ const playerSpriteUrl = new URL(
   import.meta.url
 ).href;
 
-const assetManifest = import.meta.glob("./assets/*.{png,PNG}", {
-  eager: true,
-  import: "default"
-});
+const supportsImportMetaGlob =
+  typeof import.meta !== "undefined" && typeof import.meta.glob === "function";
 
-function createOptionalSprite(assetPath) {
-  const source = assetManifest[assetPath];
-  if (!source) {
-    return {
-      image: null,
-      isReady: () => false
-    };
-  }
+const assetManifest = supportsImportMetaGlob
+  ? import.meta.glob("./assets/*.{png,PNG}", {
+      eager: true,
+      import: "default"
+    })
+  : null;
 
+function createEmptySprite() {
+  return {
+    image: null,
+    isReady: () => false
+  };
+}
+
+function createSpriteState(assetPath) {
   const image = new Image();
   let ready = false;
+  let warned = false;
 
   const markReady = () => {
     ready = true;
   };
   const handleError = () => {
     ready = false;
-    console.warn(
-      `Failed to load sprite asset at ${assetPath}. Falling back to canvas drawing.`
-    );
+    if (!warned) {
+      console.warn(
+        `Failed to load sprite asset at ${assetPath}. Falling back to canvas drawing.`
+      );
+      warned = true;
+    }
   };
 
   image.addEventListener("load", markReady);
   image.addEventListener("error", handleError);
-  image.src = source;
-  if (image.complete && image.naturalWidth > 0) {
-    markReady();
-  }
 
   return {
     image,
+    markReady,
+    handleError,
+    setSource(source) {
+      if (!source) {
+        handleError();
+        return;
+      }
+
+      image.src = source;
+      if (image.complete && image.naturalWidth > 0) {
+        markReady();
+      }
+    },
     isReady: () => ready
+  };
+}
+
+function createOptionalSprite(assetPath) {
+  if (assetManifest) {
+    const source = assetManifest[assetPath];
+    if (!source) {
+      return createEmptySprite();
+    }
+
+    const spriteState = createSpriteState(assetPath);
+    spriteState.setSource(source);
+    return {
+      image: spriteState.image,
+      isReady: spriteState.isReady
+    };
+  }
+
+  return createOptionalSpriteWithoutManifest(assetPath);
+}
+
+function createOptionalSpriteWithoutManifest(assetPath) {
+  let resolvedUrl;
+  try {
+    resolvedUrl = new URL(assetPath, import.meta.url).href;
+  } catch (error) {
+    console.warn(`Failed to resolve sprite asset at ${assetPath}`, error);
+    return createEmptySprite();
+  }
+
+  const spriteState = createSpriteState(assetPath);
+
+  const attemptLoad = () => {
+    spriteState.setSource(resolvedUrl);
+  };
+
+  if (typeof fetch === "function") {
+    fetch(resolvedUrl, { method: "HEAD" })
+      .then((response) => {
+        if (!response || !response.ok) {
+          spriteState.handleError();
+          return;
+        }
+        attemptLoad();
+      })
+      .catch(() => {
+        spriteState.handleError();
+      });
+  } else {
+    attemptLoad();
+  }
+
+  return {
+    image: spriteState.image,
+    isReady: spriteState.isReady
   };
 }
 
