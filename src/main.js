@@ -1,9 +1,35 @@
-import "./style.css";
-
 const backgroundImageUrl = new URL(
   "./assets/LobbyBackground.png",
   import.meta.url
 ).href;
+
+const styleSheetUrl = new URL("./style.css", import.meta.url).href;
+
+function ensureBaseStyleSheet(href) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  const head = document.head;
+  if (!head) {
+    return;
+  }
+
+  const existingLink = Array.from(
+    document.querySelectorAll('link[rel="stylesheet"]')
+  ).find((link) => link.href === href);
+
+  if (existingLink) {
+    return;
+  }
+
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href;
+  head.append(link);
+}
+
+ensureBaseStyleSheet(styleSheetUrl);
 
 const supportsImportMetaGlob =
   typeof import.meta !== "undefined" && typeof import.meta.glob === "function";
