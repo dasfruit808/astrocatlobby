@@ -4,10 +4,35 @@ import { defineConfig } from "vite";
 
 type PublicManifest = Record<string, string>;
 
+function applyBaseToPublicPath(relativePath: string, base: string): string {
+  const trimmed = relativePath.replace(/^[/\\]+/, "");
+
+  if (!base || base === "/") {
+    return `/${trimmed}`;
+  }
+
+  if (base === "./") {
+    return trimmed;
+  }
+
+  try {
+    const parsedBase = new URL(base, "http://localhost/");
+    if (base.startsWith("http://") || base.startsWith("https://")) {
+      return new URL(trimmed, base).toString();
+    }
+
+    const pathname = parsedBase.pathname.replace(/\/*$/, "");
+    return `${pathname}/${trimmed}`.replace(/^\/*/, "/");
+  } catch (error) {
+    return `${base.replace(/\/*$/, "")}/${trimmed}`;
+  }
+}
+
 async function readPublicDirectory(
   directory: string,
   root: string,
-  manifest: PublicManifest
+  manifest: PublicManifest,
+  base: string
 ): Promise<void> {
   let entries;
   try {
@@ -22,7 +47,7 @@ async function readPublicDirectory(
   for (const entry of entries) {
     const entryPath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      await readPublicDirectory(entryPath, root, manifest);
+      await readPublicDirectory(entryPath, root, manifest, base);
       continue;
     }
 
@@ -36,17 +61,20 @@ async function readPublicDirectory(
     }
 
     const normalized = relativePath.split(path.sep).join("/");
-    manifest[normalized] = `/${normalized.replace(/^\/+/, "")}`;
+    manifest[normalized] = applyBaseToPublicPath(normalized, base);
   }
 }
 
-async function createPublicManifest(publicDir: string | null): Promise<PublicManifest> {
+async function createPublicManifest(
+  publicDir: string | null,
+  base: string
+): Promise<PublicManifest> {
   if (!publicDir) {
     return {};
   }
 
   const manifest: PublicManifest = {};
-  await readPublicDirectory(publicDir, publicDir, manifest);
+  await readPublicDirectory(publicDir, publicDir, manifest, base);
   return manifest;
 }
 
@@ -71,13 +99,14 @@ function publicManifestPlugin() {
   let publicDir: string | null = null;
   let command: "build" | "serve" = "serve";
   let cachedManifest: PublicManifest | null = null;
+  let base = "/";
 
   const getManifest = async () => {
     if (cachedManifest) {
       return cachedManifest;
     }
 
-    const manifest = await createPublicManifest(publicDir);
+    const manifest = await createPublicManifest(publicDir, base);
     cachedManifest = manifest;
     return manifest;
   };
@@ -91,6 +120,7 @@ function publicManifestPlugin() {
     configResolved(config) {
       publicDir = config.publicDir ? path.resolve(config.root, config.publicDir) : null;
       command = config.command;
+      base = config.base ?? "/";
     },
     async transformIndexHtml() {
       const manifest = await getManifest();
