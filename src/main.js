@@ -2409,7 +2409,69 @@ function completeMission(missionId) {
 const keys = new Set();
 const justPressed = new Set();
 
-const movementKeyCodes = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"]);
+const movementKeyCodes = new Set([
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "Space",
+  "KeyW",
+  "KeyA",
+  "KeyS",
+  "KeyD"
+]);
+
+let activeMovementInputCount = 0;
+
+const applyScrollLock = () => {
+  if (typeof document === "undefined") {
+    return;
+  }
+  const root = document.documentElement;
+  const body = document.body;
+  if (root && !root.classList.contains("is-scroll-locked")) {
+    root.classList.add("is-scroll-locked");
+  }
+  if (body && !body.classList.contains("is-scroll-locked")) {
+    body.classList.add("is-scroll-locked");
+  }
+};
+
+const releaseScrollLock = () => {
+  if (typeof document === "undefined") {
+    return;
+  }
+  const root = document.documentElement;
+  const body = document.body;
+  if (root) {
+    root.classList.remove("is-scroll-locked");
+  }
+  if (body) {
+    body.classList.remove("is-scroll-locked");
+  }
+};
+
+const incrementMovementInput = () => {
+  activeMovementInputCount += 1;
+  if (activeMovementInputCount === 1) {
+    applyScrollLock();
+  }
+};
+
+const decrementMovementInput = () => {
+  if (activeMovementInputCount === 0) {
+    return;
+  }
+  activeMovementInputCount -= 1;
+  if (activeMovementInputCount === 0) {
+    releaseScrollLock();
+  }
+};
+
+const resetMovementInput = () => {
+  activeMovementInputCount = 0;
+  releaseScrollLock();
+};
 
 const pressVirtualKey = (code) => {
   if (!code) {
@@ -2417,6 +2479,9 @@ const pressVirtualKey = (code) => {
   }
   if (!keys.has(code)) {
     justPressed.add(code);
+    if (movementKeyCodes.has(code)) {
+      incrementMovementInput();
+    }
   }
   keys.add(code);
 };
@@ -2425,7 +2490,10 @@ const releaseVirtualKey = (code) => {
   if (!code) {
     return;
   }
-  keys.delete(code);
+  const wasActive = keys.delete(code);
+  if (wasActive && movementKeyCodes.has(code)) {
+    decrementMovementInput();
+  }
 };
 
 const interactiveTagNames = new Set(["INPUT", "TEXTAREA", "SELECT", "BUTTON"]);
@@ -2468,6 +2536,7 @@ window.addEventListener("pointerdown", () => {
 
 window.addEventListener("blur", () => {
   keys.clear();
+  resetMovementInput();
 });
 
 const audioPrompt = document.createElement("button");

@@ -24,6 +24,17 @@ body {
   background-color: #7dbbff;
 }
 
+html.is-scroll-locked,
+html.is-scroll-locked body,
+body.is-scroll-locked {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body.is-scroll-locked {
+  touch-action: none;
+}
+
 
 #app {
   min-height: 100vh;
