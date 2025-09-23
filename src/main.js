@@ -1,4 +1,27 @@
-import publicManifest from "virtual:public-manifest";
+const PUBLIC_MANIFEST_GLOBAL_KEY = "__ASTROCAT_PUBLIC_MANIFEST__";
+
+function readPublicManifest() {
+  const globalScope =
+    typeof globalThis !== "undefined"
+      ? globalThis
+      : typeof window !== "undefined"
+        ? window
+        : null;
+
+  if (
+    globalScope &&
+    Object.prototype.hasOwnProperty.call(globalScope, PUBLIC_MANIFEST_GLOBAL_KEY)
+  ) {
+    const manifest = globalScope[PUBLIC_MANIFEST_GLOBAL_KEY];
+    if (manifest && typeof manifest === "object") {
+      return manifest;
+    }
+  }
+
+  return null;
+}
+
+const publicManifest = readPublicManifest();
 
 const backgroundImageUrl = new URL(
   "./assets/LobbyBackground.png",
