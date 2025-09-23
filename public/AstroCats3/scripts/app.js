@@ -6180,6 +6180,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     ];
 
+    let seasonPassTrackRef = null;
+
     const SEASON_PASS_TRACK = {
         seasonId: '2024-quantum',
         label: 'Season 3 · Quantum Drift',
@@ -6212,6 +6214,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         ]
     };
+
+    seasonPassTrackRef = SEASON_PASS_TRACK;
 
     const CHALLENGE_DEFINITIONS = {
         daily: [
@@ -6405,7 +6409,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const manager = createMetaProgressManager({
             challengeManager: getChallengeManager(),
             broadcast: broadcastMetaMessage,
-            seasonTrack: () => SEASON_PASS_TRACK
+            seasonTrack: () => seasonPassTrackRef
         });
 
         if (!manager) {
