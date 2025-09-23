@@ -1,3 +1,5 @@
+import { createMiniGameHost } from "./miniGameHost.js";
+
 const backgroundImageUrl = new URL(
   "./assets/LobbyBackground.png",
   import.meta.url
@@ -98,6 +100,8 @@ const ui = createInterface(playerStats);
 app.innerHTML = "";
 app.append(ui.root);
 
+const miniGameHost = createMiniGameHost();
+
 const canvas = document.createElement("canvas");
 canvas.width = 960;
 canvas.height = 540;
@@ -145,6 +149,15 @@ const crystals = [
   { x: 360, y: groundY - 156, radius: 12, collected: false },
   { x: 640, y: groundY - 36, radius: 12, collected: false }
 ];
+
+const portal = {
+  x: canvas.width - 140,
+  y: groundY - 120,
+  width: 100,
+  height: 140
+};
+
+let portalCharged = crystals.every((crystal) => crystal.collected);
 
 const interactables = [
   {
@@ -215,6 +228,13 @@ function loop(timestamp) {
 }
 
 function update(delta) {
+  let promptText = "";
+
+  if (miniGameHost.isOpen()) {
+    ui.setPrompt(promptText);
+    return;
+  }
+
   const previousX = player.x;
   const previousY = player.y;
 
@@ -285,8 +305,6 @@ function update(delta) {
     }
   }
 
-  let promptText = "";
-
   for (const crystal of crystals) {
     if (crystal.collected) continue;
 
@@ -351,6 +369,36 @@ function update(delta) {
     }
   }
 
+  portalCharged = crystals.every((crystal) => crystal.collected);
+
+  const nearPortal = isNear(player, portal, 28);
+  if (nearPortal) {
+    if (!portalCharged) {
+      promptText = "The portal is dormant. Gather every crystal.";
+    } else {
+      promptText = "Press E to enter the portal";
+      if (justPressed.has("KeyE")) {
+        const openPromise = miniGameHost.open();
+        if (openPromise && typeof openPromise.then === "function") {
+          openPromise
+            .then((loaded) => {
+              if (loaded) {
+                showMessage("The portal hums to life!", 4200);
+              } else {
+                showMessage(
+                  "Add your mini game at src/minigame/main.js to activate it.",
+                  5200
+                );
+              }
+            })
+            .catch(() => {
+              showMessage("The portal sputters. Check the console for errors.", 5200);
+            });
+        }
+      }
+    }
+  }
+
   ui.setPrompt(promptText);
 }
 
@@ -398,7 +446,7 @@ function render(timestamp) {
     }
   }
 
-  drawPortal(time);
+  drawPortal(time, portalCharged, miniGameHost.isOpen());
 
   for (const interactable of interactables) {
     if (interactable.type === "chest") {
@@ -429,47 +477,53 @@ function render(timestamp) {
   }
 }
 
-function drawPortal(time) {
-  const portalX = canvas.width - 140;
-  const portalY = groundY - 120;
-  const portalWidth = 100;
-  const portalHeight = 140;
+function drawPortal(time, isCharged, isOpen) {
+  const { x: portalX, y: portalY, width: portalWidth, height: portalHeight } = portal;
 
   ctx.save();
-  ctx.fillStyle = "#384d6b";
+  const frameColor = isCharged ? "#384d6b" : "#262a3d";
+  ctx.fillStyle = frameColor;
   drawRoundedRect(portalX - 12, portalY - 12, portalWidth + 24, portalHeight + 24, 24);
 
-  const glowGradient = ctx.createRadialGradient(
-    portalX + portalWidth / 2,
-    portalY + portalHeight / 2,
-    10,
-    portalX + portalWidth / 2,
-    portalY + portalHeight / 2,
-    portalWidth / 2
-  );
-  glowGradient.addColorStop(0, "rgba(150, 205, 255, 0.85)");
-  glowGradient.addColorStop(1, "rgba(100, 140, 220, 0.1)");
+  const centerX = portalX + portalWidth / 2;
+  const centerY = portalY + portalHeight / 2;
+  const glowRadius = (portalWidth / 2) * (isOpen ? 1.2 : 1);
+  const innerGlowStrength = isCharged ? 0.85 : 0.35;
+  const outerGlowStrength = isCharged ? 0.2 : 0.08;
+  const glowGradient = ctx.createRadialGradient(centerX, centerY, 10, centerX, centerY, glowRadius);
+  glowGradient.addColorStop(0, `rgba(150, 205, 255, ${innerGlowStrength})`);
+  glowGradient.addColorStop(1, `rgba(100, 140, 220, ${outerGlowStrength})`);
   ctx.fillStyle = glowGradient;
   drawRoundedRect(portalX, portalY, portalWidth, portalHeight, 20);
 
-  ctx.strokeStyle = `rgba(200, 240, 255, 0.55)`;
+  const frameHighlight = isCharged ? 0.55 : 0.2;
+  ctx.strokeStyle = `rgba(200, 240, 255, ${frameHighlight})`;
   ctx.lineWidth = 4;
   ctx.strokeRect(portalX + 12, portalY + 12, portalWidth - 24, portalHeight - 24);
 
-  const pulse = (Math.sin(time * 2.4) + 1) / 2;
   ctx.lineWidth = 3;
-  ctx.strokeStyle = `rgba(180, 230, 255, ${0.35 + pulse * 0.35})`;
-  ctx.beginPath();
-  ctx.ellipse(
-    portalX + portalWidth / 2,
-    portalY + portalHeight / 2,
-    24 + pulse * 8,
-    60 + pulse * 12,
-    0,
-    0,
-    Math.PI * 2
-  );
-  ctx.stroke();
+  if (isCharged) {
+    const pulse = (Math.sin(time * 2.4) + 1) / 2;
+    const openBoost = isOpen ? 0.2 : 0;
+    ctx.strokeStyle = `rgba(180, 230, 255, ${0.35 + pulse * 0.35 + openBoost})`;
+    ctx.beginPath();
+    ctx.ellipse(
+      centerX,
+      centerY,
+      24 + pulse * 8 + (isOpen ? 6 : 0),
+      60 + pulse * 12 + (isOpen ? 12 : 0),
+      0,
+      0,
+      Math.PI * 2
+    );
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = "rgba(120, 140, 190, 0.25)";
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, 22, 54, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
   ctx.restore();
 }
 
