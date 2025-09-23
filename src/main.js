@@ -12,6 +12,116 @@ const assetManifest = import.meta.glob("./assets/*.{png,PNG}", {
   import: "default"
 });
 
+function resolveRuntimeAssetUrl(assetPath) {
+  const baseUrlValue =
+    typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    typeof import.meta.env.BASE_URL === "string"
+      ? import.meta.env.BASE_URL
+      : "/";
+  const normalizedBase =
+    !baseUrlValue || baseUrlValue.endsWith("/")
+      ? baseUrlValue || "/"
+      : `${baseUrlValue}/`;
+  const trimmedPath = assetPath.startsWith("./")
+    ? assetPath.slice(2)
+    : assetPath.startsWith("/")
+      ? assetPath.slice(1)
+      : assetPath;
+  return {
+    url: `${normalizedBase}${trimmedPath}`,
+    displayPath: trimmedPath || assetPath
+  };
+}
+
+function createSoundSafely(assetPath, options = {}) {
+  const silentSound = {
+    play() {},
+    isReady: () => false
+  };
+
+  if (typeof Audio === "undefined") {
+    return silentSound;
+  }
+
+  const { url, displayPath } = resolveRuntimeAssetUrl(assetPath);
+  let audioElement;
+
+  try {
+    audioElement = new Audio();
+  } catch (error) {
+    console.warn(
+      `Audio element could not be created for ${displayPath}. Sound effects will be disabled.`,
+      error
+    );
+    return silentSound;
+  }
+
+  if (typeof options.volume === "number") {
+    audioElement.volume = options.volume;
+  }
+
+  audioElement.preload = "auto";
+
+  let ready = false;
+  let failed = false;
+
+  audioElement.addEventListener(
+    "canplaythrough",
+    () => {
+      ready = true;
+    },
+    { once: true }
+  );
+
+  audioElement.addEventListener(
+    "error",
+    (event) => {
+      if (failed) {
+        return;
+      }
+      failed = true;
+      const errorDetail = event?.target?.error ?? event;
+      console.warn(
+        `Failed to load audio asset at ${displayPath}. Sound effects will be skipped.`,
+        errorDetail
+      );
+    },
+    { once: true }
+  );
+
+  audioElement.src = url;
+
+  return {
+    play() {
+      if (failed) {
+        return;
+      }
+
+      try {
+        const instance = audioElement.cloneNode(true);
+        instance.volume = audioElement.volume;
+        const playPromise = instance.play();
+        if (playPromise && typeof playPromise.catch === "function") {
+          playPromise.catch((error) => {
+            console.warn(`Unable to play audio asset at ${displayPath}.`, error);
+          });
+        }
+      } catch (error) {
+        console.warn(`Unable to play audio asset at ${displayPath}.`, error);
+      }
+    },
+    isReady: () => ready && !failed
+  };
+}
+
+const chestSound = createSoundSafely("./assets/chest.wav");
+const crystalSound = createSoundSafely("./assets/crystal.wav");
+const dialogueSound = createSoundSafely("./assets/dialogue.wav");
+const fountainSound = createSoundSafely("./assets/fountain.wav");
+const jumpSound = createSoundSafely("./assets/jump.wav");
+const landingSound = createSoundSafely("./assets/landing.wav");
+
 function createOptionalSprite(assetPath) {
   const source = assetManifest[assetPath];
   if (!source) {
@@ -349,6 +459,8 @@ function loop(timestamp) {
 function update(delta) {
   const previousX = player.x;
   const previousY = player.y;
+  const wasOnGround = player.onGround;
+  let landedThisFrame = false;
 
   const moveLeft = keys.has("ArrowLeft") || keys.has("KeyA");
   const moveRight = keys.has("ArrowRight") || keys.has("KeyD");
@@ -378,6 +490,7 @@ function update(delta) {
   if (jumpPressed && player.onGround) {
     player.vy = -10.8;
     player.onGround = false;
+    jumpSound.play();
   }
 
   player.vy += gravity;
@@ -398,6 +511,9 @@ function update(delta) {
   if (player.y + player.height >= groundY) {
     player.y = groundY - player.height;
     player.vy = 0;
+    if (!wasOnGround) {
+      landedThisFrame = true;
+    }
     player.onGround = true;
   }
 
@@ -412,9 +528,16 @@ function update(delta) {
       if (bottom >= platform.y && bottom <= platform.y + platform.height + 4) {
         player.y = platform.y - player.height;
         player.vy = 0;
+        if (!wasOnGround) {
+          landedThisFrame = true;
+        }
         player.onGround = true;
       }
     }
+  }
+
+  if (landedThisFrame) {
+    landingSound.play();
   }
 
   let promptText = "";
@@ -431,6 +554,7 @@ function update(delta) {
 
     if (overlapX && overlapY) {
       crystal.collected = true;
+      crystalSound.play();
       portalCharge = Math.min(portalCharge + 1, crystals.length);
       ui.updateCrystals(portalCharge, crystals.length);
       const fullyCharged = portalCharge === crystals.length;
@@ -464,6 +588,7 @@ function update(delta) {
       if (justPressed.has("KeyE")) {
         if (!interactable.opened) {
           interactable.opened = true;
+          chestSound.play();
           playerStats.hp = clamp(playerStats.hp + 12, 0, playerStats.maxHp);
           ui.refresh(playerStats);
           showMessage("You found herbal tonics! HP restored.", 3600);
@@ -476,6 +601,7 @@ function update(delta) {
       if (justPressed.has("KeyE")) {
         if (interactable.charges > 0) {
           interactable.charges -= 1;
+          fountainSound.play();
           playerStats.mp = clamp(playerStats.mp + 18, 0, playerStats.maxMp);
           ui.refresh(playerStats);
           showMessage("Mana rush! Your MP was restored.", 3200);
@@ -489,6 +615,7 @@ function update(delta) {
         const line = interactable.dialogue[interactable.lineIndex];
         interactable.lineIndex =
           (interactable.lineIndex + 1) % interactable.dialogue.length;
+        dialogueSound.play();
         showMessage(`${interactable.name}: ${line}`, 4600);
       }
     }
