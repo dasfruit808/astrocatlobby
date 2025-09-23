@@ -1,3 +1,5 @@
+import "./style.css";
+
 const backgroundImageUrl = new URL(
   "./assets/LobbyBackground.png",
   import.meta.url
