@@ -11,6 +11,18 @@ npm run dev
 
 The development server runs with Vite and will automatically reload when you change files.  To produce an optimized build run `npm run build`.
 
+When the dev server starts successfully you should see output similar to:
+
+```
+VITE v5.4.20  ready in 396 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+  ➜  press h + enter to show help
+```
+
+Open the printed local URL in your browser to explore the lobby during development.
+
 ## Custom page background
 
 Add a `webpagebackground.png` file to the `public/` directory to replace the default gradient backdrop that surrounds the lobby canvas. The image is applied automatically when present and falls back to the gradient when removed.
