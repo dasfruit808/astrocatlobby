@@ -59,6 +59,22 @@ function toCacheUrls(paths) {
   return paths.map((path) => new URL(path, scope).toString());
 }
 
+function isCacheableResponse(response) {
+  return response && response.status === 200;
+}
+
+async function safeCachePut(cacheName, request, response) {
+  if (!isCacheableResponse(response)) {
+    return;
+  }
+  try {
+    const cache = await caches.open(cacheName);
+    await cache.put(request, response);
+  } catch (error) {
+    console.warn('[service-worker] Failed to cache response', request.url, error);
+  }
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_VERSION).then(async (cache) => {
@@ -112,7 +128,7 @@ self.addEventListener('fetch', (event) => {
       fetch(event.request)
         .then((response) => {
           const copy = response.clone();
-          caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, copy));
+          safeCachePut(CACHE_VERSION, event.request, copy);
           return response;
         })
         .catch(async () => {
@@ -132,7 +148,7 @@ self.addEventListener('fetch', (event) => {
       return fetch(event.request)
         .then((response) => {
           const copy = response.clone();
-          caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, copy));
+          safeCachePut(CACHE_VERSION, event.request, copy);
           return response;
         })
         .catch(() => caches.match(event.request));
