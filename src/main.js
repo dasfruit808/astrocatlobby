@@ -923,8 +923,6 @@ const defaultMessage =
   "Check the Recruit Missions panel for onboarding tasks. Use A/D or ←/→ to move. Press Space to jump.";
 let messageTimerId = 0;
 
-const portalRequiredLevel = 3;
-
 function updateRankFromLevel() {
   let resolvedTitle = rankThresholds[0].title;
   for (const threshold of rankThresholds) {
