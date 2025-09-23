@@ -1,4 +1,6 @@
 const PUBLIC_MANIFEST_GLOBAL_KEY = "__ASTROCAT_PUBLIC_MANIFEST__";
+const PUBLIC_MANIFEST_MODULE_ID = "virtual:astrocat-public-manifest";
+const LEGACY_PUBLIC_MANIFEST_MODULE_ID = "virtual:public-manifest";
 
 function readPublicManifest() {
   const globalScope =
@@ -21,7 +23,113 @@ function readPublicManifest() {
   return null;
 }
 
-const publicManifest = readPublicManifest();
+let publicManifest = readPublicManifest();
+if (publicManifest && typeof publicManifest === "object") {
+  assignPublicManifest(publicManifest);
+}
+let publicManifestPromise = null;
+
+function assignPublicManifest(manifest) {
+  if (!manifest || typeof manifest !== "object") {
+    return null;
+  }
+
+  publicManifest = manifest;
+
+  const globalScope =
+    typeof globalThis !== "undefined"
+      ? globalThis
+      : typeof window !== "undefined"
+        ? window
+        : null;
+
+  if (globalScope) {
+    try {
+      globalScope[PUBLIC_MANIFEST_GLOBAL_KEY] = manifest;
+    } catch (error) {
+      if (error && typeof console !== "undefined") {
+        console.warn("Failed to assign public manifest to global scope", error);
+      }
+    }
+  }
+
+  return manifest;
+}
+
+function ensurePublicManifestAvailable() {
+  if (publicManifest && typeof publicManifest === "object") {
+    return Promise.resolve(publicManifest);
+  }
+
+  if (publicManifestPromise) {
+    return publicManifestPromise;
+  }
+
+  const importManifestModule = async (moduleId, { logFailure = true } = {}) => {
+    try {
+      const module = await import(moduleId);
+      if (!module || typeof module !== "object") {
+        return null;
+      }
+
+      const manifest =
+        module.default && typeof module.default === "object" ? module.default : module;
+
+      if (!manifest || typeof manifest !== "object") {
+        return null;
+      }
+
+      assignPublicManifest(manifest);
+      return manifest;
+    } catch (error) {
+      if (logFailure && error && typeof console !== "undefined") {
+        console.warn(
+          `Failed to dynamically import the public manifest module "${moduleId}".`,
+          error
+        );
+      }
+      return null;
+    }
+  };
+
+  try {
+    publicManifestPromise = importManifestModule(PUBLIC_MANIFEST_MODULE_ID).then(
+      async (manifest) => {
+        if (manifest) {
+          return manifest;
+        }
+
+        if (PUBLIC_MANIFEST_MODULE_ID === LEGACY_PUBLIC_MANIFEST_MODULE_ID) {
+          return null;
+        }
+
+        const fallback = await importManifestModule(LEGACY_PUBLIC_MANIFEST_MODULE_ID, {
+          logFailure: false
+        });
+
+        if (!fallback && typeof console !== "undefined") {
+          console.warn(
+            "Failed to load the legacy public manifest module fallback. Falling back to runtime asset probing."
+          );
+        }
+
+        return fallback;
+      }
+    );
+  } catch (error) {
+    if (error && typeof console !== "undefined") {
+      console.warn(
+        "Dynamic import for the public manifest is unavailable in this environment. Falling back to runtime asset probing.",
+        error
+      );
+    }
+    publicManifestPromise = Promise.resolve(null);
+  }
+
+  return publicManifestPromise;
+}
+
+const publicManifestReady = ensurePublicManifestAvailable();
 
 const backgroundImageUrl = new URL(
   "./assets/LobbyBackground.png",
@@ -233,8 +341,8 @@ function resolvePublicAssetUrl(relativePath) {
   return `/${fallback.replace(/^\/+/g, "")}`;
 }
 
-const customBackgroundAssetAvailable = hasPublicAsset("webpagebackground.png");
-const customPageBackgroundUrl = customBackgroundAssetAvailable
+let customBackgroundAssetAvailable = hasPublicAsset("webpagebackground.png");
+let customPageBackgroundUrl = customBackgroundAssetAvailable
   ? resolvePublicAssetUrl("webpagebackground.png")
   : null;
 let customBackgroundAvailabilityProbe = null;
@@ -300,7 +408,55 @@ function resolveMiniGameEntryPoint() {
   return fallback;
 }
 
-const miniGameEntryPoint = resolveMiniGameEntryPoint();
+let miniGameEntryPoint = resolveMiniGameEntryPoint();
+let miniGameOrigin = "";
+
+function computeMiniGameOrigin(entryPoint = miniGameEntryPoint) {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  try {
+    return new URL(entryPoint, window.location.href).origin;
+  } catch (error) {
+    return window.location.origin;
+  }
+}
+
+function updateMiniGameEntryPointTargets() {
+  if (miniGameOverlayState?.frame) {
+    miniGameOverlayState.frame.src = miniGameEntryPoint;
+  }
+
+  if (miniGameOverlayState?.supportLink) {
+    miniGameOverlayState.supportLink.href = miniGameEntryPoint;
+  }
+}
+
+function refreshPublicManifestDependents() {
+  customBackgroundAssetAvailable = hasPublicAsset("webpagebackground.png");
+  customPageBackgroundUrl = customBackgroundAssetAvailable
+    ? resolvePublicAssetUrl("webpagebackground.png")
+    : null;
+  customBackgroundAvailabilityProbe = null;
+  applyCustomPageBackground();
+
+  const previousEntryPoint = miniGameEntryPoint;
+  miniGameEntryPoint = resolveMiniGameEntryPoint();
+
+  if (miniGameEntryPoint !== previousEntryPoint) {
+    updateMiniGameEntryPointTargets();
+    miniGameOrigin = computeMiniGameOrigin();
+  }
+}
+
+publicManifestReady.then((manifest) => {
+  if (!manifest) {
+    return;
+  }
+
+  refreshPublicManifestDependents();
+});
 
 function applyCustomPageBackground() {
   if (typeof document === "undefined") {
@@ -1537,12 +1693,7 @@ function syncMiniGameProfile() {
     return;
   }
 
-  let targetOrigin;
-  try {
-    targetOrigin = new URL(miniGameEntryPoint, window.location.href).origin;
-  } catch (error) {
-    targetOrigin = window.location.origin;
-  }
+  const targetOrigin = computeMiniGameOrigin() || window.location.origin;
 
   const profile = {
     type: "astrocat:minigame-profile",
@@ -1653,6 +1804,7 @@ function openMiniGame() {
     root: overlay,
     closeButton,
     frame,
+    supportLink,
     handleBackdropClick,
     handleEscape
   };
@@ -3116,13 +3268,7 @@ if (typeof window !== "undefined") {
     );
   };
 
-  const miniGameOrigin = (() => {
-    try {
-      return new URL(miniGameEntryPoint, window.location.href).origin;
-    } catch (error) {
-      return window.location.origin;
-    }
-  })();
+  miniGameOrigin = computeMiniGameOrigin();
 
   const formatRunDuration = (timeMs) => {
     const totalSeconds = Math.max(0, Math.round(timeMs / 1000));
