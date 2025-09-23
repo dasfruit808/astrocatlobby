@@ -284,10 +284,36 @@ function normalizeBaseForPublicAsset(base) {
     return null;
   }
 
-  const fallbackBase =
-    typeof window !== "undefined" && window.location
-      ? window.location.href
-      : "http://localhost/";
+  const fallbackBase = (() => {
+    if (typeof window === "undefined" || !window.location) {
+      return "http://localhost/";
+    }
+
+    const { origin, pathname, href } = window.location;
+    const normalisedPathname = normalizeDirectoryPath(pathname);
+
+    if (origin && origin !== "null") {
+      return `${origin}${normalisedPathname}`;
+    }
+
+    if (href && href.startsWith("file:")) {
+      try {
+        const url = new URL(href);
+        url.pathname = normalisedPathname;
+        url.search = "";
+        url.hash = "";
+        return url.toString();
+      } catch (error) {
+        console.warn(
+          "Failed to normalise file:// fallback base for public asset resolution",
+          error
+        );
+        return href;
+      }
+    }
+
+    return href || "http://localhost/";
+  })();
 
   try {
     const resolvedBase = new URL(base, fallbackBase);
