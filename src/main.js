@@ -677,6 +677,8 @@ const rankThresholds = [
   { level: 8, title: "Cosmic Trailblazer" }
 ];
 
+const portalRequiredLevel = 3;
+
 const playerStats = {
   name: activeAccount?.catName ?? fallbackAccount.catName,
   handle: activeAccount?.handle ?? fallbackAccount.handle,
@@ -889,8 +891,6 @@ const portal = {
   height: 140,
   interactionPadding: 36
 };
-
-const portalRequiredLevel = 3;
 
 const interactables = [
   {
