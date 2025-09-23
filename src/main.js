@@ -66,7 +66,63 @@ const baseCanvasWidth = 960;
 const baseCanvasHeight = 540;
 // Place a custom background image at public/webpagebackground.png to override
 // the gradient page backdrop.
-const customPageBackgroundUrl = "/webpagebackground.png";
+
+function resolvePublicAssetUrl(relativePath) {
+  if (!relativePath) {
+    return "/";
+  }
+
+  const trimmed = relativePath.replace(/^\/+/g, "");
+  const fallback = `/${trimmed}`;
+  const baseCandidates = [];
+
+  if (
+    typeof import.meta !== "undefined" &&
+    import.meta &&
+    import.meta.env &&
+    typeof import.meta.env.BASE_URL === "string"
+  ) {
+    baseCandidates.push(import.meta.env.BASE_URL);
+  }
+
+  if (typeof document !== "undefined" && document.baseURI) {
+    baseCandidates.push(document.baseURI);
+  }
+
+  if (typeof window !== "undefined" && window.location) {
+    const { href, origin } = window.location;
+    if (href) {
+      baseCandidates.push(href);
+    }
+    if (origin && origin !== "null") {
+      baseCandidates.push(origin);
+    }
+  }
+
+  for (const base of baseCandidates) {
+    if (typeof base !== "string" || base.startsWith("about:")) {
+      continue;
+    }
+
+    try {
+      return new URL(trimmed, base).toString();
+    } catch (error) {
+      console.warn(
+        "Failed to resolve public asset URL from base",
+        base,
+        error
+      );
+    }
+  }
+
+  if (!fallback.startsWith("//")) {
+    return fallback;
+  }
+
+  return `/${fallback.replace(/^\/+/g, "")}`;
+}
+
+const customPageBackgroundUrl = resolvePublicAssetUrl("webpagebackground.png");
 let customBackgroundAvailabilityProbe = null;
 
 function shouldUseCustomPageBackground() {
