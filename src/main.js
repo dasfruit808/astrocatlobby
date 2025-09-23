@@ -288,12 +288,10 @@ function shouldUseCustomPageBackground() {
 // The mini game entry point that loads inside the arcade cabinet overlay.
 function resolveMiniGameEntryPoint() {
   const fallback = "./AstroCats3/index.html";
+  const resolvedEntry = resolvePublicAssetUrl("AstroCats3/index.html");
 
-  if (hasPublicAsset("AstroCats3/index.html")) {
-    const resolvedEntry = resolvePublicAssetUrl("AstroCats3/index.html");
-    if (resolvedEntry && resolvedEntry !== "/") {
-      return resolvedEntry;
-    }
+  if (resolvedEntry && resolvedEntry !== "/") {
+    return resolvedEntry;
   }
 
   console.warn(
