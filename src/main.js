@@ -2718,6 +2718,7 @@ function update(delta) {
   }
 
   let promptText = "";
+  let promptTarget = null;
 
   for (const crystal of crystals) {
     if (crystal.collected) continue;
@@ -2773,6 +2774,7 @@ function update(delta) {
 
     if (interactable.type === "bulletin") {
       promptText = "Press E to review the bulletin board";
+      promptTarget = interactable;
       if (justPressed.has("KeyE")) {
         const result = completeMission(interactable.missionId);
         audio.playEffect("dialogue");
@@ -2809,6 +2811,7 @@ function update(delta) {
       }
     } else if (interactable.type === "chest") {
       promptText = "Press E to open the chest";
+      promptTarget = interactable;
       if (justPressed.has("KeyE")) {
         if (!interactable.opened) {
           interactable.opened = true;
@@ -2837,6 +2840,7 @@ function update(delta) {
       }
     } else if (interactable.type === "arcade") {
       promptText = "Press E to launch the Starcade";
+      promptTarget = interactable;
       if (justPressed.has("KeyE")) {
         audio.playEffect("dialogue");
         openMiniGame();
@@ -2853,6 +2857,7 @@ function update(delta) {
       }
     } else if (interactable.type === "fountain") {
       promptText = "Press E to draw power from the fountain";
+      promptTarget = interactable;
       if (justPressed.has("KeyE")) {
         if (interactable.charges > 0) {
           interactable.charges -= 1;
@@ -2881,6 +2886,7 @@ function update(delta) {
       }
     } else if (interactable.type === "npc") {
       promptText = "Press E to talk to Nova";
+      promptTarget = interactable;
       if (justPressed.has("KeyE")) {
         const missionResult = completeMission(interactable.missionId);
         audio.playEffect("dialogue");
@@ -2908,6 +2914,7 @@ function update(delta) {
       }
     } else if (interactable.type === "comms") {
       promptText = "Press E to access the comms console";
+      promptTarget = interactable;
       if (justPressed.has("KeyE")) {
         const result = completeMission(interactable.missionId);
         audio.playEffect("dialogue");
@@ -2950,6 +2957,7 @@ function update(delta) {
     if (portalCharged) {
       if (playerStats.level < portalRequiredLevel) {
         promptText = `Reach Level ${portalRequiredLevel} to activate the portal.`;
+        promptTarget = portal;
         if (justPressed.has("KeyE")) {
           audio.playEffect("dialogue");
           showMessage(
@@ -2963,8 +2971,10 @@ function update(delta) {
         }
       } else if (portalCompleted) {
         promptText = "The portal hums softly, its gateway already opened.";
+        promptTarget = portal;
       } else {
         promptText = "Press E to step through the charged portal";
+        promptTarget = portal;
         if (justPressed.has("KeyE")) {
           audio.playEffect("portalActivate");
           portalCompleted = true;
@@ -2990,10 +3000,11 @@ function update(delta) {
       }
     } else {
       promptText = "The portal is dormant. Gather more crystals.";
+      promptTarget = portal;
     }
   }
 
-  ui.setPrompt(promptText);
+  ui.setPrompt(promptText, promptTarget);
 }
 
 function render(timestamp) {
@@ -3071,7 +3082,7 @@ function render(timestamp) {
   drawPlayer(player, time);
 
   if (ui.promptText) {
-    drawPromptBubble(ui.promptText, player);
+    drawPromptBubble(ui.promptText, ui.promptEntity || player);
   }
 }
 
@@ -3222,15 +3233,23 @@ function drawPromptBubble(text, entity) {
   const minimumHeight = 48;
   const bubbleHeight = Math.max(metrics.height + paddingY * 2, minimumHeight);
   const centerX = target.x + target.width / 2;
+  const anchorTop =
+    typeof target.promptAnchorY === "number" ? target.promptAnchorY : target.y ?? 0;
+  const anchorHeight = target.height ?? 0;
+  const tailGap = Math.min(14, Math.max(6, anchorHeight ? anchorHeight * 0.12 : 8));
   const marginX = 18;
   let bubbleX = centerX - bubbleWidth / 2;
   bubbleX = Math.max(marginX, Math.min(bubbleX, viewport.width - bubbleWidth - marginX));
-  let bubbleY = target.y - bubbleHeight - tailHeight - 12;
+  let bubbleY = anchorTop - bubbleHeight - tailHeight - tailGap;
   bubbleY = Math.max(18, bubbleY);
   const tailBaseY = bubbleY + bubbleHeight;
   const tailTipX = Math.max(
     bubbleX + radius + 6,
     Math.min(centerX, bubbleX + bubbleWidth - radius - 6)
+  );
+  const tailTipY = Math.max(
+    tailBaseY + 6,
+    Math.min(tailBaseY + tailHeight, anchorTop - Math.max(2, tailGap * 0.5))
   );
 
   const traceBubblePath = () => {
@@ -3251,7 +3270,7 @@ function drawPromptBubble(text, entity) {
       tailBaseY
     );
     ctx.lineTo(tailTipX + tailHalfWidth, tailBaseY);
-    ctx.lineTo(tailTipX, tailBaseY + tailHeight);
+    ctx.lineTo(tailTipX, tailTipY);
     ctx.lineTo(tailTipX - tailHalfWidth, tailBaseY);
     ctx.lineTo(bubbleX + radius, tailBaseY);
     ctx.quadraticCurveTo(bubbleX, tailBaseY, bubbleX, tailBaseY - radius);
@@ -4496,6 +4515,7 @@ function createInterface(stats, options = {}) {
     canvasWrapper,
     canvasSurface,
     promptText: "",
+    promptEntity: null,
     refresh(updatedStats) {
       const subtitleParts = [];
       if (updatedStats.handle) {
@@ -4554,8 +4574,9 @@ function createInterface(stats, options = {}) {
         });
       }
     },
-    setPrompt(text) {
+    setPrompt(text, entity) {
       this.promptText = text;
+      this.promptEntity = text ? entity ?? null : null;
     },
     setAccount(account, starter) {
       updateAccountCard(account, starter);
