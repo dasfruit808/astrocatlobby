@@ -63,9 +63,28 @@ function escapeForInlineScript(source: string): string {
   return source.replace(/<\//g, "\\u003C/");
 }
 
+const PUBLIC_MANIFEST_VIRTUAL_ID = "virtual:astrocat-public-manifest";
+const LEGACY_PUBLIC_MANIFEST_VIRTUAL_ID = "virtual:public-manifest";
+const RESOLVED_PUBLIC_MANIFEST_VIRTUAL_ID = `\0${PUBLIC_MANIFEST_VIRTUAL_ID}`;
+
 function publicManifestPlugin() {
   let publicDir: string | null = null;
   let command: "build" | "serve" = "serve";
+  let cachedManifest: PublicManifest | null = null;
+
+  const getManifest = async () => {
+    if (cachedManifest) {
+      return cachedManifest;
+    }
+
+    const manifest = await createPublicManifest(publicDir);
+    cachedManifest = manifest;
+    return manifest;
+  };
+
+  const invalidateManifest = () => {
+    cachedManifest = null;
+  };
 
   return {
     name: "astrocat-public-manifest",
@@ -74,7 +93,7 @@ function publicManifestPlugin() {
       command = config.command;
     },
     async transformIndexHtml() {
-      const manifest = await createPublicManifest(publicDir);
+      const manifest = await getManifest();
       const serialized = escapeForInlineScript(
         JSON.stringify(manifest, null, command === "build" ? 0 : 2)
       );
@@ -90,9 +109,24 @@ function publicManifestPlugin() {
         ]
       } satisfies import("vite").IndexHtmlTransformResult;
     },
+    resolveId(id) {
+      if (id === PUBLIC_MANIFEST_VIRTUAL_ID || id === LEGACY_PUBLIC_MANIFEST_VIRTUAL_ID) {
+        return RESOLVED_PUBLIC_MANIFEST_VIRTUAL_ID;
+      }
+      return null;
+    },
+    async load(id) {
+      if (id === RESOLVED_PUBLIC_MANIFEST_VIRTUAL_ID) {
+        const manifest = await getManifest();
+        const serialized = JSON.stringify(manifest, null, command === "build" ? 0 : 2);
+        return `export default ${serialized};`;
+      }
+      return null;
+    },
     configureServer(server) {
       const handleChange = (file: string) => {
         if (isInsidePublicDir(file, publicDir)) {
+          invalidateManifest();
           server.ws.send({ type: "full-reload" });
         }
       };
@@ -102,6 +136,9 @@ function publicManifestPlugin() {
       server.watcher.on("unlink", handleChange);
       server.watcher.on("addDir", handleChange);
       server.watcher.on("unlinkDir", handleChange);
+    },
+    buildStart() {
+      invalidateManifest();
     }
   } satisfies import("vite").Plugin;
 }
