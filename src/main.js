@@ -355,7 +355,7 @@ function resolvePublicAssetUrl(relativePath) {
     return manifestUrl;
   }
 
-  const fallback = `/${trimmed}`;
+  const fallback = `./${trimmed}`;
   const baseCandidates = [];
 
   if (
@@ -406,7 +406,7 @@ function resolvePublicAssetUrl(relativePath) {
     return fallback;
   }
 
-  return `/${fallback.replace(/^\/+/g, "")}`;
+  return `./${fallback.replace(/^\.\/+/g, "")}`;
 }
 
 let customBackgroundAssetAvailable = hasPublicAsset("webpagebackground.png");
