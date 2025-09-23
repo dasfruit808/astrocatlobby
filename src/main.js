@@ -656,22 +656,40 @@ const playerStats = {
   name: activeAccount?.catName ?? "PixelHero",
   handle: activeAccount?.handle ?? "",
   starterId: activeAccount?.starterId ?? starterCharacters[0].id,
-  level: 15,
-  rank: "Adventurer",
-  exp: 750,
-  maxExp: 1000,
-  hp: 85,
-  maxHp: 100,
-  mp: 40,
-  maxMp: 60
+  level: 1,
+  rank: "Cadet",
+  exp: 0,
+  maxExp: 120,
+  hp: 60,
+  maxHp: 60,
+  mp: 30,
+  maxMp: 40
 };
 
-const defaultMessage = "Use A/D or ←/→ to move. Press Space to jump.";
+let defaultMessage = "Use A/D or ←/→ to move. Press Space to jump.";
 let messageTimerId = 0;
 
 const ui = createInterface(playerStats, playerAppearance);
 app.innerHTML = "";
 app.append(ui.root);
+
+function updateDefaultMessage(text) {
+  defaultMessage = text;
+  if (messageTimerId === 0) {
+    ui.setMessage(defaultMessage);
+  }
+}
+
+function updateMissionDefaultMessage() {
+  const nextMission = getNextMissionDefinition();
+  if (nextMission) {
+    updateDefaultMessage(nextMission.briefing);
+  } else {
+    updateDefaultMessage(
+      `All onboarding missions complete! Charge the portal and reach Level ${portalRequiredLevel} to depart.`
+    );
+  }
+}
 
 const initialStarter = findStarterCharacter(playerStats.starterId);
 ui.setAccount(activeAccount, initialStarter);
@@ -696,6 +714,7 @@ if (!activeAccount) {
       const chosenStarter = findStarterCharacter(sanitized.starterId);
       ui.setAccount(sanitized, chosenStarter);
       ui.refresh(playerStats);
+      updateMissionDefaultMessage();
       showMessage(`Welcome aboard, ${sanitized.catName}!`, 6000);
       if (onboardingInstance) {
         onboardingInstance.close();
@@ -772,6 +791,57 @@ const portal = {
   interactionPadding: 36
 };
 
+const portalRequiredLevel = 3;
+
+const missionFlow = [
+  {
+    id: "bulletin",
+    label: "Bulletin Board",
+    prompt: "Press E to read the bulletin board",
+    briefing: "Mission 1: Visit the bulletin board to broadcast your enlistment on X.",
+    success: "You craft a stellar announcement on X!",
+    repeat: "You've already announced your enlistment. Check the next objective.",
+    shortHint: "Follow the Astronaut Command account at the comms console.",
+    exp: 90,
+    variant: "board"
+  },
+  {
+    id: "follow",
+    label: "Comms Console",
+    prompt: "Press E to tune into the Astronaut feed",
+    briefing: "Mission 2: Follow the Astronaut Command account from the comms console.",
+    success: "You follow the Astronaut Command feed and receive mission pings!",
+    repeat: "You're already linked to Astronaut Command.",
+    shortHint: "Review your onboarding directive at the mission console.",
+    exp: 110,
+    variant: "console"
+  },
+  {
+    id: "directive",
+    label: "Mission Console",
+    prompt: "Press E to review the mission directive",
+    briefing: "Mission 3: Accept your onboarding directive at the mission console.",
+    success: "You accept the onboarding directive and ready your gear!",
+    repeat: "Directive acknowledged—proceed to the portal once you're ready.",
+    shortHint: "Collect crystals to charge the portal and reach Level 3.",
+    exp: 130,
+    variant: "console"
+  }
+];
+
+const missionCompletion = missionFlow.reduce((accumulator, mission) => {
+  accumulator[mission.id] = false;
+  return accumulator;
+}, {});
+
+function getMissionDefinition(id) {
+  return missionFlow.find((mission) => mission.id === id) ?? null;
+}
+
+function getNextMissionDefinition() {
+  return missionFlow.find((mission) => !missionCompletion[mission.id]) ?? null;
+}
+
 const interactables = [
   {
     type: "chest",
@@ -783,13 +853,13 @@ const interactables = [
     opened: false
   },
   {
-    type: "fountain",
-    label: "Mana Fountain",
-    x: 840,
-    y: groundY - 68,
-    width: 48,
-    height: 52,
-    charges: 2
+    type: "mission",
+    missionId: "bulletin",
+    x: 190,
+    y: groundY - 84,
+    width: 60,
+    height: 72,
+    completed: false
   },
   {
     type: "npc",
@@ -805,6 +875,33 @@ const interactables = [
       "Need a boost? Try the chest or the fountain nearby."
     ],
     lineIndex: 0
+  },
+  {
+    type: "mission",
+    missionId: "follow",
+    x: 520,
+    y: groundY - 64,
+    width: 56,
+    height: 54,
+    completed: false
+  },
+  {
+    type: "mission",
+    missionId: "directive",
+    x: 700,
+    y: groundY - 72,
+    width: 58,
+    height: 60,
+    completed: false
+  },
+  {
+    type: "fountain",
+    label: "Mana Fountain",
+    x: 840,
+    y: groundY - 68,
+    width: 48,
+    height: 52,
+    charges: 2
   }
 ];
 
@@ -827,13 +924,14 @@ window.addEventListener("pointerdown", () => {
   audio.handleUserGesture();
 });
 
-if (activeAccount) {
-  showMessage(defaultMessage, 0);
-} else {
+ui.updateCrystals(0, crystals.length);
+updateRankFromLevel();
+ui.refresh(playerStats);
+updateMissionDefaultMessage();
+
+if (!activeAccount) {
   showMessage("Create your Astrocat account to begin your mission.", 0);
 }
-ui.updateCrystals(0, crystals.length);
-ui.refresh(playerStats);
 
 let lastTimestamp = performance.now();
 requestAnimationFrame(loop);
@@ -982,6 +1080,39 @@ function update(delta) {
           showMessage("The chest is empty now, but still shiny.", 2800);
         }
       }
+    } else if (interactable.type === "mission") {
+      const mission = getMissionDefinition(interactable.missionId);
+      if (!mission) {
+        continue;
+      }
+      promptText = mission.prompt;
+      if (justPressed.has("KeyE")) {
+        audio.playEffect("dialogue");
+        if (!interactable.completed && !missionCompletion[mission.id]) {
+          interactable.completed = true;
+          missionCompletion[mission.id] = true;
+          const leveledUp = gainExperience(mission.exp);
+          const nextMission = getNextMissionDefinition();
+          let completionText = `${mission.success} +${mission.exp} EXP.`;
+          if (leveledUp) {
+            completionText += ` Level up! You reached level ${playerStats.level}.`;
+          }
+          if (nextMission) {
+            completionText += ` Next Objective: ${nextMission.shortHint}`;
+          } else {
+            completionText += " Training complete—charge the portal to deploy.";
+          }
+          showMessage(completionText, 5600);
+          updateMissionDefaultMessage();
+        } else {
+          const nextMission = getNextMissionDefinition();
+          let reminder = mission.repeat;
+          if (nextMission) {
+            reminder += ` Next Objective: ${nextMission.shortHint}`;
+          }
+          showMessage(reminder, 4200);
+        }
+      }
     } else if (interactable.type === "fountain") {
       promptText = "Press E to draw power from the fountain";
       if (justPressed.has("KeyE")) {
@@ -1011,7 +1142,16 @@ function update(delta) {
   const nearPortal = isNear(player, portal, portal.interactionPadding);
   if (nearPortal) {
     if (portalCharged) {
-      if (portalCompleted) {
+      if (playerStats.level < portalRequiredLevel && !portalCompleted) {
+        promptText = `Reach Level ${portalRequiredLevel} to activate the portal`;
+        if (justPressed.has("KeyE")) {
+          audio.playEffect("dialogue");
+          showMessage(
+            `Your training isn't complete. Achieve Level ${portalRequiredLevel} before departing through the portal.`,
+            4200
+          );
+        }
+      } else if (portalCompleted) {
         promptText = "The portal hums softly, its gateway already opened.";
       } else {
         promptText = "Press E to step through the charged portal";
@@ -1030,6 +1170,7 @@ function update(delta) {
           }
           audio.playEffect("portalComplete");
           showMessage(completionMessage, 6200);
+          updateDefaultMessage("The portal hums steadily, awaiting your next adventure.");
         }
       }
     } else {
@@ -1091,6 +1232,8 @@ function render(timestamp) {
       drawChest(interactable);
     } else if (interactable.type === "fountain") {
       drawFountain(interactable, time);
+    } else if (interactable.type === "mission") {
+      drawMissionStation(interactable, time);
     } else if (interactable.type === "npc") {
       drawGuide(interactable, time);
     }
@@ -1334,6 +1477,55 @@ function drawGuide(guide, time) {
   ctx.restore();
 }
 
+function drawMissionStation(station, time) {
+  ctx.save();
+  ctx.translate(station.x, station.y);
+  const mission = getMissionDefinition(station.missionId);
+  const variant = mission?.variant ?? station.variant ?? "console";
+  const completed = station.completed || missionCompletion[station.missionId];
+
+  if (variant === "board") {
+    ctx.fillStyle = "#5f4431";
+    drawRoundedRect(6, station.height - 12, station.width - 12, 12, 4);
+    ctx.fillStyle = completed ? "#d9f0a3" : "#f7e4c1";
+    drawRoundedRect(0, 0, station.width, station.height - 14, 12);
+    ctx.fillStyle = completed ? "#5b8a43" : "#c36b2f";
+    drawRoundedRect(10, 12, station.width - 20, station.height - 42, 8);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+    const pulse = (Math.sin(time * 3.2) + 1) / 2;
+    ctx.globalAlpha = completed ? 0.4 : 0.8;
+    drawRoundedRect(
+      station.width / 2 - 18,
+      18,
+      36,
+      24,
+      6
+    );
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = completed ? "#7cb342" : "#f1c453";
+    ctx.beginPath();
+    ctx.arc(station.width / 2, 22 + pulse * 2, 6, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = "#2f3f5f";
+    drawRoundedRect(0, station.height - 14, station.width, 14, 6);
+    ctx.fillStyle = completed ? "#4a5c85" : "#3a4d75";
+    drawRoundedRect(6, 10, station.width - 12, station.height - 26, 10);
+    const pulse = (Math.sin(time * 4.2) + 1) / 2;
+    const glowStrength = completed ? 0.3 : 0.6;
+    ctx.fillStyle = completed
+      ? `rgba(120, 210, 160, ${0.25 + glowStrength * 0.3})`
+      : `rgba(120, 180, 255, ${0.25 + glowStrength * 0.4})`;
+    drawRoundedRect(12, 16, station.width - 24, station.height - 40, 8);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.globalAlpha = 0.6 + pulse * 0.25;
+    drawRoundedRect(16, 20, station.width - 32, station.height - 48, 6);
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+
 function drawCrystal(crystal, time) {
   ctx.save();
   ctx.translate(crystal.x, crystal.y);
@@ -1394,6 +1586,18 @@ function isNear(playerEntity, object, padding) {
   );
 }
 
+function updateRankFromLevel() {
+  if (portalCompleted) {
+    playerStats.rank = "Star Voyager";
+    return;
+  }
+  if (playerStats.level >= portalRequiredLevel) {
+    playerStats.rank = "Scout";
+  } else {
+    playerStats.rank = "Cadet";
+  }
+}
+
 function gainExperience(amount) {
   playerStats.exp += amount;
   let leveledUp = false;
@@ -1403,6 +1607,7 @@ function gainExperience(amount) {
     playerStats.maxExp = Math.round(playerStats.maxExp * 1.2);
     leveledUp = true;
   }
+  updateRankFromLevel();
   if (leveledUp) {
     audio.playEffect("levelUp");
   }
