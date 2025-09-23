@@ -415,6 +415,185 @@ body {
   gap: 10px;
 }
 
+.comms-center {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(40, 48, 78, 0.45);
+  border: 1px solid rgba(108, 140, 255, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(12, 18, 36, 0.35);
+}
+
+.comms-center__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.comms-center__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #dfe6ff;
+}
+
+.comms-center__call-sign {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7cf3d8;
+  background: rgba(124, 243, 216, 0.16);
+  border: 1px solid rgba(124, 243, 216, 0.35);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 0 0 1px rgba(40, 66, 72, 0.35);
+}
+
+.comms-center__description {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(200, 210, 255, 0.8);
+  line-height: 1.4;
+}
+
+.comms-center__feedback {
+  margin: 0;
+  font-size: 13px;
+  color: #8adbf5;
+}
+
+.comms-center__feedback.is-error {
+  color: #ffb4c4;
+}
+
+.comms-center__empty {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(180, 193, 240, 0.75);
+}
+
+.comms-center__messages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 150, 255, 0.4) transparent;
+}
+
+.comms-center__messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.comms-center__messages::-webkit-scrollbar-thumb {
+  background: rgba(120, 150, 255, 0.4);
+  border-radius: 999px;
+}
+
+.comms-center__message {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(18, 26, 44, 0.9);
+  border: 1px solid rgba(110, 140, 220, 0.25);
+  box-shadow: inset 0 0 0 1px rgba(10, 16, 32, 0.35);
+}
+
+.comms-center__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 12px;
+  color: rgba(160, 180, 235, 0.78);
+}
+
+.comms-center__sender {
+  font-weight: 600;
+  color: #9cd6ff;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+}
+
+.comms-center__sender-name {
+  color: rgba(200, 210, 255, 0.82);
+}
+
+.comms-center__time {
+  margin-left: auto;
+  color: rgba(150, 170, 220, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+
+.comms-center__body {
+  margin: 0;
+  font-size: 14px;
+  color: #f5f7ff;
+  line-height: 1.45;
+}
+
+.comms-center__form {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.comms-center__input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(110, 140, 220, 0.4);
+  background: rgba(16, 22, 38, 0.95);
+  color: #f6f7ff;
+  font-size: 14px;
+}
+
+.comms-center__input:focus {
+  outline: none;
+  border-color: rgba(140, 170, 255, 0.9);
+  box-shadow: 0 0 0 3px rgba(100, 140, 255, 0.25);
+}
+
+.comms-center__input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.comms-center__submit {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #5eead4, #38bdf8);
+  color: #041526;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.comms-center__submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.comms-center__submit:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(94, 234, 212, 0.3);
+}
+
 .mission-log__item {
   display: flex;
   gap: 12px;
@@ -833,11 +1012,33 @@ body {
   gap: 8px;
 }
 
+.onboarding-field--static {
+  gap: 6px;
+}
+
 .onboarding-label {
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(209, 219, 255, 0.85);
+}
+
+.onboarding-call-sign {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(124, 243, 216, 0.35);
+  background: rgba(124, 243, 216, 0.12);
+  color: #7cf3d8;
+  font-weight: 600;
+  font-size: 20px;
+  letter-spacing: 0.14em;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+  width: fit-content;
+  box-shadow: inset 0 0 0 1px rgba(40, 66, 72, 0.45);
 }
 
 .onboarding-input {

@@ -448,21 +448,212 @@ const starterCharacters = [
 ];
 
 const accountStorageKey = "astrocat-account";
+const callSignRegistryKey = "astrocat-call-signs";
+const messageBoardStorageKey = "astrocat-message-boards";
+const callSignLength = 5;
 
-function normalizeHandle(value) {
-  if (typeof value !== "string") {
+function getLocalStorage() {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return null;
+  }
+
+  return window.localStorage;
+}
+
+function isValidCallSign(value) {
+  return typeof value === "string" && new RegExp(`^\\d{${callSignLength}}$`).test(value);
+}
+
+function loadCallSignRegistry() {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return new Set();
+  }
+
+  try {
+    const raw = storage.getItem(callSignRegistryKey);
+    if (!raw) {
+      return new Set();
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return new Set();
+    }
+
+    return new Set(parsed.filter(isValidCallSign));
+  } catch (error) {
+    console.warn("Failed to read call sign registry", error);
+    return new Set();
+  }
+}
+
+function saveCallSignRegistry(registry) {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    storage.setItem(callSignRegistryKey, JSON.stringify([...registry]));
+    return true;
+  } catch (error) {
+    console.warn("Failed to persist call sign registry", error);
+    return false;
+  }
+}
+
+function generateCallSignCandidate(preferred) {
+  const registry = loadCallSignRegistry();
+  if (isValidCallSign(preferred)) {
+    return preferred;
+  }
+
+  const maxAttempts = 1000;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const candidate = String(Math.floor(Math.random() * 90000) + 10000);
+    if (!registry.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  // Fall back to a random call sign even if a collision might occur.
+  return String(Math.floor(Math.random() * 90000) + 10000);
+}
+
+function registerCallSign(callSign) {
+  if (!isValidCallSign(callSign)) {
+    return;
+  }
+
+  const registry = loadCallSignRegistry();
+  if (registry.has(callSign)) {
+    return;
+  }
+
+  registry.add(callSign);
+  saveCallSignRegistry(registry);
+}
+
+function sanitizeMessageContent(content) {
+  if (typeof content !== "string") {
     return "";
   }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return "";
+
+  return content.replace(/\s+/g, " ").trim().slice(0, 240);
+}
+
+function sanitizeMessageEntry(entry) {
+  if (!entry || typeof entry !== "object") {
+    return null;
   }
-  const withoutAt = trimmed.replace(/^@+/, "");
-  const cleaned = withoutAt.replace(/[^a-zA-Z0-9_]/g, "");
-  if (!cleaned) {
-    return "";
+
+  const content = sanitizeMessageContent(entry.content ?? "");
+  if (!content) {
+    return null;
   }
-  return `@${cleaned.slice(0, 20)}`;
+
+  const senderCallSign = isValidCallSign(entry.senderCallSign) ? entry.senderCallSign : null;
+  const senderName = typeof entry.senderName === "string"
+    ? entry.senderName.trim().slice(0, 40)
+    : "";
+  const timestamp = Number.isFinite(entry.timestamp) ? entry.timestamp : Date.now();
+
+  return {
+    senderCallSign,
+    senderName,
+    content,
+    timestamp
+  };
+}
+
+function loadMessageBoards() {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return {};
+  }
+
+  try {
+    const raw = storage.getItem(messageBoardStorageKey);
+    if (!raw) {
+      return {};
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return {};
+    }
+
+    const boards = {};
+    for (const [callSign, entries] of Object.entries(parsed)) {
+      if (!isValidCallSign(callSign) || !Array.isArray(entries)) {
+        continue;
+      }
+
+      const sanitizedEntries = entries
+        .map((entry) => sanitizeMessageEntry(entry))
+        .filter((entry) => entry !== null)
+        .sort((a, b) => a.timestamp - b.timestamp);
+
+      boards[callSign] = sanitizedEntries;
+    }
+
+    return boards;
+  } catch (error) {
+    console.warn("Failed to read message boards", error);
+    return {};
+  }
+}
+
+function saveMessageBoards(boards) {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    storage.setItem(messageBoardStorageKey, JSON.stringify(boards));
+    return true;
+  } catch (error) {
+    console.warn("Failed to persist message boards", error);
+    return false;
+  }
+}
+
+function getMessagesForCallSign(callSign) {
+  if (!isValidCallSign(callSign)) {
+    return [];
+  }
+
+  const boards = loadMessageBoards();
+  const entries = boards[callSign];
+  if (!entries || !Array.isArray(entries)) {
+    return [];
+  }
+
+  return [...entries];
+}
+
+function appendMessageToBoard(callSign, message) {
+  if (!isValidCallSign(callSign)) {
+    return null;
+  }
+
+  const sanitizedEntry = sanitizeMessageEntry(message);
+  if (!sanitizedEntry) {
+    return null;
+  }
+
+  const boards = loadMessageBoards();
+  const entries = Array.isArray(boards[callSign]) ? [...boards[callSign]] : [];
+  entries.push(sanitizedEntry);
+  const maxEntries = 50;
+  boards[callSign] = entries.slice(-maxEntries);
+  if (!saveMessageBoards(boards)) {
+    return null;
+  }
+
+  return sanitizedEntry;
 }
 
 function sanitizeAccount(source = {}) {
@@ -470,7 +661,6 @@ function sanitizeAccount(source = {}) {
     return null;
   }
 
-  const handle = normalizeHandle(source.handle ?? "");
   const rawName = typeof source.catName === "string" ? source.catName.trim() : "";
   const name = rawName.replace(/\s+/g, " ").slice(0, 28);
   const starterId =
@@ -478,29 +668,61 @@ function sanitizeAccount(source = {}) {
       ? source.starterId
       : starterCharacters[0].id;
 
-  if (!handle || !name) {
+  if (!name) {
     return null;
   }
 
+  let preferredCallSign = null;
+  if (isValidCallSign(source.callSign)) {
+    preferredCallSign = source.callSign;
+  } else if (typeof source.handle === "string") {
+    const digits = source.handle.replace(/^@+/, "");
+    if (isValidCallSign(digits)) {
+      preferredCallSign = digits;
+    }
+  }
+
+  const callSign = generateCallSignCandidate(preferredCallSign);
+  const handle = `@${callSign}`;
+
   return {
     handle,
+    callSign,
     catName: name,
     starterId
   };
 }
 
 function loadStoredAccount() {
-  if (typeof window === "undefined" || !window.localStorage) {
+  const storage = getLocalStorage();
+  if (!storage) {
     return null;
   }
 
   try {
-    const raw = window.localStorage.getItem(accountStorageKey);
+    const raw = storage.getItem(accountStorageKey);
     if (!raw) {
       return null;
     }
+
     const parsed = JSON.parse(raw);
-    return sanitizeAccount(parsed);
+    const sanitized = sanitizeAccount(parsed);
+    if (!sanitized) {
+      return null;
+    }
+
+    const needsMigration =
+      !parsed ||
+      parsed.callSign !== sanitized.callSign ||
+      parsed.handle !== sanitized.handle;
+
+    if (needsMigration) {
+      saveAccount(sanitized);
+    } else {
+      registerCallSign(sanitized.callSign);
+    }
+
+    return sanitized;
   } catch (error) {
     console.warn("Failed to read stored account information", error);
     return null;
@@ -508,7 +730,8 @@ function loadStoredAccount() {
 }
 
 function saveAccount(account) {
-  if (typeof window === "undefined" || !window.localStorage) {
+  const storage = getLocalStorage();
+  if (!storage) {
     return false;
   }
 
@@ -518,7 +741,8 @@ function saveAccount(account) {
   }
 
   try {
-    window.localStorage.setItem(accountStorageKey, JSON.stringify(sanitized));
+    storage.setItem(accountStorageKey, JSON.stringify(sanitized));
+    registerCallSign(sanitized.callSign);
     return true;
   } catch (error) {
     console.warn("Failed to persist account details", error);
@@ -547,6 +771,7 @@ function findStarterCharacter(starterId) {
 let activeAccount = loadStoredAccount();
 const fallbackAccount = {
   handle: "",
+  callSign: "",
   catName: "PixelHero",
   starterId: starterCharacters[0].id
 };
@@ -680,6 +905,7 @@ const rankThresholds = [
 const playerStats = {
   name: activeAccount?.catName ?? fallbackAccount.catName,
   handle: activeAccount?.handle ?? fallbackAccount.handle,
+  callSign: activeAccount?.callSign ?? fallbackAccount.callSign,
   starterId: activeAccount?.starterId ?? fallbackAccount.starterId,
   level: 1,
   rank: rankThresholds[0].title,
@@ -694,6 +920,8 @@ const playerStats = {
 const defaultMessage =
   "Check the Recruit Missions panel for onboarding tasks. Use A/D or ←/→ to move. Press Space to jump.";
 let messageTimerId = 0;
+
+const portalRequiredLevel = 3;
 
 function updateRankFromLevel() {
   let resolvedTitle = rankThresholds[0].title;
@@ -758,6 +986,7 @@ function handleLogout() {
   clearStoredAccount();
   playerStats.name = fallbackAccount.catName;
   playerStats.handle = fallbackAccount.handle;
+  playerStats.callSign = fallbackAccount.callSign;
   playerStats.starterId = fallbackAccount.starterId;
   const starter = findStarterCharacter(playerStats.starterId);
   ui.setAccount(null, starter);
@@ -773,11 +1002,13 @@ function completeAccountSetup(account, options = {}) {
   }
 
   activeAccount = sanitized;
+  registerCallSign(sanitized.callSign);
   if (persist) {
     saveAccount(sanitized);
   }
   playerStats.name = sanitized.catName;
   playerStats.handle = sanitized.handle;
+  playerStats.callSign = sanitized.callSign;
   playerStats.starterId = sanitized.starterId;
   const chosenStarter = findStarterCharacter(sanitized.starterId);
   ui.setAccount(sanitized, chosenStarter);
@@ -889,8 +1120,6 @@ const portal = {
   height: 140,
   interactionPadding: 36
 };
-
-const portalRequiredLevel = 3;
 
 const interactables = [
   {
@@ -1951,7 +2180,7 @@ function createOnboardingExperience(options, config = {}) {
   const intro = document.createElement("p");
   intro.className = "onboarding-intro";
   intro.textContent =
-    "Choose your call sign, name your companion, and pick a starter to begin exploring.";
+    "Mission Control assigns your secure call sign. Name your companion and pick a starter to begin exploring.";
   modal.append(intro);
 
   const characterSection = document.createElement("div");
@@ -1991,25 +2220,17 @@ function createOnboardingExperience(options, config = {}) {
   form.className = "onboarding-form";
   modal.append(form);
 
-  const handleField = document.createElement("div");
-  handleField.className = "onboarding-field";
-  const handleLabel = document.createElement("label");
-  handleLabel.className = "onboarding-label";
-  handleLabel.textContent = "X handle";
-  const handleInput = document.createElement("input");
-  handleInput.id = `onboarding-handle-${idSuffix}`;
-  handleInput.name = "handle";
-  handleInput.type = "text";
-  handleInput.required = true;
-  handleInput.maxLength = 24;
-  handleInput.autocomplete = "nickname";
-  handleInput.placeholder = "@starlightPilot";
-  handleInput.className = "onboarding-input";
-  handleLabel.setAttribute("for", handleInput.id);
-  const handleHint = document.createElement("p");
-  handleHint.className = "onboarding-hint";
-  handleHint.textContent = "Use letters, numbers, or underscores.";
-  handleField.append(handleLabel, handleInput, handleHint);
+  const callSignField = document.createElement("div");
+  callSignField.className = "onboarding-field onboarding-field--static";
+  const callSignLabel = document.createElement("span");
+  callSignLabel.className = "onboarding-label";
+  callSignLabel.textContent = "Assigned call sign";
+  const callSignValue = document.createElement("span");
+  callSignValue.className = "onboarding-call-sign";
+  const callSignHint = document.createElement("p");
+  callSignHint.className = "onboarding-hint";
+  callSignHint.textContent = "Share this number so other explorers can reach you.";
+  callSignField.append(callSignLabel, callSignValue, callSignHint);
 
   const nameField = document.createElement("div");
   nameField.className = "onboarding-field";
@@ -2038,11 +2259,22 @@ function createOnboardingExperience(options, config = {}) {
   submitButton.textContent = "Create account";
   actions.append(submitButton);
 
-  form.append(handleField, nameField, actions);
-
-  if (initialAccount?.handle) {
-    handleInput.value = initialAccount.handle;
+  form.append(callSignField, nameField, actions);
+  let pendingCallSign = null;
+  if (initialAccount) {
+    if (isValidCallSign(initialAccount.callSign)) {
+      pendingCallSign = initialAccount.callSign;
+    } else if (typeof initialAccount.handle === "string") {
+      const digits = initialAccount.handle.replace(/^@+/, "");
+      if (isValidCallSign(digits)) {
+        pendingCallSign = digits;
+      }
+    }
   }
+
+  pendingCallSign = generateCallSignCandidate(pendingCallSign);
+  callSignValue.textContent = `@${pendingCallSign}`;
+
   if (initialAccount?.catName) {
     nameInput.value = initialAccount.catName;
   }
@@ -2074,29 +2306,12 @@ function createOnboardingExperience(options, config = {}) {
     renderCharacter();
   });
 
-  handleInput.addEventListener("input", () => {
-    handleInput.setCustomValidity("");
-  });
-  handleInput.addEventListener("blur", () => {
-    const normalized = normalizeHandle(handleInput.value);
-    if (normalized) {
-      handleInput.value = normalized;
-    }
-  });
-
   nameInput.addEventListener("input", () => {
     nameInput.setCustomValidity("");
   });
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    const normalizedHandle = normalizeHandle(handleInput.value);
-    if (!normalizedHandle) {
-      handleInput.setCustomValidity("Enter a valid handle to continue.");
-      handleInput.reportValidity();
-      return;
-    }
-
     const trimmedName = nameInput.value.trim().replace(/\s+/g, " ");
     if (!trimmedName) {
       nameInput.setCustomValidity("Name your astrocat to continue.");
@@ -2106,7 +2321,7 @@ function createOnboardingExperience(options, config = {}) {
 
     const selection = currentCharacter();
     const sanitized = sanitizeAccount({
-      handle: normalizedHandle,
+      callSign: pendingCallSign,
       catName: trimmedName,
       starterId: selection.id
     });
@@ -2117,7 +2332,8 @@ function createOnboardingExperience(options, config = {}) {
       return;
     }
 
-    handleInput.value = sanitized.handle;
+    pendingCallSign = sanitized.callSign;
+    callSignValue.textContent = `@${pendingCallSign}`;
     nameInput.value = sanitized.catName;
     if (typeof onComplete === "function") {
       onComplete(sanitized);
@@ -2129,7 +2345,7 @@ function createOnboardingExperience(options, config = {}) {
   return {
     root,
     focus() {
-      handleInput.focus();
+      nameInput.focus();
     },
     close() {
       root.remove();
@@ -2235,6 +2451,193 @@ function createInterface(stats, appearance, options = {}) {
   const message = document.createElement("p");
   message.className = "message";
   panel.append(message);
+
+  const commsSection = document.createElement("section");
+  commsSection.className = "comms-center";
+  const commsHeader = document.createElement("div");
+  commsHeader.className = "comms-center__header";
+  const commsTitle = document.createElement("h2");
+  commsTitle.className = "comms-center__title";
+  commsTitle.textContent = "Comms Center";
+  const commsCallSign = document.createElement("span");
+  commsCallSign.className = "comms-center__call-sign";
+  commsCallSign.hidden = true;
+  commsHeader.append(commsTitle, commsCallSign);
+
+  const commsDescription = document.createElement("p");
+  commsDescription.className = "comms-center__description";
+  commsDescription.textContent =
+    "Tag a call sign (e.g. @12345) in your message to deliver it to another Astrocat.";
+
+  const commsFeedback = document.createElement("p");
+  commsFeedback.className = "comms-center__feedback";
+  commsFeedback.hidden = true;
+
+  const commsEmpty = document.createElement("p");
+  commsEmpty.className = "comms-center__empty";
+  commsEmpty.textContent = "Messages addressed to your call sign will appear here.";
+
+  const commsMessages = document.createElement("ul");
+  commsMessages.className = "comms-center__messages";
+  commsMessages.hidden = true;
+
+  const commsForm = document.createElement("form");
+  commsForm.className = "comms-center__form";
+  const commsInput = document.createElement("input");
+  commsInput.type = "text";
+  commsInput.className = "comms-center__input";
+  commsInput.placeholder = "Log in to send transmissions.";
+  commsInput.maxLength = 220;
+  commsInput.disabled = true;
+  const commsSubmit = document.createElement("button");
+  commsSubmit.type = "submit";
+  commsSubmit.className = "comms-center__submit";
+  commsSubmit.textContent = "Send";
+  commsSubmit.disabled = true;
+  commsForm.append(commsInput, commsSubmit);
+
+  commsSection.append(
+    commsHeader,
+    commsDescription,
+    commsFeedback,
+    commsEmpty,
+    commsMessages,
+    commsForm
+  );
+  panel.append(commsSection);
+
+  let activeCallSign = isValidCallSign(stats.callSign) ? stats.callSign : null;
+
+  function renderCommsBoard(callSign) {
+    commsMessages.innerHTML = "";
+    if (!callSign) {
+      commsMessages.hidden = true;
+      commsEmpty.hidden = false;
+      commsEmpty.textContent = "Log in to receive transmissions from fellow explorers.";
+      return;
+    }
+
+    const entries = getMessagesForCallSign(callSign).slice(-20).reverse();
+    if (entries.length === 0) {
+      commsMessages.hidden = true;
+      commsEmpty.hidden = false;
+      commsEmpty.textContent = "Messages addressed to your call sign will appear here.";
+      return;
+    }
+
+    commsMessages.hidden = false;
+    commsEmpty.hidden = true;
+    for (const entry of entries) {
+      const item = document.createElement("li");
+      item.className = "comms-center__message";
+
+      const meta = document.createElement("div");
+      meta.className = "comms-center__meta";
+      const sender = document.createElement("span");
+      sender.className = "comms-center__sender";
+      sender.textContent = entry.senderCallSign ? `@${entry.senderCallSign}` : "Unknown";
+      meta.append(sender);
+
+      if (entry.senderName) {
+        const senderName = document.createElement("span");
+        senderName.className = "comms-center__sender-name";
+        senderName.textContent = entry.senderName;
+        meta.append(senderName);
+      }
+
+      const timestamp = document.createElement("time");
+      timestamp.className = "comms-center__time";
+      const date = new Date(entry.timestamp);
+      timestamp.dateTime = date.toISOString();
+      timestamp.textContent = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      meta.append(timestamp);
+
+      const body = document.createElement("p");
+      body.className = "comms-center__body";
+      body.textContent = entry.content;
+
+      item.append(meta, body);
+      commsMessages.append(item);
+    }
+  }
+
+  function updateCommsInterface(callSign) {
+    const validCallSign = isValidCallSign(callSign) ? callSign : null;
+    activeCallSign = validCallSign;
+    commsInput.disabled = !validCallSign;
+    commsSubmit.disabled = !validCallSign;
+    commsFeedback.hidden = true;
+    commsFeedback.classList.remove("is-error");
+
+    if (validCallSign) {
+      commsCallSign.textContent = `@${validCallSign}`;
+      commsCallSign.hidden = false;
+      commsInput.placeholder = "Message another Astrocat by tagging their call sign (e.g. @12345)";
+    } else {
+      commsCallSign.textContent = "";
+      commsCallSign.hidden = true;
+      commsInput.value = "";
+      commsInput.placeholder = "Log in to send transmissions.";
+    }
+
+    renderCommsBoard(validCallSign);
+  }
+
+  commsForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!activeCallSign) {
+      commsFeedback.textContent = "Log in to send transmissions.";
+      commsFeedback.classList.add("is-error");
+      commsFeedback.hidden = false;
+      return;
+    }
+
+    const rawMessage = commsInput.value.trim();
+    if (!rawMessage) {
+      commsInput.setCustomValidity("Enter a message to send.");
+      commsInput.reportValidity();
+      return;
+    }
+
+    const mentionMatch = rawMessage.match(/@(\d{5})/);
+    if (!mentionMatch) {
+      const errorText = "Include a call sign like @12345 to route your message.";
+      commsInput.setCustomValidity(errorText);
+      commsInput.reportValidity();
+      commsFeedback.textContent = errorText;
+      commsFeedback.classList.add("is-error");
+      commsFeedback.hidden = false;
+      return;
+    }
+
+    commsInput.setCustomValidity("");
+    const targetCallSign = mentionMatch[1];
+    const sanitizedContent = sanitizeMessageContent(rawMessage);
+    const senderCallSign = isValidCallSign(stats.callSign) ? stats.callSign : null;
+    const result = appendMessageToBoard(targetCallSign, {
+      content: sanitizedContent,
+      senderCallSign,
+      senderName: stats.name
+    });
+
+    if (!result) {
+      commsFeedback.textContent = "Unable to send your transmission. Try again.";
+      commsFeedback.classList.add("is-error");
+      commsFeedback.hidden = false;
+      return;
+    }
+
+    commsInput.value = "";
+    commsFeedback.textContent = `Transmission delivered to @${targetCallSign}.`;
+    commsFeedback.classList.remove("is-error");
+    commsFeedback.hidden = false;
+
+    if (targetCallSign === activeCallSign) {
+      renderCommsBoard(activeCallSign);
+    }
+  });
+
+  updateCommsInterface(activeCallSign);
 
   const missionSection = document.createElement("section");
   missionSection.className = "mission-log";
@@ -2414,6 +2817,7 @@ function createInterface(stats, appearance, options = {}) {
     },
     setAccount(account, starter) {
       updateAccountCard(account, starter);
+      updateCommsInterface(account?.callSign);
     },
     updateMissions(missionState) {
       const total = missionState.length;
@@ -2733,7 +3137,7 @@ function createInterface(stats, appearance, options = {}) {
 
     if (!account) {
       accountCard.classList.add("account-card--empty");
-      accountHandle.textContent = "@handle";
+      accountHandle.textContent = "Call sign: -----";
       accountCatName.textContent = "Name your Astrocat to begin your mission.";
       accountStarterImage.src = fallbackStarter.image;
       accountStarterImage.alt = fallbackStarter.name;
@@ -2745,7 +3149,8 @@ function createInterface(stats, appearance, options = {}) {
 
     const resolvedStarter = starterOverride ?? findStarterCharacter(account.starterId);
     accountCard.classList.remove("account-card--empty");
-    accountHandle.textContent = account.handle;
+    const callSignLabel = account.callSign ? `@${account.callSign}` : account.handle;
+    accountHandle.textContent = callSignLabel ? `Call sign: ${callSignLabel}` : "Call sign: -----";
     accountCatName.textContent = account.catName;
     accountStarterImage.src = resolvedStarter.image;
     accountStarterImage.alt = resolvedStarter.name;
