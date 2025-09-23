@@ -2,10 +2,6 @@ const backgroundImageUrl = new URL(
   "./assets/LobbyBackground.png",
   import.meta.url
 ).href;
-const playerSpriteUrl = new URL(
-  "./assets/PlayerSprite.png",
-  import.meta.url
-).href;
 
 const supportsImportMetaGlob =
   typeof import.meta !== "undefined" && typeof import.meta.glob === "function";
@@ -477,53 +473,72 @@ function resolveStarterImageSource(assetPaths, fallbackPalette) {
   return createStarterSpriteDataUrl(fallbackPalette);
 }
 
-const starterCharacters = [
+function resolveStarterSpriteSource(assetPaths, fallbackPalette) {
+  return resolveStarterImageSource(assetPaths, fallbackPalette);
+}
+
+const starterCharacterDefinitions = [
   {
     id: "comet-cadet",
     name: "Comet Cadet",
     tagline: "A swift navigator blazing across the cosmos.",
     description: "Excels at traversal with boosted dash energy.",
-    image: resolveStarterImageSource("./assets/character1.png", {
+    imageAssets: "./assets/character1.png",
+    spriteAssets: ["./assets/PlayerSprite.png", "./assets/character1.png"],
+    palette: {
       background: "#1f2557",
       body: "#fcbf49",
       accent: "#f77f00",
       accessory: "#ff477e",
       eye: "#1b1d3a",
       highlight: "#ffd166"
-    })
+    }
   },
   {
     id: "nebula-sage",
     name: "Nebula Sage",
     tagline: "A mystic tactician attuned to stardust currents.",
     description: "Starts with enhanced insight for puzzle solving.",
-    image: resolveStarterImageSource([
-      "./assets/characrter2.png",
-      "./assets/character2.png"
-    ], {
+    imageAssets: ["./assets/characrter2.png", "./assets/character2.png"],
+    spriteAssets: ["./assets/character2.png", "./assets/characrter2.png"],
+    palette: {
       background: "#31163f",
       body: "#c084fc",
       accent: "#a855f7",
       accessory: "#38bdf8",
       eye: "#120d1f",
       highlight: "#f472b6"
-    })
+    }
   },
   {
     id: "aurora-engineer",
     name: "Aurora Engineer",
     tagline: "An inventive builder forging gadgets from nebula light.",
     description: "Unlocks crafting recipes and supportive drones early.",
-    image: resolveStarterImageSource("./assets/character3.png", {
+    imageAssets: "./assets/character3.png",
+    spriteAssets: "./assets/character3.png",
+    palette: {
       background: "#0f2f32",
       body: "#5eead4",
       accent: "#22d3ee",
       accessory: "#facc15",
       eye: "#052e16",
       highlight: "#a7f3d0"
-    })
+    }
   }
 ];
+
+const starterCharacters = starterCharacterDefinitions.map((definition) => ({
+  id: definition.id,
+  name: definition.name,
+  tagline: definition.tagline,
+  description: definition.description,
+  image: resolveStarterImageSource(definition.imageAssets, definition.palette),
+  sprite: resolveStarterSpriteSource(
+    definition.spriteAssets ?? definition.imageAssets,
+    definition.palette
+  )
+}));
 
 const accountStorageKey = "astrocat-account";
 const callSignRegistryKey = "astrocat-call-signs";
@@ -997,6 +1012,8 @@ const playerStats = {
   maxMp: 60
 };
 
+setPlayerSpriteFromStarter(playerStats.starterId);
+
 const defaultMessage =
   "Check the Recruit Missions panel for onboarding tasks. Use A/D or ←/→ to move. Press Space to jump.";
 let messageTimerId = 0;
@@ -1066,6 +1083,7 @@ function handleLogout() {
   playerStats.handle = fallbackAccount.handle;
   playerStats.callSign = fallbackAccount.callSign;
   playerStats.starterId = fallbackAccount.starterId;
+  setPlayerSpriteFromStarter(playerStats.starterId);
   const starter = findStarterCharacter(playerStats.starterId);
   ui.setAccount(null, starter);
   ui.refresh(playerStats);
@@ -1088,6 +1106,7 @@ function completeAccountSetup(account, options = {}) {
   playerStats.handle = sanitized.handle;
   playerStats.callSign = sanitized.callSign;
   playerStats.starterId = sanitized.starterId;
+  setPlayerSpriteFromStarter(playerStats.starterId);
   const chosenStarter = findStarterCharacter(sanitized.starterId);
   ui.setAccount(sanitized, chosenStarter);
   ui.refresh(playerStats);
@@ -1309,14 +1328,24 @@ function createTouchControls({ onPress, onRelease, onGesture } = {}) {
 
 const groundY = viewport.height - 96;
 
-const playerSprite = new Image();
-let playerSpriteReady = false;
-playerSprite.onload = () => {
-  playerSpriteReady = true;
-};
-playerSprite.src = playerSpriteUrl;
-if (playerSprite.complete) {
-  playerSpriteReady = true;
+const playerSpriteState = createSpriteState("starter sprite");
+let activePlayerSpriteSource = null;
+
+function setPlayerSpriteFromStarter(starterId) {
+  const starter = findStarterCharacter(starterId);
+  const source = starter?.sprite ?? starter?.image ?? null;
+  if (!source) {
+    activePlayerSpriteSource = null;
+    playerSpriteState.handleError();
+    return;
+  }
+
+  if (source === activePlayerSpriteSource) {
+    return;
+  }
+
+  activePlayerSpriteSource = source;
+  playerSpriteState.setSource(source);
 }
 
 const player = {
@@ -2108,14 +2137,15 @@ function drawPlayer(entity, time) {
 
   const appearance = entity.appearance ?? playerAppearance;
 
-  if (playerSpriteReady) {
+  if (playerSpriteState.isReady()) {
+    const spriteImage = playerSpriteState.image;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(
-      playerSprite,
+      spriteImage,
       0,
       0,
-      playerSprite.width,
-      playerSprite.height,
+      spriteImage.width,
+      spriteImage.height,
       0,
       0,
       entity.width,
