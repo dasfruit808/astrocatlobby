@@ -1493,6 +1493,53 @@ const rankThresholds = [
 
 const portalRequiredLevel = 3;
 
+const STAT_POINTS_PER_LEVEL = 3;
+
+const attributeDefinitions = [
+  {
+    key: "health",
+    label: "Health",
+    description: "Raises your vitality and increases maximum HP.",
+    initial: 5
+  },
+  {
+    key: "strength",
+    label: "Strength",
+    description: "Improves melee power and mission readiness.",
+    initial: 5
+  },
+  {
+    key: "speed",
+    label: "Speed",
+    description: "Boosts traversal responsiveness for faster runs.",
+    initial: 5
+  },
+  {
+    key: "focus",
+    label: "Focus",
+    description: "Expands maximum MP for special abilities.",
+    initial: 5
+  }
+];
+
+const BASE_HP = 60;
+const HP_PER_HEALTH_POINT = 8;
+const BASE_MP = 30;
+const MP_PER_FOCUS_POINT = 6;
+const BASE_ATTACK_POWER = 8;
+const ATTACK_POWER_PER_STRENGTH = 2;
+const BASE_SPEED_RATING = 90;
+const SPEED_PER_SPEED_POINT = 3;
+
+function buildInitialAttributes() {
+  const initialAttributes = {};
+  for (const definition of attributeDefinitions) {
+    initialAttributes[definition.key] =
+      typeof definition.initial === "number" ? definition.initial : 0;
+  }
+  return initialAttributes;
+}
+
 const playerStats = {
   name: activeAccount?.catName ?? fallbackAccount.catName,
   handle: activeAccount?.handle ?? fallbackAccount.handle,
@@ -1505,8 +1552,14 @@ const playerStats = {
   hp: 85,
   maxHp: 100,
   mp: 40,
-  maxMp: 60
+  maxMp: 60,
+  statPoints: 0,
+  attributes: buildInitialAttributes(),
+  attackPower: 0,
+  speedRating: 0
 };
+
+updateDerivedStats({ preserveRatios: false });
 
 const playerSpriteState = createSpriteState("starter sprite");
 let activePlayerSpriteSource = null;
@@ -1526,6 +1579,60 @@ function setPlayerSpriteFromStarter(starterId) {
 
   activePlayerSpriteSource = source;
   playerSpriteState.setSource(source);
+}
+
+function updateDerivedStats({ preserveRatios = true } = {}) {
+  if (!playerStats.attributes) {
+    playerStats.attributes = buildInitialAttributes();
+  }
+
+  const health = playerStats.attributes.health ?? 0;
+  const focus = playerStats.attributes.focus ?? 0;
+  const strength = playerStats.attributes.strength ?? 0;
+  const speed = playerStats.attributes.speed ?? 0;
+
+  const previousMaxHp = playerStats.maxHp ?? BASE_HP;
+  const previousMaxMp = playerStats.maxMp ?? BASE_MP;
+
+  const nextMaxHp = BASE_HP + health * HP_PER_HEALTH_POINT;
+  const nextMaxMp = BASE_MP + focus * MP_PER_FOCUS_POINT;
+
+  playerStats.maxHp = nextMaxHp;
+  playerStats.maxMp = nextMaxMp;
+
+  if (preserveRatios) {
+    const hpRatio = previousMaxHp > 0 ? playerStats.hp / previousMaxHp : 1;
+    const mpRatio = previousMaxMp > 0 ? playerStats.mp / previousMaxMp : 1;
+    playerStats.hp = clamp(Math.round(nextMaxHp * hpRatio), 0, nextMaxHp);
+    playerStats.mp = clamp(Math.round(nextMaxMp * mpRatio), 0, nextMaxMp);
+  } else {
+    playerStats.hp = clamp(playerStats.hp ?? nextMaxHp, 0, nextMaxHp);
+    playerStats.mp = clamp(playerStats.mp ?? nextMaxMp, 0, nextMaxMp);
+  }
+
+  playerStats.attackPower =
+    BASE_ATTACK_POWER + strength * ATTACK_POWER_PER_STRENGTH;
+  playerStats.speedRating = BASE_SPEED_RATING + speed * SPEED_PER_SPEED_POINT;
+}
+
+function spendStatPoint(statKey) {
+  if (!statKey || playerStats.statPoints <= 0) {
+    return false;
+  }
+
+  const attributes = playerStats.attributes ?? buildInitialAttributes();
+  const currentValue = attributes[statKey] ?? 0;
+  attributes[statKey] = currentValue + 1;
+  playerStats.statPoints -= 1;
+  playerStats.attributes = attributes;
+
+  updateDerivedStats({ preserveRatios: true });
+
+  if (ui && typeof ui.refresh === "function") {
+    ui.refresh(playerStats);
+  }
+  syncMiniGameProfile();
+  return true;
 }
 
 setPlayerSpriteFromStarter(playerStats.starterId);
@@ -1704,7 +1811,13 @@ function syncMiniGameProfile() {
     level: playerStats.level,
     rank: playerStats.rank,
     exp: playerStats.exp,
-    maxExp: playerStats.maxExp
+    maxExp: playerStats.maxExp,
+    maxHp: playerStats.maxHp,
+    maxMp: playerStats.maxMp,
+    statPoints: playerStats.statPoints,
+    attributes: { ...playerStats.attributes },
+    attackPower: playerStats.attackPower,
+    speedRating: playerStats.speedRating
   };
 
   contentWindow.postMessage(profile, targetOrigin);
@@ -3150,11 +3263,17 @@ function isNear(playerEntity, object, padding) {
 function gainExperience(amount) {
   playerStats.exp += amount;
   let leveledUp = false;
+  let levelUps = 0;
   while (playerStats.exp >= playerStats.maxExp) {
     playerStats.exp -= playerStats.maxExp;
     playerStats.level += 1;
     playerStats.maxExp = Math.round(playerStats.maxExp * 1.2);
     leveledUp = true;
+    levelUps += 1;
+  }
+  if (levelUps > 0) {
+    playerStats.statPoints += levelUps * STAT_POINTS_PER_LEVEL;
+    updateDerivedStats({ preserveRatios: true });
   }
   updateRankFromLevel();
   if (leveledUp) {
@@ -3631,6 +3750,94 @@ function createInterface(stats, appearance, options = {}) {
   const mpBar = createStatBar("MP", "linear-gradient(90deg,#74f2ff,#4fa9ff)");
   const expBar = createStatBar("EXP", "linear-gradient(90deg,#fddb92,#d1fdff)");
 
+  const statPointPanel = document.createElement("section");
+  statPointPanel.className = "stat-point-panel";
+
+  const statPointHeader = document.createElement("div");
+  statPointHeader.className = "stat-point-panel__header";
+
+  const statPointTitle = document.createElement("h2");
+  statPointTitle.className = "stat-point-panel__title";
+  statPointTitle.textContent = "Stat Training";
+
+  const statPointAvailable = document.createElement("span");
+  statPointAvailable.className = "stat-point-panel__available";
+
+  statPointHeader.append(statPointTitle, statPointAvailable);
+
+  const statPointList = document.createElement("ul");
+  statPointList.className = "stat-point-panel__list";
+
+  const statValueElements = new Map();
+  const statButtonElements = new Map();
+  const initialPoints = Number(stats.statPoints ?? 0);
+
+  if (initialPoints > 0) {
+    const label = initialPoints === 1 ? "point" : "points";
+    statPointAvailable.textContent = `${initialPoints} ${label} available`;
+  } else {
+    statPointAvailable.textContent = "No unspent points";
+  }
+  statPointPanel.classList.toggle("stat-point-panel--highlight", initialPoints > 0);
+
+  for (const definition of attributeDefinitions) {
+    const item = document.createElement("li");
+    item.className = "stat-point-panel__item";
+
+    const info = document.createElement("div");
+    info.className = "stat-point-panel__info";
+
+    const label = document.createElement("p");
+    label.className = "stat-point-panel__label";
+    label.textContent = definition.label;
+
+    const description = document.createElement("p");
+    description.className = "stat-point-panel__description";
+    description.textContent = definition.description;
+
+    info.append(label, description);
+
+    const controls = document.createElement("div");
+    controls.className = "stat-point-panel__controls";
+
+    const value = document.createElement("span");
+    value.className = "stat-point-panel__value";
+    value.textContent = stats.attributes?.[definition.key] ?? 0;
+    controls.append(value);
+
+    const increase = document.createElement("button");
+    increase.type = "button";
+    increase.className = "stat-point-panel__increase";
+    increase.textContent = "+";
+    increase.setAttribute("aria-label", `Increase ${definition.label}`);
+    const disableInitially = initialPoints <= 0;
+    increase.disabled = disableInitially;
+    increase.setAttribute("aria-disabled", disableInitially ? "true" : "false");
+    increase.addEventListener("click", () => {
+      spendStatPoint(definition.key);
+    });
+    controls.append(increase);
+
+    item.append(info, controls);
+    statPointList.append(item);
+
+    statValueElements.set(definition.key, value);
+    statButtonElements.set(definition.key, increase);
+  }
+
+  const statPointSummary = document.createElement("p");
+  statPointSummary.className = "stat-point-panel__summary";
+  const initialSummaryParts = [
+    `Max HP ${Math.round(stats.maxHp ?? 0)}`,
+    `Max MP ${Math.round(stats.maxMp ?? 0)}`,
+    `Power ${Math.round(stats.attackPower ?? 0)}`,
+    `Speed ${Math.round(stats.speedRating ?? 0)}`
+  ];
+  statPointSummary.textContent = initialSummaryParts.join(" · ");
+
+  statPointPanel.append(statPointHeader, statPointList, statPointSummary);
+  panel.append(statPointPanel);
+
   const crystalsLabel = document.createElement("p");
   crystalsLabel.className = "crystal-label";
   panel.append(crystalsLabel);
@@ -4002,6 +4209,39 @@ function createInterface(stats, appearance, options = {}) {
       updateBar(hpBar, updatedStats.hp, updatedStats.maxHp);
       updateBar(mpBar, updatedStats.mp, updatedStats.maxMp);
       updateBar(expBar, updatedStats.exp, updatedStats.maxExp);
+      const availablePoints = Number(updatedStats.statPoints ?? 0);
+      statPointPanel.classList.toggle(
+        "stat-point-panel--highlight",
+        availablePoints > 0
+      );
+      if (availablePoints > 0) {
+        const label = availablePoints === 1 ? "point" : "points";
+        statPointAvailable.textContent = `${availablePoints} ${label} available`;
+      } else {
+        statPointAvailable.textContent = "No unspent points";
+      }
+      for (const definition of attributeDefinitions) {
+        const valueElement = statValueElements.get(definition.key);
+        if (valueElement) {
+          const currentValue = updatedStats.attributes?.[definition.key] ?? 0;
+          valueElement.textContent = currentValue;
+        }
+        const buttonElement = statButtonElements.get(definition.key);
+        if (buttonElement) {
+          buttonElement.disabled = availablePoints === 0;
+          buttonElement.setAttribute(
+            "aria-disabled",
+            buttonElement.disabled ? "true" : "false"
+          );
+        }
+      }
+      const statSummaryParts = [
+        `Max HP ${Math.round(updatedStats.maxHp ?? 0)}`,
+        `Max MP ${Math.round(updatedStats.maxMp ?? 0)}`,
+        `Power ${Math.round(updatedStats.attackPower ?? 0)}`,
+        `Speed ${Math.round(updatedStats.speedRating ?? 0)}`
+      ];
+      statPointSummary.textContent = statSummaryParts.join(" · ");
       const portalCleared = updatedStats.level >= portalLevelRequirement;
       missionRequirement.classList.toggle("is-complete", portalCleared);
       if (portalCleared) {
