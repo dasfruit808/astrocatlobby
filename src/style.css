@@ -878,17 +878,18 @@ body {
 
 .account-card__starter {
   display: flex;
-  gap: 14px;
+  gap: 18px;
   align-items: center;
 }
 
 .account-card__starter-image {
-  width: 72px;
-  height: 72px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  box-shadow: 0 16px 32px rgba(10, 16, 35, 0.55);
+  width: 96px;
+  height: 96px;
+  border-radius: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 20px 36px rgba(10, 16, 35, 0.55);
   background: rgba(14, 20, 40, 0.65);
+  object-fit: cover;
 }
 
 .account-card__starter-info {
