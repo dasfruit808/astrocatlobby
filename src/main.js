@@ -338,6 +338,7 @@ const fountainSprite = createOptionalSprite("./assets/FountainSprite.png");
 const guideSprite = createOptionalSprite("./assets/GuideSprite.png");
 const crystalSprite = createOptionalSprite("./assets/CrystalSprite.png");
 const platformSprite = createOptionalSprite("./assets/PlatformSprite.png");
+const mascotSprite = createOptionalSprite("./assets/MascotSprite.png");
 
 const app = document.querySelector("#app");
 if (!app) {
@@ -718,6 +719,24 @@ app.append(ui.root);
 
 const initialStarter = findStarterCharacter(playerStats.starterId);
 ui.setAccount(activeAccount, initialStarter);
+ui.addFeedMessage({
+  author: "Mission Command",
+  channel: "mission",
+  text: "Mission Control is standing by for your first objective.",
+  timestamp: Date.now() - 1000 * 60 * 18
+});
+ui.addFeedMessage({
+  author: "@StarryScout",
+  channel: "friend",
+  text: "Save me a seat by the portal lounge!",
+  timestamp: Date.now() - 1000 * 60 * 11
+});
+ui.addFeedMessage({
+  author: "@NebulaNeko",
+  channel: "friend",
+  text: "Just dropped fresh intel in the bulletin board. Check it out!",
+  timestamp: Date.now() - 1000 * 60 * 5
+});
 
 let onboardingInstance = null;
 let previousBodyOverflow = "";
@@ -765,7 +784,11 @@ function completeAccountSetup(account, options = {}) {
   ui.refresh(playerStats);
   if (welcome) {
     showMessage(
-      `Welcome aboard, ${sanitized.catName}! Check the Recruit Missions panel to begin your onboarding.`,
+      {
+        text: `Welcome aboard, ${sanitized.catName}! Check the Recruit Missions panel to begin your onboarding.`,
+        author: "Mission Command",
+        channel: "mission"
+      },
       6000
     );
   } else {
@@ -810,7 +833,7 @@ const canvas = document.createElement("canvas");
 canvas.width = 960;
 canvas.height = 540;
 canvas.className = "game-canvas";
-ui.canvasWrapper.append(canvas);
+ui.canvasSurface.append(canvas);
 
 const ctx = canvas.getContext("2d");
 if (!ctx) {
@@ -1151,7 +1174,14 @@ function update(delta) {
       } else if (leveledUp) {
         message += ` Level up! You reached level ${playerStats.level}.`;
       }
-      showMessage(message, fullyCharged ? 5200 : 4200);
+      showMessage(
+        {
+          text: message,
+          author: "Mission Log",
+          channel: "mission"
+        },
+        fullyCharged ? 5200 : 4200
+      );
     }
   }
 
@@ -1173,15 +1203,26 @@ function update(delta) {
           if (result.leveledUp) {
             message += ` Level up! You reached level ${playerStats.level}.`;
           }
-          showMessage(message, 5600);
+          showMessage(
+            { text: message, author: "Mission Log", channel: "mission" },
+            5600
+          );
         } else if (result.alreadyComplete) {
           showMessage(
-            "Your arrival announcement already glows across the bulletin board.",
+            {
+              text: "Your arrival announcement already glows across the bulletin board.",
+              author: "Mission Log",
+              channel: "mission"
+            },
             4200
           );
         } else {
           showMessage(
-            "Mission updates shimmer across the bulletin board display.",
+            {
+              text: "Mission updates shimmer across the bulletin board display.",
+              author: "Mission Log",
+              channel: "mission"
+            },
             3800
           );
         }
@@ -1194,10 +1235,24 @@ function update(delta) {
           playerStats.hp = clamp(playerStats.hp + 12, 0, playerStats.maxHp);
           ui.refresh(playerStats);
           audio.playEffect("chestOpen");
-          showMessage("You found herbal tonics! HP restored.", 3600);
+          showMessage(
+            {
+              text: "You found herbal tonics! HP restored.",
+              author: "Mission Log",
+              channel: "mission"
+            },
+            3600
+          );
         } else {
           audio.playEffect("dialogue");
-          showMessage("The chest is empty now, but still shiny.", 2800);
+          showMessage(
+            {
+              text: "The chest is empty now, but still shiny.",
+              author: "Mission Log",
+              channel: "mission"
+            },
+            2800
+          );
         }
       }
     } else if (interactable.type === "fountain") {
@@ -1208,10 +1263,24 @@ function update(delta) {
           playerStats.mp = clamp(playerStats.mp + 18, 0, playerStats.maxMp);
           ui.refresh(playerStats);
           audio.playEffect("fountain");
-          showMessage("Mana rush! Your MP was restored.", 3200);
+          showMessage(
+            {
+              text: "Mana rush! Your MP was restored.",
+              author: "Mission Log",
+              channel: "mission"
+            },
+            3200
+          );
         } else {
           audio.playEffect("dialogue");
-          showMessage("The fountain needs time to recharge.", 3000);
+          showMessage(
+            {
+              text: "The fountain needs time to recharge.",
+              author: "Mission Log",
+              channel: "mission"
+            },
+            3000
+          );
         }
       }
     } else if (interactable.type === "npc") {
@@ -1223,16 +1292,22 @@ function update(delta) {
           const xpAward = missionResult.mission?.xp ?? 0;
           const briefingLine = interactable.dialogue[0];
           interactable.lineIndex = Math.min(1, interactable.dialogue.length - 1);
-          let message = `${interactable.name}: ${briefingLine} +${xpAward} EXP.`;
+          let message = `${briefingLine} +${xpAward} EXP.`;
           if (missionResult.leveledUp) {
             message += ` Level up! You reached level ${playerStats.level}.`;
           }
-          showMessage(message, 5600);
+          showMessage(
+            { text: message, author: interactable.name, channel: "mission" },
+            5600
+          );
         } else {
           const line = interactable.dialogue[interactable.lineIndex];
           interactable.lineIndex =
             (interactable.lineIndex + 1) % interactable.dialogue.length;
-          showMessage(`${interactable.name}: ${line}`, 4600);
+          showMessage(
+            { text: line, author: interactable.name, channel: "mission" },
+            4600
+          );
         }
       }
     } else if (interactable.type === "comms") {
@@ -1247,14 +1322,28 @@ function update(delta) {
           if (result.leveledUp) {
             message += ` Level up! You reached level ${playerStats.level}.`;
           }
-          showMessage(message, 5600);
+          showMessage(
+            { text: message, author: "Mission Command", channel: "mission" },
+            5600
+          );
         } else if (result.alreadyComplete) {
           showMessage(
-            "Mission Control feed already streams updates to your visor.",
+            {
+              text: "Mission Control feed already streams updates to your visor.",
+              author: "Mission Command",
+              channel: "mission"
+            },
             4200
           );
         } else {
-          showMessage("The console hums, waiting for your next command.", 3600);
+          showMessage(
+            {
+              text: "The console hums, waiting for your next command.",
+              author: "Mission Command",
+              channel: "mission"
+            },
+            3600
+          );
         }
       }
     }
@@ -1268,7 +1357,11 @@ function update(delta) {
         if (justPressed.has("KeyE")) {
           audio.playEffect("dialogue");
           showMessage(
-            `The portal resists you. Train until Level ${portalRequiredLevel} to stabilize the jump.`,
+            {
+              text: `The portal resists you. Train until Level ${portalRequiredLevel} to stabilize the jump.`,
+              author: "Mission Command",
+              channel: "mission"
+            },
             5200
           );
         }
@@ -1289,7 +1382,14 @@ function update(delta) {
             completionMessage += ` Level up! You reached level ${playerStats.level}.`;
           }
           audio.playEffect("portalComplete");
-          showMessage(completionMessage, 6200);
+          showMessage(
+            {
+              text: completionMessage,
+              author: "Mission Log",
+              channel: "mission"
+            },
+            6200
+          );
         }
       }
     } else {
@@ -1726,17 +1826,102 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function showMessage(message, duration) {
-  ui.setMessage(message);
+function showMessage(input, duration, meta = {}) {
+  const payload = typeof input === "string" ? { text: input } : { ...input };
+  const resolvedDuration =
+    typeof payload.duration === "number"
+      ? payload.duration
+      : typeof duration === "number"
+        ? duration
+        : 0;
+  const text = payload.text ?? meta.text ?? "";
+  const channel = payload.channel ?? meta.channel ?? "mission";
+  const author =
+    payload.author ??
+    meta.author ??
+    (channel === "friend" ? "Crewmate" : "Mission Command");
+  const animate =
+    typeof payload.animate === "boolean"
+      ? payload.animate
+      : typeof meta.animate === "boolean"
+        ? meta.animate
+        : resolvedDuration > 0;
+  const silent =
+    typeof payload.silent === "boolean"
+      ? payload.silent
+      : typeof meta.silent === "boolean"
+        ? meta.silent
+        : !animate;
+  const log =
+    typeof payload.log === "boolean"
+      ? payload.log
+      : typeof meta.log === "boolean"
+        ? meta.log
+        : animate;
+
+  ui.setMessage(text, {
+    ...meta,
+    ...payload,
+    duration: resolvedDuration,
+    channel,
+    author,
+    animate,
+    silent,
+    log
+  });
+
   if (messageTimerId) {
     clearTimeout(messageTimerId);
+    messageTimerId = 0;
   }
-  if (duration > 0) {
+  if (resolvedDuration > 0) {
     messageTimerId = window.setTimeout(() => {
-      ui.setMessage(defaultMessage);
+      ui.setMessage(defaultMessage, {
+        silent: true,
+        animate: false,
+        log: false
+      });
       messageTimerId = 0;
-    }, duration);
+    }, resolvedDuration);
   }
+}
+
+if (typeof window !== "undefined") {
+  window.astrocatLobby = window.astrocatLobby ?? {};
+  window.astrocatLobby.pushTransmission = (payload) => {
+    if (!payload || typeof payload !== "object") {
+      return;
+    }
+    const duration =
+      typeof payload.duration === "number" ? payload.duration : 5200;
+    showMessage(
+      {
+        ...payload,
+        duration,
+        animate: payload.animate ?? true,
+        silent: payload.silent ?? false,
+        log: payload.log ?? true
+      },
+      duration
+    );
+  };
+  window.astrocatLobby.pushFriendPost = (author, text, duration = 5200) => {
+    if (!text) {
+      return;
+    }
+    showMessage(
+      {
+        text,
+        author: author && typeof author === "string" ? author : "Crewmate",
+        channel: "friend",
+        duration,
+        animate: true,
+        silent: false,
+        log: true
+      },
+      duration
+    );
+  };
 }
 
 function createOnboardingExperience(options, config = {}) {
@@ -1960,6 +2145,13 @@ function createInterface(stats, appearance, options = {}) {
   const canvasWrapper = document.createElement("div");
   canvasWrapper.className = "canvas-wrapper";
 
+  const canvasSurface = document.createElement("div");
+  canvasSurface.className = "canvas-surface";
+  canvasWrapper.append(canvasSurface);
+
+  const chatBoard = createChatBoardSection();
+  canvasWrapper.append(chatBoard.root);
+
   const panel = document.createElement("aside");
   panel.className = "stats-panel";
 
@@ -2159,6 +2351,7 @@ function createInterface(stats, appearance, options = {}) {
   return {
     root,
     canvasWrapper,
+    canvasSurface,
     promptText: "",
     refresh(updatedStats) {
       const subtitleParts = [];
@@ -2187,8 +2380,34 @@ function createInterface(stats, appearance, options = {}) {
     updateCrystals(collected, total) {
       crystalsLabel.textContent = `Crystals collected: ${collected} / ${total}`;
     },
-    setMessage(text) {
-      message.textContent = text;
+    setMessage(text, meta = {}) {
+      const resolvedText = text ?? "";
+      message.textContent = resolvedText;
+      const channel = meta.channel ?? "mission";
+      const author = meta.author ?? (channel === "friend" ? "Crewmate" : "Mission Command");
+      const silent = Boolean(meta.silent);
+      const shouldAnimate = Boolean(
+        meta.animate ?? (!silent && Boolean(resolvedText))
+      );
+      const shouldLog = Boolean(meta.log);
+      if (shouldAnimate) {
+        chatBoard.presentMascot({
+          text: resolvedText,
+          author,
+          channel,
+          duration: meta.duration
+        });
+      } else if (silent || !resolvedText) {
+        chatBoard.hideMascot();
+      }
+      if (shouldLog && resolvedText) {
+        chatBoard.addMessage({
+          text: resolvedText,
+          author,
+          channel,
+          timestamp: meta.timestamp
+        });
+      }
     },
     setPrompt(text) {
       this.promptText = text;
@@ -2232,8 +2451,217 @@ function createInterface(stats, appearance, options = {}) {
         item.append(status, content);
         missionList.append(item);
       }
+    },
+    addFeedMessage(entry) {
+      if (!entry || typeof entry !== "object") {
+        return;
+      }
+      chatBoard.addMessage(entry);
     }
   };
+
+  function createChatBoardSection() {
+    const section = document.createElement("section");
+    section.className = "chat-board";
+
+    const header = document.createElement("div");
+    header.className = "chat-board__header";
+
+    const titleElement = document.createElement("h2");
+    titleElement.className = "chat-board__title";
+    titleElement.textContent = "Mission Feed";
+
+    const legend = document.createElement("div");
+    legend.className = "chat-board__legend";
+    legend.append(
+      createLegendBadge("mission", "Mission Command"),
+      createLegendBadge("friend", "Friends")
+    );
+
+    header.append(titleElement, legend);
+
+    const mascotStage = document.createElement("div");
+    mascotStage.className = "chat-board__mascot";
+    mascotStage.dataset.channel = "mission";
+
+    const mascotFigure = document.createElement("div");
+    mascotFigure.className = "chat-board__mascot-figure";
+
+    const mascotAvatar = document.createElement("div");
+    mascotAvatar.className = "chat-board__mascot-avatar";
+
+    const mascotImage = document.createElement("img");
+    mascotImage.className = "chat-board__mascot-image";
+    mascotImage.alt = "Mission mascot";
+    mascotImage.decoding = "async";
+    mascotImage.hidden = true;
+
+    const mascotPlaceholder = document.createElement("span");
+    mascotPlaceholder.className = "chat-board__mascot-placeholder";
+    mascotPlaceholder.textContent = "MC";
+
+    mascotAvatar.append(mascotImage, mascotPlaceholder);
+    mascotFigure.append(mascotAvatar);
+
+    const bubble = document.createElement("div");
+    bubble.className = "chat-board__bubble";
+    bubble.setAttribute("role", "status");
+    bubble.setAttribute("aria-live", "polite");
+
+    const bubbleLabel = document.createElement("span");
+    bubbleLabel.className = "chat-board__bubble-label";
+    bubbleLabel.textContent = "Mission Command";
+
+    const bubbleText = document.createElement("p");
+    bubbleText.className = "chat-board__bubble-text";
+    bubbleText.textContent = "";
+
+    bubble.append(bubbleLabel, bubbleText);
+    mascotStage.append(mascotFigure, bubble);
+
+    const list = document.createElement("ul");
+    list.className = "chat-board__list";
+
+    const emptyState = document.createElement("li");
+    emptyState.className = "chat-board__empty";
+    emptyState.textContent = "No transmissions yet. Tune in for updates.";
+    list.append(emptyState);
+
+    section.append(header, mascotStage, list);
+
+    let hideTimer = 0;
+
+    function presentMascot({ text, author, channel, duration }) {
+      if (!text) {
+        hideMascot();
+        return;
+      }
+      const resolvedChannel = channel ?? "mission";
+      const resolvedAuthor =
+        author ?? (resolvedChannel === "friend" ? "Crewmate" : "Mission Command");
+      bubbleLabel.textContent = resolvedAuthor;
+      bubbleText.textContent = text;
+      mascotStage.dataset.channel = resolvedChannel;
+      mascotStage.classList.add("is-active");
+      mascotPlaceholder.textContent = computeInitials(resolvedAuthor);
+      if (hideTimer) {
+        window.clearTimeout(hideTimer);
+      }
+      const timeout = typeof duration === "number" && duration > 0 ? duration : 5200;
+      hideTimer = window.setTimeout(() => {
+        hideMascot();
+      }, timeout);
+    }
+
+    function hideMascot() {
+      mascotStage.classList.remove("is-active");
+      if (hideTimer) {
+        window.clearTimeout(hideTimer);
+        hideTimer = 0;
+      }
+    }
+
+    function addMessage({ text, author, channel, timestamp }) {
+      if (!text) {
+        return;
+      }
+      if (emptyState.isConnected) {
+        emptyState.remove();
+      }
+      const resolvedChannel = channel ?? "mission";
+      const resolvedAuthor =
+        author ?? (resolvedChannel === "friend" ? "Crewmate" : "Mission Command");
+
+      const item = document.createElement("li");
+      item.className = "chat-board__item";
+      item.dataset.channel = resolvedChannel;
+
+      const metaRow = document.createElement("div");
+      metaRow.className = "chat-board__meta";
+
+      const authorElement = document.createElement("span");
+      authorElement.className = "chat-board__author";
+      authorElement.textContent = resolvedAuthor;
+
+      const timeElement = document.createElement("time");
+      timeElement.className = "chat-board__time";
+      const date = timestamp instanceof Date ? timestamp : new Date(timestamp ?? Date.now());
+      timeElement.dateTime = date.toISOString();
+      timeElement.textContent = formatTimestamp(date);
+
+      metaRow.append(authorElement, timeElement);
+
+      const body = document.createElement("p");
+      body.className = "chat-board__message";
+      body.textContent = text;
+
+      item.append(metaRow, body);
+      list.append(item);
+
+      const maxItems = 8;
+      while (list.children.length > maxItems) {
+        const firstItem = list.firstElementChild;
+        if (!firstItem) {
+          break;
+        }
+        list.removeChild(firstItem);
+      }
+    }
+
+    function updateMascotSprite() {
+      if (mascotSprite && mascotSprite.image && mascotSprite.image.src) {
+        mascotImage.src = mascotSprite.image.src;
+        mascotImage.hidden = false;
+        mascotPlaceholder.hidden = true;
+      }
+    }
+
+    if (mascotSprite && mascotSprite.image) {
+      if (mascotSprite.isReady()) {
+        updateMascotSprite();
+      } else {
+        mascotSprite.image.addEventListener("load", updateMascotSprite, { once: true });
+      }
+    }
+
+    return {
+      root: section,
+      presentMascot,
+      hideMascot,
+      addMessage
+    };
+
+    function createLegendBadge(channel, label) {
+      const badge = document.createElement("span");
+      badge.className = `chat-board__badge chat-board__badge--${channel}`;
+      badge.textContent = label;
+      return badge;
+    }
+
+    function computeInitials(source) {
+      if (!source) {
+        return "MC";
+      }
+      const trimmed = source.trim();
+      if (!trimmed) {
+        return "MC";
+      }
+      if (trimmed.startsWith("@")) {
+        return trimmed.slice(0, 2).toUpperCase();
+      }
+      const parts = trimmed.split(/\s+/).filter(Boolean);
+      if (parts.length === 1) {
+        return parts[0].slice(0, 2).toUpperCase();
+      }
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+
+    function formatTimestamp(date) {
+      const hours = `${date.getHours()}`.padStart(2, "0");
+      const minutes = `${date.getMinutes()}`.padStart(2, "0");
+      return `${hours}:${minutes}`;
+    }
+  }
 
   function updateAppearancePreview() {
     const presetLabel =
