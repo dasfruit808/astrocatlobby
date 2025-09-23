@@ -44,6 +44,9 @@ body {
 
 .canvas-surface {
   position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .game-canvas {
@@ -64,6 +67,101 @@ body {
   padding: 18px 20px 20px;
   box-shadow: 0 20px 42px rgba(8, 12, 28, 0.5);
   overflow: hidden;
+}
+
+.audio-unlock {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(130, 160, 255, 0.45);
+  background: rgba(24, 32, 64, 0.85);
+  box-shadow: 0 12px 28px rgba(8, 12, 30, 0.4);
+  color: #e8edff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  opacity: 0.95;
+  z-index: 12;
+}
+
+.audio-unlock:hover {
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.audio-unlock:focus-visible {
+  outline: 2px solid rgba(160, 190, 255, 0.85);
+  outline-offset: 2px;
+}
+
+.audio-unlock.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.touch-controls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: none;
+  z-index: 11;
+}
+
+.touch-controls.is-active {
+  display: block;
+}
+
+.touch-controls__cluster {
+  position: absolute;
+  bottom: 18px;
+  display: flex;
+  gap: 14px;
+  pointer-events: auto;
+}
+
+.touch-controls__cluster--left {
+  left: 18px;
+}
+
+.touch-controls__cluster--right {
+  right: 18px;
+}
+
+.touch-controls__button {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 150, 255, 0.45);
+  background: linear-gradient(135deg, rgba(30, 42, 92, 0.82), rgba(18, 24, 52, 0.9));
+  box-shadow: 0 18px 32px rgba(10, 16, 32, 0.45);
+  color: #eef2ff;
+  font-size: 22px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+.touch-controls__button:active {
+  transform: scale(0.95);
+  box-shadow: 0 12px 22px rgba(10, 16, 32, 0.4);
+  background: linear-gradient(135deg, rgba(40, 58, 110, 0.86), rgba(22, 30, 64, 0.92));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .touch-controls {
+    display: none !important;
+  }
 }
 
 .chat-board__header {
