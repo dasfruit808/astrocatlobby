@@ -39,6 +39,54 @@ const baseCanvasHeight = 540;
 // Place a custom background image at public/webpagebackground.png to override
 // the gradient page backdrop.
 const customPageBackgroundUrl = "/webpagebackground.png";
+let customBackgroundAvailabilityProbe = null;
+
+function shouldUseCustomPageBackground() {
+  if (!customPageBackgroundUrl) {
+    return Promise.resolve(false);
+  }
+
+  if (customBackgroundAvailabilityProbe) {
+    return customBackgroundAvailabilityProbe;
+  }
+
+  if (typeof fetch !== "function") {
+    customBackgroundAvailabilityProbe = Promise.resolve(true);
+    return customBackgroundAvailabilityProbe;
+  }
+
+  customBackgroundAvailabilityProbe = fetch(customPageBackgroundUrl, {
+    method: "HEAD",
+    cache: "no-store"
+  })
+    .then((response) => {
+      if (!response) {
+        return false;
+      }
+
+      if (response.ok) {
+        const contentType = response.headers.get("content-type");
+        if (!contentType) {
+          return true;
+        }
+
+        if (contentType.startsWith("image/")) {
+          return true;
+        }
+
+        return false;
+      }
+
+      if (response.status === 405 || response.status === 501) {
+        return true;
+      }
+
+      return false;
+    })
+    .catch(() => false);
+
+  return customBackgroundAvailabilityProbe;
+}
 // The mini game entry point that loads inside the arcade cabinet overlay.
 function resolveMiniGameEntryPoint() {
   const fallback = "./AstroCats3/index.html";
@@ -98,25 +146,33 @@ function applyCustomPageBackground() {
       return;
     }
 
-    const pageBackground = new Image();
-    pageBackground.decoding = "async";
+    shouldUseCustomPageBackground().then((shouldApply) => {
+      if (!shouldApply) {
+        body.classList.remove("has-custom-background");
+        body.style.removeProperty("--page-background-overlay");
+        return;
+      }
 
-    const handleLoad = () => {
-      body.classList.add("has-custom-background");
-      body.style.setProperty(
-        "--page-background-overlay",
-        `url("${pageBackground.src}")`
-      );
-    };
+      const pageBackground = new Image();
+      pageBackground.decoding = "async";
 
-    const handleError = () => {
-      body.classList.remove("has-custom-background");
-      body.style.removeProperty("--page-background-overlay");
-    };
+      const handleLoad = () => {
+        body.classList.add("has-custom-background");
+        body.style.setProperty(
+          "--page-background-overlay",
+          `url("${pageBackground.src}")`
+        );
+      };
 
-    pageBackground.addEventListener("load", handleLoad, { once: true });
-    pageBackground.addEventListener("error", handleError, { once: true });
-    pageBackground.src = customPageBackgroundUrl;
+      const handleError = () => {
+        body.classList.remove("has-custom-background");
+        body.style.removeProperty("--page-background-overlay");
+      };
+
+      pageBackground.addEventListener("load", handleLoad, { once: true });
+      pageBackground.addEventListener("error", handleError, { once: true });
+      pageBackground.src = customPageBackgroundUrl;
+    });
   };
 
   if (document.readyState === "loading") {
