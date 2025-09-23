@@ -1,9 +1,34 @@
+import publicManifest from "virtual:public-manifest";
+
 const backgroundImageUrl = new URL(
   "./assets/LobbyBackground.png",
   import.meta.url
 ).href;
 
 const styleSheetUrl = new URL("./style.css", import.meta.url).href;
+
+function normalizePublicRelativePath(relativePath) {
+  if (typeof relativePath !== "string") {
+    return "";
+  }
+
+  const withoutDots = relativePath.replace(/^(?:\.\/)+/, "");
+  const withoutLeadingSlashes = withoutDots.replace(/^[/\\]+/, "");
+  return withoutLeadingSlashes.replace(/\\/g, "/");
+}
+
+function hasPublicAsset(relativePath) {
+  const normalized = normalizePublicRelativePath(relativePath);
+  if (!normalized) {
+    return false;
+  }
+
+  if (!publicManifest || typeof publicManifest !== "object") {
+    return false;
+  }
+
+  return Object.prototype.hasOwnProperty.call(publicManifest, normalized);
+}
 
 function ensureBaseStyleSheet(href) {
   if (typeof document === "undefined") {
@@ -119,7 +144,11 @@ function resolvePublicAssetUrl(relativePath) {
     return "/";
   }
 
-  const trimmed = relativePath.replace(/^\/+/g, "");
+  const trimmed = normalizePublicRelativePath(relativePath);
+  if (!trimmed) {
+    return "/";
+  }
+
   const fallback = `/${trimmed}`;
   const baseCandidates = [];
 
@@ -174,11 +203,14 @@ function resolvePublicAssetUrl(relativePath) {
   return `/${fallback.replace(/^\/+/g, "")}`;
 }
 
-const customPageBackgroundUrl = resolvePublicAssetUrl("webpagebackground.png");
+const customBackgroundAssetAvailable = hasPublicAsset("webpagebackground.png");
+const customPageBackgroundUrl = customBackgroundAssetAvailable
+  ? resolvePublicAssetUrl("webpagebackground.png")
+  : null;
 let customBackgroundAvailabilityProbe = null;
 
 function shouldUseCustomPageBackground() {
-  if (!customPageBackgroundUrl) {
+  if (!customBackgroundAssetAvailable || !customPageBackgroundUrl) {
     return Promise.resolve(false);
   }
 
@@ -227,9 +259,11 @@ function shouldUseCustomPageBackground() {
 function resolveMiniGameEntryPoint() {
   const fallback = "./AstroCats3/index.html";
 
-  const resolvedEntry = resolvePublicAssetUrl("AstroCats3/index.html");
-  if (resolvedEntry && resolvedEntry !== "/") {
-    return resolvedEntry;
+  if (hasPublicAsset("AstroCats3/index.html")) {
+    const resolvedEntry = resolvePublicAssetUrl("AstroCats3/index.html");
+    if (resolvedEntry && resolvedEntry !== "/") {
+      return resolvedEntry;
+    }
   }
 
   console.warn(
