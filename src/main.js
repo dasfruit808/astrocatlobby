@@ -201,7 +201,7 @@ function resolveMiniGameEntryPoint() {
     }
 
     try {
-      return new URL("AstroCats3/index.html", base).toString();
+      return new URL("./AstroCats3/index.html", base).toString();
     } catch (error) {
       console.warn(
         "Failed to resolve the AstroCats3 mini game entry point from base",
