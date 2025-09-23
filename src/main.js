@@ -41,21 +41,48 @@ const baseCanvasHeight = 540;
 const customPageBackgroundUrl = "/webpagebackground.png";
 // The mini game entry point that loads inside the arcade cabinet overlay.
 function resolveMiniGameEntryPoint() {
-  const fallback = "/AstroCats3/index.html";
+  const fallback = "./AstroCats3/index.html";
 
-  if (typeof document === "undefined" || typeof URL !== "function") {
+  if (typeof URL !== "function") {
     return fallback;
   }
 
-  try {
-    return new URL("AstroCats3/index.html", document.baseURI).toString();
-  } catch (error) {
-    console.warn(
-      "Failed to resolve the AstroCats3 mini game entry point from the current base URI. Falling back to a root-relative path.",
-      error
-    );
-    return fallback;
+  const baseCandidates = [];
+
+  if (typeof document !== "undefined" && document.baseURI) {
+    baseCandidates.push(document.baseURI);
   }
+
+  if (typeof window !== "undefined" && window.location) {
+    const { href, origin } = window.location;
+    if (href) {
+      baseCandidates.push(href);
+    }
+    if (origin && origin !== "null") {
+      baseCandidates.push(origin);
+    }
+  }
+
+  for (const base of baseCandidates) {
+    if (typeof base !== "string" || base.startsWith("about:")) {
+      continue;
+    }
+
+    try {
+      return new URL("AstroCats3/index.html", base).toString();
+    } catch (error) {
+      console.warn(
+        "Failed to resolve the AstroCats3 mini game entry point from base",
+        base,
+        error
+      );
+    }
+  }
+
+  console.warn(
+    "Falling back to a relative AstroCats3 mini game entry point. Ensure public/AstroCats3/index.html is reachable from the current path."
+  );
+  return fallback;
 }
 
 const miniGameEntryPoint = resolveMiniGameEntryPoint();
