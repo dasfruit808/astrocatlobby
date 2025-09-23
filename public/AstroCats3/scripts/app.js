@@ -434,6 +434,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const controllerCursorEl = document.getElementById('controllerCursor');
     resetGamepadCursorState();
 
+    function postParentMessage(type, payload) {
+        if (!type || typeof window === 'undefined') {
+            return;
+        }
+        if (!window.parent || window.parent === window) {
+            return;
+        }
+        if (typeof window.parent.postMessage !== 'function') {
+            return;
+        }
+        try {
+            window.parent.postMessage({ type, payload }, window.location.origin);
+        } catch (error) {
+            // Ignore cross-origin messaging failures.
+        }
+    }
+
     const supportsResizeObserver =
         typeof window !== 'undefined' && typeof window.ResizeObserver === 'function';
     const reducedMotionQuery =
@@ -3581,6 +3598,26 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateSocialFeedPanel() {}
 
     function addSocialMoment() {}
+
+    const broadcastMetaMessage = (text, meta = {}) => {
+        if (typeof text !== 'string' || text.length === 0) {
+            return;
+        }
+        const normalizedMeta = meta && typeof meta === 'object' ? meta : {};
+        addSocialMoment(text, normalizedMeta);
+        postParentMessage('astrocat:minigame-transmission', { text, meta: normalizedMeta });
+    };
+
+    metaProgressManager = createMetaProgressManager({
+        challengeManager: getChallengeManager(),
+        broadcast: broadcastMetaMessage
+    });
+
+    if (metaProgressManager && typeof metaProgressManager.subscribe === 'function') {
+        metaProgressManager.subscribe((snapshot) => {
+            latestMetaSnapshot = snapshot;
+        });
+    }
 
     const intelLoreEntries = [
         {
@@ -15035,8 +15072,27 @@ document.addEventListener('DOMContentLoaded', () => {
             return null;
         }
         const summary = { ...pendingSubmission };
+        summary.recorded = Boolean(recorded);
+        summary.reason = reason ?? null;
+        summary.placement = placement ?? null;
+        summary.runsToday = runsToday ?? 0;
+
+        const normalizedScore = Number(summary.score);
+        summary.score = Number.isFinite(normalizedScore) ? normalizedScore : 0;
+
+        const normalizedBestStreak = Number(summary.bestStreak);
+        summary.bestStreak = Number.isFinite(normalizedBestStreak) ? normalizedBestStreak : 0;
+
+        const normalizedTime = Number(summary.timeMs);
+        summary.timeMs = Number.isFinite(normalizedTime) ? normalizedTime : 0;
+
         const formattedTime = formatTime(summary.timeMs);
         const formattedScore = summary.score.toLocaleString();
+        summary.formattedTime = formattedTime;
+        summary.formattedScore = formattedScore;
+
+        const xpAward = Math.max(1, Math.round(summary.score / 5000));
+        summary.xpAward = xpAward;
         const timestamp = summary.recordedAt;
         lastRunSummary = {
             player: summary.player,
@@ -15106,6 +15162,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 recorded,
                 runsToday
             });
+        }
+        if (summary.reason !== 'tutorial') {
+            postParentMessage('astrocat:minigame-run', summary);
         }
         pendingSubmission = null;
         return { summary, formattedTime, formattedScore };

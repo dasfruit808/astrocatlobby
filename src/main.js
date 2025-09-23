@@ -2805,6 +2805,83 @@ if (typeof window !== "undefined") {
       duration
     );
   };
+
+  const miniGameOrigin = (() => {
+    try {
+      return new URL(miniGameEntryPoint, window.location.href).origin;
+    } catch (error) {
+      return window.location.origin;
+    }
+  })();
+
+  const formatRunDuration = (timeMs) => {
+    const totalSeconds = Math.max(0, Math.round(timeMs / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  };
+
+  window.addEventListener("message", (event) => {
+    if (!event || event.origin !== miniGameOrigin) {
+      return;
+    }
+    const data = event.data;
+    if (!data || typeof data !== "object") {
+      return;
+    }
+    const { type, payload } = data;
+    if (type === "astrocat:minigame-transmission") {
+      if (
+        payload &&
+        window.astrocatLobby &&
+        typeof window.astrocatLobby.pushTransmission === "function"
+      ) {
+        window.astrocatLobby.pushTransmission(payload);
+      }
+      return;
+    }
+    if (type === "astrocat:minigame-run") {
+      if (!payload || typeof payload !== "object") {
+        return;
+      }
+      const summary = { ...payload };
+      const normalizedXp = Math.max(
+        0,
+        Math.round(Number.isFinite(summary.xpAward) ? summary.xpAward : Number(summary.xpAward) || 0)
+      );
+      gainExperience(normalizedXp);
+      ui.refresh(playerStats);
+
+      const playerName =
+        typeof summary.player === "string" && summary.player.trim().length
+          ? summary.player.trim()
+          : "Pilot";
+      const formattedScore = Number.isFinite(summary.score)
+        ? Math.round(summary.score).toLocaleString()
+        : "0";
+      const bestStreak = Number.isFinite(summary.bestStreak)
+        ? Math.max(0, Math.round(summary.bestStreak))
+        : 0;
+      const timeMs = Number.isFinite(summary.timeMs) ? summary.timeMs : 0;
+      const formattedTime =
+        typeof summary.formattedTime === "string" && summary.formattedTime.length
+          ? summary.formattedTime
+          : formatRunDuration(timeMs);
+      const xpLine = normalizedXp > 0 ? ` +${normalizedXp} XP` : "";
+      const messageText = `${playerName} logged ${formattedScore} pts in ${formattedTime} (x${bestStreak} streak).${xpLine}`;
+      showMessage(
+        {
+          text: messageText,
+          channel: "mission",
+          duration: 6400,
+          animate: true,
+          silent: false,
+          log: true
+        },
+        6400
+      );
+    }
+  });
 }
 
 function createOnboardingExperience(options, config = {}) {
