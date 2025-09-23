@@ -484,7 +484,11 @@ const starterCharacterDefinitions = [
     tagline: "A swift navigator blazing across the cosmos.",
     description: "Excels at traversal with boosted dash energy.",
     imageAssets: "./assets/character1.png",
-    spriteAssets: ["./assets/PlayerSprite.png", "./assets/character1.png"],
+    spriteAssets: [
+      "./assets/playersprite1.png",
+      "./assets/PlayerSprite.png",
+      "./assets/character1.png"
+    ],
     palette: {
       background: "#1f2557",
       body: "#fcbf49",
@@ -500,7 +504,11 @@ const starterCharacterDefinitions = [
     tagline: "A mystic tactician attuned to stardust currents.",
     description: "Starts with enhanced insight for puzzle solving.",
     imageAssets: ["./assets/characrter2.png", "./assets/character2.png"],
-    spriteAssets: ["./assets/character2.png", "./assets/characrter2.png"],
+    spriteAssets: [
+      "./assets/playersprite2.png",
+      "./assets/character2.png",
+      "./assets/characrter2.png"
+    ],
     palette: {
       background: "#31163f",
       body: "#c084fc",
@@ -516,7 +524,10 @@ const starterCharacterDefinitions = [
     tagline: "An inventive builder forging gadgets from nebula light.",
     description: "Unlocks crafting recipes and supportive drones early.",
     imageAssets: "./assets/character3.png",
-    spriteAssets: "./assets/character3.png",
+    spriteAssets: [
+      "./assets/playersprite3.png",
+      "./assets/character3.png"
+    ],
     palette: {
       background: "#0f2f32",
       body: "#5eead4",
