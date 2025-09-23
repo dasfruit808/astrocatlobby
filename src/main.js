@@ -1187,6 +1187,7 @@ function handleLogout() {
   ui.setAccount(null, starter);
   ui.refresh(playerStats);
   showMessage("You have logged out. Create your Astrocat account to begin your mission.", 0);
+  syncMiniGameProfile();
 }
 
 function completeAccountSetup(account, options = {}) {
@@ -1209,6 +1210,7 @@ function completeAccountSetup(account, options = {}) {
   const chosenStarter = findStarterCharacter(sanitized.starterId);
   ui.setAccount(sanitized, chosenStarter);
   ui.refresh(playerStats);
+  syncMiniGameProfile();
   if (welcome) {
     showMessage(
       {
@@ -1256,6 +1258,43 @@ function closeOnboarding() {
   document.body.style.overflow = previousBodyOverflow;
 }
 
+function syncMiniGameProfile() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const frame = miniGameOverlayState?.frame;
+  if (!frame) {
+    return;
+  }
+
+  const { contentWindow } = frame;
+  if (!contentWindow) {
+    return;
+  }
+
+  let targetOrigin;
+  try {
+    targetOrigin = new URL(miniGameEntryPoint, window.location.href).origin;
+  } catch (error) {
+    targetOrigin = window.location.origin;
+  }
+
+  const profile = {
+    type: "astrocat:minigame-profile",
+    playerName: playerStats.name,
+    handle: playerStats.handle,
+    callSign: playerStats.callSign,
+    starterId: playerStats.starterId,
+    level: playerStats.level,
+    rank: playerStats.rank,
+    exp: playerStats.exp,
+    maxExp: playerStats.maxExp
+  };
+
+  contentWindow.postMessage(profile, targetOrigin);
+}
+
 function openMiniGame() {
   if (miniGameActive || typeof document === "undefined") {
     if (miniGameOverlayState?.closeButton) {
@@ -1301,6 +1340,9 @@ function openMiniGame() {
   frame.title = "AstroCats mini game";
   frame.loading = "lazy";
   frame.setAttribute("allow", "fullscreen; gamepad *; xr-spatial-tracking");
+  frame.addEventListener("load", () => {
+    syncMiniGameProfile();
+  });
 
   const support = document.createElement("p");
   support.className = "minigame-support";
@@ -1346,10 +1388,13 @@ function openMiniGame() {
   miniGameOverlayState = {
     root: overlay,
     closeButton,
+    frame,
     handleBackdropClick,
     handleEscape
   };
   miniGameActive = true;
+
+  syncMiniGameProfile();
 
   try {
     closeButton.focus({ preventScroll: true });
@@ -2700,6 +2745,7 @@ function gainExperience(amount) {
     audio.playEffect("levelUp");
   }
   ui.refresh(playerStats);
+  syncMiniGameProfile();
   return leveledUp;
 }
 

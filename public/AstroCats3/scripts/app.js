@@ -8101,6 +8101,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const DISPLAY_HIGH_SCORE_COUNT = 3;
     let highScoreData = loadHighScores();
     let playerName = loadStoredPlayerName();
+    window.addEventListener('message', (event) => {
+        if (event.origin !== window.location.origin) {
+            return;
+        }
+        const { data } = event;
+        if (!data || typeof data !== 'object') {
+            return;
+        }
+        if (data.type !== 'astrocat:minigame-profile') {
+            return;
+        }
+        if (typeof data.playerName === 'string') {
+            updatePlayerName(data.playerName);
+        }
+        // Future profile fields (cosmetics, difficulty, etc.) can be handled here.
+    });
     if (!highScoreData[playerName]) {
         highScoreData[playerName] = [];
     }
