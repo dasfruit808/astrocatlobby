@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AstroCats Mini Game</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at top, #1c1a3a 0%, #0a0818 60%, #000 100%);
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: #f7f4ff;
+        padding: 24px;
+        box-sizing: border-box;
+        text-align: center;
+      }
+      main {
+        max-width: 680px;
+        background: rgba(28, 22, 56, 0.85);
+        border-radius: 18px;
+        border: 2px solid rgba(123, 98, 255, 0.6);
+        padding: 32px 28px;
+        box-shadow: 0 24px 60px rgba(10, 8, 30, 0.65);
+      }
+      h1 {
+        margin-top: 0;
+        font-size: clamp(1.8rem, 5vw, 2.6rem);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      p {
+        line-height: 1.6;
+        font-size: 1.05rem;
+        margin: 0 0 1.25rem;
+      }
+      code {
+        font-family: "Fira Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        background: rgba(255, 255, 255, 0.08);
+        padding: 0.25em 0.5em;
+        border-radius: 6px;
+        font-size: 0.95rem;
+      }
+      a {
+        color: #7ee0ff;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Mini Game Placeholder</h1>
+      <p>
+        Drop the production build of the <strong>AstroCats3</strong> mini game into this folder so it can be
+        embedded inside the lobby&rsquo;s arcade cabinet. Replace this placeholder file with your game&rsquo;s
+        <code>index.html</code> entry point and keep all referenced assets next to it.
+      </p>
+      <p>
+        When the cabinet is activated in the lobby, it loads <code>/AstroCats3/index.html</code> inside an in-game
+        console. Keeping your asset paths relative ensures everything is served correctly by Vite.
+      </p>
+      <p>
+        You can also open the mini game directly in a new browser tab at <code>/AstroCats3/index.html</code> to verify
+        it loads as expected.
+      </p>
+    </main>
+  </body>
+</html>

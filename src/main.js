@@ -39,6 +39,8 @@ const baseCanvasHeight = 540;
 // Place a custom background image at public/webpagebackground.png to override
 // the gradient page backdrop.
 const customPageBackgroundUrl = "/webpagebackground.png";
+// The mini game entry point that loads inside the arcade cabinet overlay.
+const miniGameEntryPoint = "/AstroCats3/index.html";
 
 function applyCustomPageBackground() {
   if (typeof document === "undefined") {
@@ -433,6 +435,7 @@ const guideSprite = createOptionalSprite("./assets/GuideSprite.png");
 const crystalSprite = createOptionalSprite("./assets/CrystalSprite.png");
 const platformSprite = createOptionalSprite("./assets/PlatformSprite.png");
 const mascotSprite = createOptionalSprite("./assets/MascotSprite.png");
+const arcadeSprite = createOptionalSprite("./assets/ArcadeSprite.png");
 
 const app = document.querySelector("#app");
 if (!app) {
@@ -1138,6 +1141,9 @@ ui.addFeedMessage({
 
 let onboardingInstance = null;
 let previousBodyOverflow = "";
+let miniGameOverlayState = null;
+let miniGameBodyOverflow = "";
+let miniGameActive = false;
 
 if (!activeAccount) {
   requestAccountLogin();
@@ -1230,6 +1236,137 @@ function closeOnboarding() {
   onboardingInstance.close();
   onboardingInstance = null;
   document.body.style.overflow = previousBodyOverflow;
+}
+
+function openMiniGame() {
+  if (miniGameActive || typeof document === "undefined") {
+    if (miniGameOverlayState?.closeButton) {
+      try {
+        miniGameOverlayState.closeButton.focus({ preventScroll: true });
+      } catch (error) {
+        miniGameOverlayState.closeButton.focus();
+      }
+    }
+    return;
+  }
+
+  const overlay = document.createElement("div");
+  overlay.className = "minigame-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "AstroCats mini game console");
+
+  const modal = document.createElement("div");
+  modal.className = "minigame-modal";
+
+  const header = document.createElement("div");
+  header.className = "minigame-header";
+
+  const title = document.createElement("h2");
+  title.className = "minigame-title";
+  title.textContent = "Starcade Console";
+
+  const closeButton = document.createElement("button");
+  closeButton.type = "button";
+  closeButton.className = "minigame-close";
+  closeButton.textContent = "Back to lobby";
+  header.append(title, closeButton);
+
+  const description = document.createElement("p");
+  description.className = "minigame-description";
+  description.textContent =
+    "The cabinet spins up the AstroCats3 mini game in an in-universe console.";
+
+  const frame = document.createElement("iframe");
+  frame.className = "minigame-frame";
+  frame.src = miniGameEntryPoint;
+  frame.title = "AstroCats mini game";
+  frame.loading = "lazy";
+  frame.setAttribute("allow", "fullscreen; gamepad *; xr-spatial-tracking");
+
+  const support = document.createElement("p");
+  support.className = "minigame-support";
+  support.textContent = "Trouble loading? ";
+  const supportLink = document.createElement("a");
+  supportLink.href = miniGameEntryPoint;
+  supportLink.target = "_blank";
+  supportLink.rel = "noopener noreferrer";
+  supportLink.textContent = "Open the mini game in a new tab";
+  support.append(supportLink, ".");
+
+  modal.append(header, description, frame, support);
+  overlay.append(modal);
+
+  const handleBackdropClick = (event) => {
+    if (event.target === overlay) {
+      closeMiniGame();
+    }
+  };
+  overlay.addEventListener("click", handleBackdropClick);
+
+  const handleEscape = (event) => {
+    if (event.code === "Escape") {
+      event.preventDefault();
+      closeMiniGame();
+    }
+  };
+  window.addEventListener("keydown", handleEscape);
+
+  closeButton.addEventListener("click", () => {
+    closeMiniGame();
+  });
+
+  document.body.append(overlay);
+  miniGameBodyOverflow = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
+
+  keys.clear();
+  justPressed.clear();
+  player.vx = 0;
+  player.vy = 0;
+
+  miniGameOverlayState = {
+    root: overlay,
+    closeButton,
+    handleBackdropClick,
+    handleEscape
+  };
+  miniGameActive = true;
+
+  try {
+    closeButton.focus({ preventScroll: true });
+  } catch (error) {
+    closeButton.focus();
+  }
+}
+
+function closeMiniGame() {
+  if (!miniGameActive) {
+    return;
+  }
+
+  miniGameActive = false;
+
+  if (miniGameOverlayState?.root) {
+    const { root, handleBackdropClick } = miniGameOverlayState;
+    if (handleBackdropClick) {
+      root.removeEventListener("click", handleBackdropClick);
+    }
+    root.remove();
+  }
+
+  if (miniGameOverlayState?.handleEscape) {
+    window.removeEventListener("keydown", miniGameOverlayState.handleEscape);
+  }
+
+  if (typeof document !== "undefined") {
+    document.body.style.overflow = miniGameBodyOverflow;
+  }
+
+  miniGameOverlayState = null;
+  miniGameBodyOverflow = "";
+  keys.clear();
+  justPressed.clear();
 }
 
 const viewport = {
@@ -1473,6 +1610,14 @@ const interactables = [
     opened: false
   },
   {
+    type: "arcade",
+    label: "Starcade Cabinet",
+    x: 520,
+    y: groundY - 102,
+    width: 68,
+    height: 102
+  },
+  {
     type: "npc",
     name: "Nova",
     label: "Nova the Guide",
@@ -1709,6 +1854,14 @@ function update(delta) {
   const previousX = player.x;
   const previousY = player.y;
 
+  if (miniGameActive) {
+    player.vx = 0;
+    player.vy = 0;
+    player.onGround = true;
+    ui.setPrompt("");
+    return;
+  }
+
   const moveLeft = keys.has("ArrowLeft") || keys.has("KeyA");
   const moveRight = keys.has("ArrowRight") || keys.has("KeyD");
   const jumpPressed =
@@ -1894,6 +2047,22 @@ function update(delta) {
             2800
           );
         }
+      }
+    } else if (interactable.type === "arcade") {
+      promptText = "Press E to launch the Starcade";
+      if (justPressed.has("KeyE")) {
+        audio.playEffect("dialogue");
+        openMiniGame();
+        showMessage(
+          {
+            text: "The arcade cabinet hums to life. Press Escape or Back to lobby to return.",
+            author: "Mission Log",
+            channel: "mission",
+            silent: true,
+            log: true
+          },
+          0
+        );
       }
     } else if (interactable.type === "fountain") {
       promptText = "Press E to draw power from the fountain";
@@ -2096,6 +2265,8 @@ function render(timestamp) {
       drawBulletin(interactable, time);
     } else if (interactable.type === "chest") {
       drawChest(interactable);
+    } else if (interactable.type === "arcade") {
+      drawArcade(interactable, time);
     } else if (interactable.type === "fountain") {
       drawFountain(interactable, time);
     } else if (interactable.type === "npc") {
@@ -2304,6 +2475,46 @@ function drawChest(chest) {
   drawRoundedRect(0, 0, chest.width, 18, 6);
   ctx.fillStyle = "#f7d774";
   ctx.fillRect(chest.width / 2 - 4, 18, 8, 10);
+  ctx.restore();
+}
+
+function drawArcade(cabinet, time) {
+  ctx.save();
+  ctx.translate(cabinet.x, cabinet.y);
+  if (arcadeSprite.isReady() && arcadeSprite.image) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(
+      arcadeSprite.image,
+      0,
+      0,
+      arcadeSprite.image.width,
+      arcadeSprite.image.height,
+      0,
+      0,
+      cabinet.width,
+      cabinet.height
+    );
+    ctx.restore();
+    return;
+  }
+
+  const glow = (Math.sin(time * 3.1) + 1) / 2;
+  ctx.fillStyle = "#1a1d33";
+  drawRoundedRect(0, 8, cabinet.width, cabinet.height - 8, 10);
+  ctx.fillStyle = "#2c3563";
+  drawRoundedRect(4, 16, cabinet.width - 8, cabinet.height - 24, 8);
+  const screenHeight = Math.min(56, cabinet.height * 0.48);
+  ctx.fillStyle = `rgba(110, 205, 255, ${0.3 + glow * 0.45})`;
+  drawRoundedRect(12, 24, cabinet.width - 24, screenHeight, 6);
+  ctx.fillStyle = "#040713";
+  drawRoundedRect(14, 26, cabinet.width - 28, screenHeight - 8, 5);
+  ctx.fillStyle = `rgba(255, 188, 255, ${0.4 + glow * 0.35})`;
+  drawRoundedRect(cabinet.width / 2 - 18, cabinet.height - 48, 36, 18, 6);
+  ctx.fillStyle = `rgba(255, 214, 126, ${0.7 + glow * 0.2})`;
+  ctx.beginPath();
+  ctx.arc(cabinet.width / 2 - 26, cabinet.height - 34, 6, 0, Math.PI * 2);
+  ctx.arc(cabinet.width / 2 + 26, cabinet.height - 34, 6, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -2540,6 +2751,8 @@ function showMessage(input, duration, meta = {}) {
 
 if (typeof window !== "undefined") {
   window.astrocatLobby = window.astrocatLobby ?? {};
+  window.astrocatLobby.openMiniGame = openMiniGame;
+  window.astrocatLobby.closeMiniGame = closeMiniGame;
   window.astrocatLobby.pushTransmission = (payload) => {
     if (!payload || typeof payload !== "object") {
       return;
