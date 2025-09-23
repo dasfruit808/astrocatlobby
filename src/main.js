@@ -2047,7 +2047,7 @@ let devicePixelScale = typeof window !== "undefined" ? window.devicePixelRatio |
 let fallbackBackgroundGradient = null;
 let fallbackGradientKey = "";
 const promptFont = "20px 'Segoe UI', sans-serif";
-let promptMetricsCache = { text: "", width: 0 };
+let promptMetricsCache = { text: "", width: 0, height: 0, ascent: 0, descent: 0 };
 
 const getFallbackBackgroundGradient = () => {
   const gradientKey = `${(renderScale * devicePixelScale).toFixed(4)}:${viewport.height}`;
@@ -2067,7 +2067,20 @@ const getPromptMetrics = (text) => {
   }
   ctx.font = promptFont;
   const metrics = ctx.measureText(text);
-  promptMetricsCache = { text, width: metrics.width };
+  const ascent =
+    typeof metrics.actualBoundingBoxAscent === "number"
+      ? metrics.actualBoundingBoxAscent
+      : typeof metrics.fontBoundingBoxAscent === "number"
+        ? metrics.fontBoundingBoxAscent
+        : 16;
+  const descent =
+    typeof metrics.actualBoundingBoxDescent === "number"
+      ? metrics.actualBoundingBoxDescent
+      : typeof metrics.fontBoundingBoxDescent === "number"
+        ? metrics.fontBoundingBoxDescent
+        : 4;
+  const height = ascent + descent;
+  promptMetricsCache = { text, width: metrics.width, height, ascent, descent };
   return promptMetricsCache;
 };
 
@@ -3058,20 +3071,7 @@ function render(timestamp) {
   drawPlayer(player, time);
 
   if (ui.promptText) {
-    ctx.font = promptFont;
-    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-    const metrics = getPromptMetrics(ui.promptText);
-    const x = Math.max(
-      12,
-      Math.min(
-        player.x + player.width / 2 - metrics.width / 2,
-        viewport.width - metrics.width - 12
-      )
-    );
-    const y = player.y - 18;
-    ctx.fillRect(x - 8, y - 22, metrics.width + 16, 32);
-    ctx.fillStyle = "#f1f1ff";
-    ctx.fillText(ui.promptText, x, y);
+    drawPromptBubble(ui.promptText, player);
   }
 }
 
@@ -3198,6 +3198,154 @@ function drawPlayer(entity, time) {
     ctx.fillRect(0, entity.height - 12, entity.width - 12, 12);
     ctx.fillRect(entity.width - 12, entity.height - 8, 12, 8);
   }
+  ctx.restore();
+}
+
+function drawPromptBubble(text, entity) {
+  if (!text) {
+    return;
+  }
+
+  const target = entity ?? player;
+  ctx.save();
+  ctx.font = promptFont;
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "left";
+
+  const metrics = getPromptMetrics(text);
+  const paddingX = 18;
+  const paddingY = 14;
+  const tailHeight = 18;
+  const tailHalfWidth = 20;
+  const radius = 24;
+  const bubbleWidth = metrics.width + paddingX * 2;
+  const minimumHeight = 48;
+  const bubbleHeight = Math.max(metrics.height + paddingY * 2, minimumHeight);
+  const centerX = target.x + target.width / 2;
+  const marginX = 18;
+  let bubbleX = centerX - bubbleWidth / 2;
+  bubbleX = Math.max(marginX, Math.min(bubbleX, viewport.width - bubbleWidth - marginX));
+  let bubbleY = target.y - bubbleHeight - tailHeight - 12;
+  bubbleY = Math.max(18, bubbleY);
+  const tailBaseY = bubbleY + bubbleHeight;
+  const tailTipX = Math.max(
+    bubbleX + radius + 6,
+    Math.min(centerX, bubbleX + bubbleWidth - radius - 6)
+  );
+
+  const traceBubblePath = () => {
+    ctx.beginPath();
+    ctx.moveTo(bubbleX + radius, bubbleY);
+    ctx.lineTo(bubbleX + bubbleWidth - radius, bubbleY);
+    ctx.quadraticCurveTo(
+      bubbleX + bubbleWidth,
+      bubbleY,
+      bubbleX + bubbleWidth,
+      bubbleY + radius
+    );
+    ctx.lineTo(bubbleX + bubbleWidth, tailBaseY - radius);
+    ctx.quadraticCurveTo(
+      bubbleX + bubbleWidth,
+      tailBaseY,
+      bubbleX + bubbleWidth - radius,
+      tailBaseY
+    );
+    ctx.lineTo(tailTipX + tailHalfWidth, tailBaseY);
+    ctx.lineTo(tailTipX, tailBaseY + tailHeight);
+    ctx.lineTo(tailTipX - tailHalfWidth, tailBaseY);
+    ctx.lineTo(bubbleX + radius, tailBaseY);
+    ctx.quadraticCurveTo(bubbleX, tailBaseY, bubbleX, tailBaseY - radius);
+    ctx.lineTo(bubbleX, bubbleY + radius);
+    ctx.quadraticCurveTo(bubbleX, bubbleY, bubbleX + radius, bubbleY);
+    ctx.closePath();
+  };
+
+  ctx.save();
+  ctx.shadowColor = "rgba(35, 20, 68, 0.35)";
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 12;
+  traceBubblePath();
+  const fillGradient = ctx.createLinearGradient(
+    bubbleX,
+    bubbleY,
+    bubbleX,
+    tailBaseY
+  );
+  fillGradient.addColorStop(0, "rgba(255, 255, 255, 0.96)");
+  fillGradient.addColorStop(1, "rgba(255, 223, 246, 0.96)");
+  ctx.fillStyle = fillGradient;
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  traceBubblePath();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#2f47ff";
+  ctx.stroke();
+  ctx.restore();
+
+  const innerRadius = Math.max(12, radius - 6);
+  const innerX = bubbleX + 14;
+  const innerY = bubbleY + 12;
+  const innerWidth = Math.max(0, bubbleWidth - 28);
+  const innerHeight = Math.max(0, bubbleHeight - 24);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(innerX + innerRadius, innerY);
+  ctx.lineTo(innerX + innerWidth - innerRadius, innerY);
+  ctx.quadraticCurveTo(
+    innerX + innerWidth,
+    innerY,
+    innerX + innerWidth,
+    innerY + innerRadius
+  );
+  ctx.lineTo(innerX + innerWidth, innerY + innerHeight - innerRadius);
+  ctx.quadraticCurveTo(
+    innerX + innerWidth,
+    innerY + innerHeight,
+    innerX + innerWidth - innerRadius,
+    innerY + innerHeight
+  );
+  ctx.lineTo(innerX + innerRadius, innerY + innerHeight);
+  ctx.quadraticCurveTo(innerX, innerY + innerHeight, innerX, innerY + innerHeight - innerRadius);
+  ctx.lineTo(innerX, innerY + innerRadius);
+  ctx.quadraticCurveTo(innerX, innerY, innerX + innerRadius, innerY);
+  ctx.closePath();
+  ctx.setLineDash([8, 10]);
+  ctx.lineDashOffset = 4;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(255, 188, 116, 0.55)";
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  const highlightGradient = ctx.createLinearGradient(
+    bubbleX,
+    bubbleY,
+    bubbleX,
+    bubbleY + bubbleHeight * 0.6
+  );
+  highlightGradient.addColorStop(0, "rgba(255, 255, 255, 0.65)");
+  highlightGradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+  traceBubblePath();
+  ctx.clip();
+  ctx.fillStyle = highlightGradient;
+  ctx.fillRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight);
+  ctx.restore();
+
+  const ascent = metrics.ascent || metrics.height * 0.75;
+  const textX = bubbleX + (bubbleWidth - metrics.width) / 2;
+  const textY = bubbleY + paddingY + ascent;
+  ctx.fillStyle = "#2a1d4f";
+  ctx.shadowColor = "rgba(255, 206, 115, 0.7)";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 2;
+  ctx.fillText(text, textX, textY);
+  ctx.restore();
+
   ctx.restore();
 }
 
