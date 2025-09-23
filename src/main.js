@@ -1528,7 +1528,6 @@ const fallbackAccount = {
   starterId: starterCharacters[0].id
 };
 
-const appearanceStorageKey = "astrocat-appearance";
 const appearancePresets = [
   {
     label: "Starbound Scout",
@@ -1555,97 +1554,11 @@ const appearancePresets = [
     shirt: "#8bc34a"
   }
 ];
-
-const appearanceOptions = {
-  hair: Array.from(new Set(appearancePresets.map((preset) => preset.hair))),
-  skin: Array.from(new Set(appearancePresets.map((preset) => preset.skin))),
-  shirt: Array.from(new Set(appearancePresets.map((preset) => preset.shirt)))
+const playerAppearance = {
+  hair: appearancePresets[0].hair,
+  skin: appearancePresets[0].skin,
+  shirt: appearancePresets[0].shirt
 };
-
-function sanitizeAppearance(source = {}) {
-  return {
-    hair: source.hair ?? appearancePresets[0].hair,
-    skin: source.skin ?? appearancePresets[0].skin,
-    shirt: source.shirt ?? appearancePresets[0].shirt
-  };
-}
-
-const defaultAppearance = sanitizeAppearance(appearancePresets[0]);
-
-function findPresetIndex(appearance) {
-  return appearancePresets.findIndex(
-    (preset) =>
-      preset.hair === appearance.hair &&
-      preset.skin === appearance.skin &&
-      preset.shirt === appearance.shirt
-  );
-}
-
-function loadStoredAppearance() {
-  if (typeof window === "undefined" || !window.localStorage) {
-    return null;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(appearanceStorageKey);
-    if (!raw) {
-      return null;
-    }
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") {
-      return null;
-    }
-    return parsed;
-  } catch (error) {
-    console.warn("Failed to load stored appearance", error);
-    return null;
-  }
-}
-
-function saveAppearance(appearance, presetIndex) {
-  if (typeof window === "undefined" || !window.localStorage) {
-    return;
-  }
-
-  try {
-    const payload = JSON.stringify({
-      appearance: sanitizeAppearance(appearance),
-      presetIndex
-    });
-    window.localStorage.setItem(appearanceStorageKey, payload);
-  } catch (error) {
-    console.warn("Failed to persist appearance selection", error);
-  }
-}
-
-const storedAppearance = loadStoredAppearance();
-const playerAppearance = sanitizeAppearance({
-  ...defaultAppearance,
-  ...(storedAppearance?.appearance ?? storedAppearance ?? {})
-});
-
-let currentAppearancePresetIndex = storedAppearance?.presetIndex;
-if (typeof currentAppearancePresetIndex !== "number") {
-  currentAppearancePresetIndex = findPresetIndex(playerAppearance);
-}
-if (currentAppearancePresetIndex === -1) {
-  // Custom palette stored previously; keep colors but do not snap to preset.
-  currentAppearancePresetIndex = -1;
-} else if (
-  currentAppearancePresetIndex < 0 ||
-  currentAppearancePresetIndex >= appearancePresets.length
-) {
-  currentAppearancePresetIndex = findPresetIndex(playerAppearance);
-}
-if (currentAppearancePresetIndex < -1) {
-  currentAppearancePresetIndex = -1;
-}
-if (currentAppearancePresetIndex === undefined || currentAppearancePresetIndex === null) {
-  currentAppearancePresetIndex = findPresetIndex(playerAppearance);
-}
-if (currentAppearancePresetIndex === undefined || currentAppearancePresetIndex === null) {
-  currentAppearancePresetIndex = 0;
-}
 
 const rankThresholds = [
   { level: 1, title: "Recruit" },
@@ -1813,7 +1726,7 @@ function updateRankFromLevel() {
 
 updateRankFromLevel();
 
-const ui = createInterface(playerStats, playerAppearance, {
+const ui = createInterface(playerStats, {
   onRequestLogin: requestAccountLogin,
   onRequestLogout: handleLogout,
   portalLevelRequirement: portalRequiredLevel
@@ -3811,7 +3724,7 @@ function createOnboardingExperience(options, config = {}) {
   };
 }
 
-function createInterface(stats, appearance, options = {}) {
+function createInterface(stats, options = {}) {
   const { onRequestLogin, onRequestLogout, portalLevelRequirement = 1 } = options;
   const root = document.createElement("div");
   root.className = "game-root";
@@ -4239,91 +4152,6 @@ function createInterface(stats, appearance, options = {}) {
     applyMissionState(missionState);
   });
 
-  const appearanceSection = document.createElement("div");
-  appearanceSection.className = "appearance-section";
-
-  const appearanceHeader = document.createElement("div");
-  appearanceHeader.className = "appearance-header";
-  const appearanceTitle = document.createElement("span");
-  appearanceTitle.textContent = "Appearance";
-  appearanceTitle.className = "appearance-title";
-  const customizeButton = document.createElement("button");
-  customizeButton.type = "button";
-  customizeButton.className = "appearance-button";
-  customizeButton.textContent = "Customize";
-  appearanceHeader.append(appearanceTitle, customizeButton);
-  appearanceSection.append(appearanceHeader);
-
-  const appearancePreview = document.createElement("p");
-  appearancePreview.className = "appearance-preview";
-  appearanceSection.append(appearancePreview);
-
-  const previewSwatches = document.createElement("div");
-  previewSwatches.className = "appearance-swatches";
-  const previewSwatchElements = {};
-  for (const key of ["hair", "skin", "shirt"]) {
-    const swatch = document.createElement("span");
-    swatch.className = `appearance-swatch appearance-swatch--${key}`;
-    swatch.title = `${key.charAt(0).toUpperCase()}${key.slice(1)} color`;
-    previewSwatches.append(swatch);
-    previewSwatchElements[key] = swatch;
-  }
-  appearanceSection.append(previewSwatches);
-
-  const appearanceControls = document.createElement("div");
-  appearanceControls.className = "appearance-controls";
-  const colorButtonRegistry = {
-    hair: [],
-    skin: [],
-    shirt: []
-  };
-
-  for (const [key, options] of Object.entries(appearanceOptions)) {
-    const row = document.createElement("div");
-    row.className = "appearance-row";
-    const label = document.createElement("span");
-    label.className = "appearance-row__label";
-    label.textContent = `${key.charAt(0).toUpperCase()}${key.slice(1)}`;
-    const optionGroup = document.createElement("div");
-    optionGroup.className = "appearance-row__options";
-
-    for (const color of options) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "appearance-color";
-      button.style.setProperty("--appearance-color", color);
-      button.title = `${label.textContent}: ${color}`;
-      button.addEventListener("click", () => {
-        appearance[key] = color;
-        const matchedIndex = findPresetIndex(appearance);
-        currentAppearancePresetIndex = matchedIndex >= 0 ? matchedIndex : -1;
-        saveAppearance(appearance, currentAppearancePresetIndex);
-        updateAppearancePreview();
-      });
-      optionGroup.append(button);
-      colorButtonRegistry[key].push({ color, element: button });
-    }
-
-    row.append(label, optionGroup);
-    appearanceControls.append(row);
-  }
-
-  appearanceSection.append(appearanceControls);
-
-  customizeButton.addEventListener("click", () => {
-    const nextIndex =
-      currentAppearancePresetIndex >= 0
-        ? (currentAppearancePresetIndex + 1) % appearancePresets.length
-        : 0;
-    const preset = appearancePresets[nextIndex];
-    appearance.hair = preset.hair;
-    appearance.skin = preset.skin;
-    appearance.shirt = preset.shirt;
-    currentAppearancePresetIndex = nextIndex;
-    saveAppearance(appearance, currentAppearancePresetIndex);
-    updateAppearancePreview();
-  });
-
   const instructions = document.createElement("ul");
   instructions.className = "instruction-list";
   instructions.innerHTML = `
@@ -4331,11 +4159,9 @@ function createInterface(stats, appearance, options = {}) {
     <li>Jump with Space or W/↑</li>
     <li>Press E near objects to interact</li>
   `;
-  panel.append(appearanceSection, instructions);
+  panel.append(instructions);
 
   root.append(canvasWrapper, panel);
-
-  updateAppearancePreview();
 
   function updateAttributeInterface(updatedStats) {
     const availablePoints = Math.max(0, updatedStats.statPoints ?? 0);
@@ -4687,27 +4513,6 @@ function createInterface(stats, appearance, options = {}) {
     }
   }
 
-  function updateAppearancePreview() {
-    const presetLabel =
-      currentAppearancePresetIndex >= 0
-        ? appearancePresets[currentAppearancePresetIndex].label
-        : "Custom Palette";
-    appearancePreview.textContent = `Palette: ${presetLabel}`;
-
-    for (const [key, swatch] of Object.entries(previewSwatchElements)) {
-      swatch.style.setProperty("--appearance-color", appearance[key]);
-    }
-
-    for (const [key, buttons] of Object.entries(colorButtonRegistry)) {
-      for (const { color, element } of buttons) {
-        if (appearance[key] === color) {
-          element.classList.add("is-selected");
-        } else {
-          element.classList.remove("is-selected");
-        }
-      }
-    }
-  }
 
   function createStatBar(labelText, fillColor) {
     const row = document.createElement("div");
