@@ -1023,6 +1023,28 @@ const playerStats = {
   maxMp: 60
 };
 
+const playerSpriteState = createSpriteState("starter sprite");
+let activePlayerSpriteSource = null;
+
+function setPlayerSpriteFromStarter(starterId) {
+  const starter = findStarterCharacter(starterId);
+  const source = starter?.sprite ?? starter?.image ?? null;
+  if (!source) {
+    activePlayerSpriteSource = null;
+    playerSpriteState.handleError();
+    return;
+  }
+
+  if (source === activePlayerSpriteSource) {
+    return;
+  }
+
+  activePlayerSpriteSource = source;
+  playerSpriteState.setSource(source);
+}
+
+setPlayerSpriteFromStarter(playerStats.starterId);
+
 const defaultMessage =
   "Check the Recruit Missions panel for onboarding tasks. Use A/D or ←/→ to move. Press Space to jump.";
 let messageTimerId = 0;
@@ -1337,29 +1359,7 @@ function createTouchControls({ onPress, onRelease, onGesture } = {}) {
 
 const groundY = viewport.height - 96;
 
-const playerSpriteState = createSpriteState("starter sprite");
-let activePlayerSpriteSource = null;
-
-function setPlayerSpriteFromStarter(starterId) {
-  const starter = findStarterCharacter(starterId);
-  const source = starter?.sprite ?? starter?.image ?? null;
-  if (!source) {
-    activePlayerSpriteSource = null;
-    playerSpriteState.handleError();
-    return;
-  }
-
-  if (source === activePlayerSpriteSource) {
-    return;
-  }
-
-  activePlayerSpriteSource = source;
-  playerSpriteState.setSource(source);
-}
-
-setPlayerSpriteFromStarter(playerStats.starterId);
-
-const player = {
+  const player = {
   x: viewport.width / 2 - 36,
   y: groundY - 81,
   width: 72,
