@@ -456,13 +456,34 @@ function createStarterSpriteDataUrl({
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
+function resolveStarterImageSource(assetPaths, fallbackPalette) {
+  const candidatePaths = Array.isArray(assetPaths) ? assetPaths : [assetPaths];
+
+  for (const candidate of candidatePaths) {
+    if (assetManifest && assetManifest[candidate]) {
+      return assetManifest[candidate];
+    }
+
+    try {
+      return new URL(candidate, import.meta.url).href;
+    } catch (error) {
+      console.warn(
+        `Failed to resolve starter sprite asset at ${candidate}. Continuing to next candidate.`,
+        error
+      );
+    }
+  }
+
+  return createStarterSpriteDataUrl(fallbackPalette);
+}
+
 const starterCharacters = [
   {
     id: "comet-cadet",
     name: "Comet Cadet",
     tagline: "A swift navigator blazing across the cosmos.",
     description: "Excels at traversal with boosted dash energy.",
-    image: createStarterSpriteDataUrl({
+    image: resolveStarterImageSource("./assets/character1.png", {
       background: "#1f2557",
       body: "#fcbf49",
       accent: "#f77f00",
@@ -476,7 +497,10 @@ const starterCharacters = [
     name: "Nebula Sage",
     tagline: "A mystic tactician attuned to stardust currents.",
     description: "Starts with enhanced insight for puzzle solving.",
-    image: createStarterSpriteDataUrl({
+    image: resolveStarterImageSource([
+      "./assets/characrter2.png",
+      "./assets/character2.png"
+    ], {
       background: "#31163f",
       body: "#c084fc",
       accent: "#a855f7",
@@ -490,7 +514,7 @@ const starterCharacters = [
     name: "Aurora Engineer",
     tagline: "An inventive builder forging gadgets from nebula light.",
     description: "Unlocks crafting recipes and supportive drones early.",
-    image: createStarterSpriteDataUrl({
+    image: resolveStarterImageSource("./assets/character3.png", {
       background: "#0f2f32",
       body: "#5eead4",
       accent: "#22d3ee",
