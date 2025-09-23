@@ -10,3 +10,7 @@ npm run dev
 ```
 
 The development server runs with Vite and will automatically reload when you change files.  To produce an optimized build run `npm run build`.
+
+## Custom page background
+
+Add a `webpagebackground.png` file to the `public/` directory to replace the default gradient backdrop that surrounds the lobby canvas. The image is applied automatically when present and falls back to the gradient when removed.

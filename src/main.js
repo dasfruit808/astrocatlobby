@@ -36,6 +36,50 @@ const audioManifest = supportsImportMetaGlob
 
 const baseCanvasWidth = 960;
 const baseCanvasHeight = 540;
+// Place a custom background image at public/webpagebackground.png to override
+// the gradient page backdrop.
+const customPageBackgroundUrl = "/webpagebackground.png";
+
+function applyCustomPageBackground() {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  const run = () => {
+    const { body } = document;
+    if (!body) {
+      return;
+    }
+
+    const pageBackground = new Image();
+    pageBackground.decoding = "async";
+
+    const handleLoad = () => {
+      body.classList.add("has-custom-background");
+      body.style.setProperty(
+        "--page-background-overlay",
+        `url("${pageBackground.src}")`
+      );
+    };
+
+    const handleError = () => {
+      body.classList.remove("has-custom-background");
+      body.style.removeProperty("--page-background-overlay");
+    };
+
+    pageBackground.addEventListener("load", handleLoad, { once: true });
+    pageBackground.addEventListener("error", handleError, { once: true });
+    pageBackground.src = customPageBackgroundUrl;
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", run, { once: true });
+  } else {
+    run();
+  }
+}
+
+applyCustomPageBackground();
 
 function createFrameScheduler(callback) {
   let handle = null;
