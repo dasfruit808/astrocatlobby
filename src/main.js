@@ -649,11 +649,25 @@ const messageBoardStorageKey = "astrocat-message-boards";
 const callSignLength = 5;
 
 function getLocalStorage() {
-  if (typeof window === "undefined" || !window.localStorage) {
+  if (typeof window === "undefined") {
     return null;
   }
 
-  return window.localStorage;
+  try {
+    const storage = window.localStorage;
+    if (!storage) {
+      return null;
+    }
+
+    const testKey = "__astrocat-storage-test__";
+    storage.setItem(testKey, "1");
+    storage.removeItem(testKey);
+
+    return storage;
+  } catch (error) {
+    console.warn("Local storage is unavailable", error);
+    return null;
+  }
 }
 
 function isValidCallSign(value) {
