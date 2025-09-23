@@ -1305,6 +1305,105 @@ body {
   box-shadow: 0 12px 22px rgba(80, 120, 255, 0.45);
 }
 
+.minigame-overlay {
+  position: fixed;
+  inset: 0;
+  padding: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 8, 24, 0.78);
+  backdrop-filter: blur(8px);
+  z-index: 1200;
+  overflow-y: auto;
+}
+
+.minigame-modal {
+  width: min(960px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: linear-gradient(160deg, rgba(18, 20, 40, 0.95), rgba(30, 26, 58, 0.9));
+  border-radius: 26px;
+  border: 3px solid rgba(120, 150, 255, 0.6);
+  padding: clamp(20px, 4vw, 32px);
+  box-shadow:
+    0 24px 0 rgba(92, 110, 255, 0.45),
+    0 36px 64px rgba(8, 6, 24, 0.55);
+}
+
+.minigame-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.minigame-title {
+  margin: 0;
+  font-size: clamp(1.4rem, 2.8vw, 1.75rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #eef3ff;
+}
+
+.minigame-close {
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #ff9dd9, #7fa4ff);
+  color: #15152e;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow:
+    0 12px 0 rgba(36, 32, 80, 0.4),
+    0 26px 40px rgba(12, 10, 38, 0.45);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.minigame-close:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 18px 0 rgba(36, 32, 80, 0.35),
+    0 34px 56px rgba(12, 10, 38, 0.45);
+}
+
+.minigame-close:focus-visible {
+  outline: 3px solid #ffec7a;
+  outline-offset: 3px;
+}
+
+.minigame-description,
+.minigame-support {
+  margin: 0;
+  font-size: 0.98rem;
+  color: rgba(215, 226, 255, 0.78);
+  line-height: 1.6;
+}
+
+.minigame-frame {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: clamp(320px, 56vh, 640px);
+  border: none;
+  border-radius: 20px;
+  background: #050713;
+  box-shadow:
+    inset 0 0 0 2px rgba(80, 110, 220, 0.28),
+    0 22px 40px rgba(8, 6, 26, 0.55);
+}
+
+.minigame-support a {
+  color: #7ee0ff;
+  font-weight: 600;
+}
+
+.minigame-support a:hover {
+  text-decoration: none;
+}
+
 @media (max-width: 960px) {
   #app {
     padding: 20px;
@@ -1342,5 +1441,13 @@ body {
 
   .onboarding-nav {
     justify-content: center;
+  }
+
+  .minigame-modal {
+    padding: 20px;
+  }
+
+  .minigame-frame {
+    min-height: clamp(260px, 52vh, 520px);
   }
 }
