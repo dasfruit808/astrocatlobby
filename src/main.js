@@ -804,10 +804,10 @@ if (playerSprite.complete) {
 }
 
 const player = {
-  x: canvas.width / 2 - 24,
-  y: groundY - 54,
-  width: 48,
-  height: 54,
+  x: canvas.width / 2 - 36,
+  y: groundY - 81,
+  width: 72,
+  height: 81,
   vx: 0,
   vy: 0,
   direction: 1,
