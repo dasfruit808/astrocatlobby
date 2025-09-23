@@ -198,6 +198,54 @@ body {
   line-height: 1.45;
 }
 
+.account-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.account-card__action {
+  flex: 1 1 120px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 150, 255, 0.5);
+  background: linear-gradient(135deg, rgba(95, 129, 255, 0.55), rgba(64, 96, 210, 0.35));
+  color: #f7f8ff;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.account-card__action:hover,
+.account-card__action:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(14, 20, 40, 0.35);
+  border-color: rgba(160, 190, 255, 0.6);
+  outline: none;
+}
+
+.account-card__action:active {
+  transform: translateY(0);
+}
+
+.account-card__action--logout {
+  border-color: rgba(255, 135, 164, 0.55);
+  background: linear-gradient(135deg, rgba(255, 115, 145, 0.6), rgba(210, 64, 116, 0.4));
+}
+
+.account-card__action--logout:hover,
+.account-card__action--logout:focus-visible {
+  border-color: rgba(255, 170, 190, 0.65);
+  box-shadow: 0 12px 24px rgba(38, 8, 20, 0.45);
+}
+
+.account-card__action[hidden] {
+  display: none;
+}
+
 .account-card--empty .account-card__handle,
 .account-card--empty .account-card__cat-name {
   font-style: italic;

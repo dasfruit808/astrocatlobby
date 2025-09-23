@@ -525,6 +525,18 @@ function saveAccount(account) {
   }
 }
 
+function clearStoredAccount() {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(accountStorageKey);
+  } catch (error) {
+    console.warn("Failed to clear stored account information", error);
+  }
+}
+
 function findStarterCharacter(starterId) {
   return (
     starterCharacters.find((character) => character.id === starterId) ?? starterCharacters[0]
@@ -532,6 +544,11 @@ function findStarterCharacter(starterId) {
 }
 
 let activeAccount = loadStoredAccount();
+const fallbackAccount = {
+  handle: "",
+  catName: "PixelHero",
+  starterId: starterCharacters[0].id
+};
 
 const appearanceStorageKey = "astrocat-appearance";
 const appearancePresets = [
@@ -653,9 +670,9 @@ if (currentAppearancePresetIndex === undefined || currentAppearancePresetIndex =
 }
 
 const playerStats = {
-  name: activeAccount?.catName ?? "PixelHero",
-  handle: activeAccount?.handle ?? "",
-  starterId: activeAccount?.starterId ?? starterCharacters[0].id,
+  name: activeAccount?.catName ?? fallbackAccount.catName,
+  handle: activeAccount?.handle ?? fallbackAccount.handle,
+  starterId: activeAccount?.starterId ?? fallbackAccount.starterId,
   level: 15,
   rank: "Adventurer",
   exp: 750,
@@ -669,7 +686,10 @@ const playerStats = {
 const defaultMessage = "Use A/D or ←/→ to move. Press Space to jump.";
 let messageTimerId = 0;
 
-const ui = createInterface(playerStats, playerAppearance);
+const ui = createInterface(playerStats, playerAppearance, {
+  onRequestLogin: requestAccountLogin,
+  onRequestLogout: handleLogout
+});
 app.innerHTML = "";
 app.append(ui.root);
 
@@ -680,35 +700,84 @@ let onboardingInstance = null;
 let previousBodyOverflow = "";
 
 if (!activeAccount) {
+  requestAccountLogin();
+}
+
+function requestAccountLogin() {
+  const initialAccount = activeAccount
+    ? { ...activeAccount }
+    : { starterId: playerStats.starterId };
+  openOnboarding(initialAccount);
+}
+
+function handleLogout() {
+  closeOnboarding();
+  activeAccount = null;
+  clearStoredAccount();
+  playerStats.name = fallbackAccount.catName;
+  playerStats.handle = fallbackAccount.handle;
+  playerStats.starterId = fallbackAccount.starterId;
+  const starter = findStarterCharacter(playerStats.starterId);
+  ui.setAccount(null, starter);
+  ui.refresh(playerStats);
+  showMessage("You have logged out. Create your Astrocat account to begin your mission.", 0);
+}
+
+function completeAccountSetup(account, options = {}) {
+  const { welcome = true, persist = true } = options;
+  const sanitized = sanitizeAccount(account);
+  if (!sanitized) {
+    return false;
+  }
+
+  activeAccount = sanitized;
+  if (persist) {
+    saveAccount(sanitized);
+  }
+  playerStats.name = sanitized.catName;
+  playerStats.handle = sanitized.handle;
+  playerStats.starterId = sanitized.starterId;
+  const chosenStarter = findStarterCharacter(sanitized.starterId);
+  ui.setAccount(sanitized, chosenStarter);
+  ui.refresh(playerStats);
+  if (welcome) {
+    showMessage(`Welcome aboard, ${sanitized.catName}!`, 6000);
+  } else {
+    showMessage(defaultMessage, 0);
+  }
+  return true;
+}
+
+function openOnboarding(initialAccount = null) {
+  if (onboardingInstance) {
+    onboardingInstance.focus();
+    return;
+  }
+
   previousBodyOverflow = document.body.style.overflow;
   onboardingInstance = createOnboardingExperience(starterCharacters, {
-    initialAccount: { starterId: initialStarter.id },
+    initialAccount,
     onComplete(account) {
-      const sanitized = sanitizeAccount(account);
-      if (!sanitized) {
-        return;
+      if (completeAccountSetup(account)) {
+        closeOnboarding();
       }
-      activeAccount = sanitized;
-      saveAccount(sanitized);
-      playerStats.name = sanitized.catName;
-      playerStats.handle = sanitized.handle;
-      playerStats.starterId = sanitized.starterId;
-      const chosenStarter = findStarterCharacter(sanitized.starterId);
-      ui.setAccount(sanitized, chosenStarter);
-      ui.refresh(playerStats);
-      showMessage(`Welcome aboard, ${sanitized.catName}!`, 6000);
-      if (onboardingInstance) {
-        onboardingInstance.close();
-        onboardingInstance = null;
-      }
-      document.body.style.overflow = previousBodyOverflow;
     }
   });
+
   if (onboardingInstance) {
     document.body.append(onboardingInstance.root);
     document.body.style.overflow = "hidden";
     onboardingInstance.focus();
   }
+}
+
+function closeOnboarding() {
+  if (!onboardingInstance) {
+    return;
+  }
+  onboardingInstance.close();
+  onboardingInstance = null;
+  document.body.style.overflow = previousBodyOverflow;
 }
 
 const canvas = document.createElement("canvas");
@@ -1640,7 +1709,8 @@ function createOnboardingExperience(options, config = {}) {
   };
 }
 
-function createInterface(stats, appearance) {
+function createInterface(stats, appearance, options = {}) {
+  const { onRequestLogin, onRequestLogout } = options;
   const root = document.createElement("div");
   root.className = "game-root";
 
@@ -1688,6 +1758,30 @@ function createInterface(stats, appearance) {
   accountStarterInfo.append(accountStarterName, accountStarterTagline);
   accountStarter.append(accountStarterImage, accountStarterInfo);
   accountCard.append(accountStarter);
+
+  const accountActions = document.createElement("div");
+  accountActions.className = "account-card__actions";
+  const loginButton = document.createElement("button");
+  loginButton.type = "button";
+  loginButton.className = "account-card__action";
+  loginButton.textContent = "Log in";
+  loginButton.addEventListener("click", () => {
+    if (typeof onRequestLogin === "function") {
+      onRequestLogin();
+    }
+  });
+  const logoutButton = document.createElement("button");
+  logoutButton.type = "button";
+  logoutButton.className = "account-card__action account-card__action--logout";
+  logoutButton.textContent = "Log out";
+  logoutButton.hidden = true;
+  logoutButton.addEventListener("click", () => {
+    if (typeof onRequestLogout === "function") {
+      onRequestLogout();
+    }
+  });
+  accountActions.append(loginButton, logoutButton);
+  accountCard.append(accountActions);
 
   panel.append(accountCard);
 
@@ -1891,6 +1985,16 @@ function createInterface(stats, appearance) {
     bar.value.textContent = `${Math.round(clamped)} / ${Math.round(max)}`;
   }
 
+  function updateAccountActions(isLoggedIn) {
+    if (isLoggedIn) {
+      loginButton.textContent = "Switch account";
+      logoutButton.hidden = false;
+    } else {
+      loginButton.textContent = "Log in";
+      logoutButton.hidden = true;
+    }
+  }
+
   function updateAccountCard(account, starterOverride) {
     const fallbackStarter = starterOverride ?? starterCharacters[0];
 
@@ -1902,6 +2006,7 @@ function createInterface(stats, appearance) {
       accountStarterImage.alt = fallbackStarter.name;
       accountStarterName.textContent = fallbackStarter.name;
       accountStarterTagline.textContent = fallbackStarter.tagline;
+      updateAccountActions(false);
       return;
     }
 
@@ -1913,5 +2018,6 @@ function createInterface(stats, appearance) {
     accountStarterImage.alt = resolvedStarter.name;
     accountStarterName.textContent = resolvedStarter.name;
     accountStarterTagline.textContent = resolvedStarter.tagline;
+    updateAccountActions(true);
   }
 }
