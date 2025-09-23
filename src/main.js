@@ -215,16 +215,39 @@ function ensureBaseStyleSheet(href) {
 
 ensureBaseStyleSheet(styleSheetUrl);
 
+function getImportMetaGlob() {
+  if (typeof import.meta === "undefined" || !import.meta) {
+    return null;
+  }
+
+  const glob = import.meta.glob;
+  if (typeof glob !== "function") {
+    return null;
+  }
+
+  return glob.bind(import.meta);
+}
+
 function tryCreateAssetManifest() {
+  const glob = getImportMetaGlob();
+  if (!glob) {
+    if (typeof console !== "undefined") {
+      console.warn(
+        "import.meta.glob is unavailable in this environment. Falling back to dynamic loading."
+      );
+    }
+    return null;
+  }
+
   try {
-    return import.meta.glob("./assets/*.{png,PNG}", {
+    return glob("./assets/*.{png,PNG}", {
       eager: true,
       import: "default"
     });
   } catch (error) {
     if (error && typeof console !== "undefined") {
       console.warn(
-        "import.meta.glob is unavailable in this environment. Falling back to dynamic loading.",
+        "import.meta.glob failed while loading sprite assets. Falling back to dynamic loading.",
         error
       );
     }
@@ -235,15 +258,25 @@ function tryCreateAssetManifest() {
 const assetManifest = tryCreateAssetManifest();
 
 function tryCreateAudioManifest() {
+  const glob = getImportMetaGlob();
+  if (!glob) {
+    if (typeof console !== "undefined") {
+      console.warn(
+        "import.meta.glob is unavailable for audio assets. Falling back to dynamic loading."
+      );
+    }
+    return null;
+  }
+
   try {
-    return import.meta.glob("./assets/audio/*.{wav,mp3,ogg}", {
+    return glob("./assets/audio/*.{wav,mp3,ogg}", {
       eager: true,
       import: "default"
     });
   } catch (error) {
     if (error && typeof console !== "undefined") {
       console.warn(
-        "import.meta.glob is unavailable for audio assets. Falling back to dynamic loading.",
+        "import.meta.glob failed while loading audio assets. Falling back to dynamic loading.",
         error
       );
     }
