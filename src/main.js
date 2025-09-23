@@ -1358,12 +1358,14 @@ function createTouchControls({ onPress, onRelease, onGesture } = {}) {
 }
 
 const groundY = viewport.height - 96;
+const playerWidth = Math.round(72 * 1.1);
+const playerHeight = Math.round(81 * 1.1);
 
-  const player = {
-  x: viewport.width / 2 - 36,
-  y: groundY - 81,
-  width: 72,
-  height: 81,
+const player = {
+  x: viewport.width / 2 - playerWidth / 2,
+  y: groundY - playerHeight,
+  width: playerWidth,
+  height: playerHeight,
   vx: 0,
   vy: 0,
   direction: 1,
@@ -1397,6 +1399,16 @@ const portal = {
   interactionPadding: 36
 };
 
+const guideBaseX = 320;
+const guideBaseWidth = 42;
+const guideBaseHeight = 54;
+const guideWidth = Math.round(guideBaseWidth * 1.1);
+const guideHeight = Math.round(guideBaseHeight * 1.1);
+const guideFloatOffset = 6;
+const guideCenterX = guideBaseX + guideBaseWidth / 2;
+const guideX = Math.round(guideCenterX - guideWidth / 2);
+const guideY = groundY - guideFloatOffset - guideHeight;
+
 const interactables = [
   {
     type: "bulletin",
@@ -1420,10 +1432,10 @@ const interactables = [
     type: "npc",
     name: "Nova",
     label: "Nova the Guide",
-    x: 320,
-    y: groundY - 60,
-    width: 42,
-    height: 54,
+    x: guideX,
+    y: guideY,
+    width: guideWidth,
+    height: guideHeight,
     missionId: "mission-briefing",
     dialogue: [
       "Welcome to the Astrocat Lobby! The Recruit Missions panel tracks your onboarding tasks.",
