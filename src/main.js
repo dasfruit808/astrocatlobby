@@ -266,6 +266,18 @@ const crystals = [
   { x: 640, y: groundY - 36, radius: 12, collected: false }
 ];
 
+let portalCharge = 0;
+let portalCharged = false;
+let portalCompleted = false;
+
+const portal = {
+  x: canvas.width - 140,
+  y: groundY - 120,
+  width: 100,
+  height: 140,
+  interactionPadding: 36
+};
+
 const interactables = [
   {
     type: "chest",
@@ -419,14 +431,25 @@ function update(delta) {
 
     if (overlapX && overlapY) {
       crystal.collected = true;
+      portalCharge = Math.min(portalCharge + 1, crystals.length);
+      ui.updateCrystals(portalCharge, crystals.length);
+      const fullyCharged = portalCharge === crystals.length;
+      if (fullyCharged) {
+        portalCharged = true;
+      }
       const leveledUp = gainExperience(60);
-      const collectedCount = crystals.filter((c) => c.collected).length;
-      ui.updateCrystals(collectedCount, crystals.length);
       let message = "Crystal energy surges through you! +60 EXP.";
       if (leveledUp) {
         message += ` Level up! You reached level ${playerStats.level}.`;
       }
-      showMessage(message, 4200);
+      if (fullyCharged) {
+        message =
+          "The final crystal ignites the portal! Return and press E to travel onward.";
+        if (leveledUp) {
+          message += ` (Level ${playerStats.level} achieved!)`;
+        }
+      }
+      showMessage(message, fullyCharged ? 5200 : 4200);
     }
   }
 
@@ -468,6 +491,33 @@ function update(delta) {
           (interactable.lineIndex + 1) % interactable.dialogue.length;
         showMessage(`${interactable.name}: ${line}`, 4600);
       }
+    }
+  }
+
+  const nearPortal = isNear(player, portal, portal.interactionPadding);
+  if (nearPortal) {
+    if (portalCharged) {
+      if (portalCompleted) {
+        promptText = "The portal hums softly, its gateway already opened.";
+      } else {
+        promptText = "Press E to step through the charged portal";
+        if (justPressed.has("KeyE")) {
+          portalCompleted = true;
+          const bonusExp = gainExperience(120);
+          playerStats.hp = playerStats.maxHp;
+          playerStats.mp = playerStats.maxMp;
+          playerStats.rank = "Star Voyager";
+          ui.refresh(playerStats);
+          let completionMessage =
+            "You stride into the energized portal! All stats restored for the journey ahead.";
+          if (bonusExp) {
+            completionMessage += ` Level up! You reached level ${playerStats.level}.`;
+          }
+          showMessage(completionMessage, 6200);
+        }
+      }
+    } else {
+      promptText = "The portal is dormant. Gather more crystals.";
     }
   }
 
@@ -550,13 +600,14 @@ function render(timestamp) {
 }
 
 function drawPortal(time) {
-  const portalX = canvas.width - 140;
-  const portalY = groundY - 120;
-  const portalWidth = 100;
-  const portalHeight = 140;
+  const { x: portalX, y: portalY, width: portalWidth, height: portalHeight } = portal;
+  const framePulse = (Math.sin(time * (portalCharged ? 4.4 : 2.2)) + 1) / 2;
+  const archColor = portalCharged ? "#4a2f7f" : "#384d6b";
+  const glowInner = portalCharged ? "rgba(160, 255, 245, 0.95)" : "rgba(150, 205, 255, 0.65)";
+  const glowOuter = portalCharged ? "rgba(90, 220, 200, 0.35)" : "rgba(100, 140, 220, 0.1)";
 
   ctx.save();
-  ctx.fillStyle = "#384d6b";
+  ctx.fillStyle = archColor;
   drawRoundedRect(portalX - 12, portalY - 12, portalWidth + 24, portalHeight + 24, 24);
 
   const glowGradient = ctx.createRadialGradient(
@@ -567,29 +618,50 @@ function drawPortal(time) {
     portalY + portalHeight / 2,
     portalWidth / 2
   );
-  glowGradient.addColorStop(0, "rgba(150, 205, 255, 0.85)");
-  glowGradient.addColorStop(1, "rgba(100, 140, 220, 0.1)");
+  glowGradient.addColorStop(0, glowInner);
+  glowGradient.addColorStop(1, glowOuter);
   ctx.fillStyle = glowGradient;
+  ctx.globalAlpha = portalCharged ? 1 : 0.85;
   drawRoundedRect(portalX, portalY, portalWidth, portalHeight, 20);
 
-  ctx.strokeStyle = `rgba(200, 240, 255, 0.55)`;
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = portalCharged
+    ? `rgba(230, 250, 255, ${0.55 + framePulse * 0.25})`
+    : `rgba(200, 240, 255, 0.55)`;
   ctx.lineWidth = 4;
   ctx.strokeRect(portalX + 12, portalY + 12, portalWidth - 24, portalHeight - 24);
 
-  const pulse = (Math.sin(time * 2.4) + 1) / 2;
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = `rgba(180, 230, 255, ${0.35 + pulse * 0.35})`;
+  const pulse = (Math.sin(time * (portalCharged ? 5.2 : 2.4)) + 1) / 2;
+  const ellipseColor = portalCharged
+    ? `rgba(120, 255, 225, ${0.5 + pulse * 0.4})`
+    : `rgba(180, 230, 255, ${0.35 + pulse * 0.35})`;
+  ctx.lineWidth = portalCharged ? 4 : 3;
+  ctx.strokeStyle = ellipseColor;
   ctx.beginPath();
   ctx.ellipse(
     portalX + portalWidth / 2,
     portalY + portalHeight / 2,
-    24 + pulse * 8,
-    60 + pulse * 12,
+    24 + pulse * (portalCharged ? 14 : 8),
+    60 + pulse * (portalCharged ? 20 : 12),
     0,
     0,
     Math.PI * 2
   );
   ctx.stroke();
+
+  if (portalCharged) {
+    ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+    for (let i = 0; i < 6; i += 1) {
+      const angle = time * 1.6 + (i * Math.PI) / 3;
+      const radius = 32 + framePulse * 12;
+      const orbX = portalX + portalWidth / 2 + Math.cos(angle) * radius;
+      const orbY = portalY + portalHeight / 2 + Math.sin(angle) * (radius * 0.6);
+      const orbSize = 6 + Math.sin(time * 4 + i) * 2;
+      ctx.beginPath();
+      ctx.arc(orbX, orbY, orbSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
   ctx.restore();
 }
 
