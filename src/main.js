@@ -40,7 +40,25 @@ const baseCanvasHeight = 540;
 // the gradient page backdrop.
 const customPageBackgroundUrl = "/webpagebackground.png";
 // The mini game entry point that loads inside the arcade cabinet overlay.
-const miniGameEntryPoint = "/AstroCats3/index.html";
+function resolveMiniGameEntryPoint() {
+  const fallback = "/AstroCats3/index.html";
+
+  if (typeof document === "undefined" || typeof URL !== "function") {
+    return fallback;
+  }
+
+  try {
+    return new URL("AstroCats3/index.html", document.baseURI).toString();
+  } catch (error) {
+    console.warn(
+      "Failed to resolve the AstroCats3 mini game entry point from the current base URI. Falling back to a root-relative path.",
+      error
+    );
+    return fallback;
+  }
+}
+
+const miniGameEntryPoint = resolveMiniGameEntryPoint();
 
 function applyCustomPageBackground() {
   if (typeof document === "undefined") {
