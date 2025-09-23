@@ -38,6 +38,39 @@ const audioManifest = supportsImportMetaGlob
     })
   : null;
 
+const baseCanvasWidth = 960;
+const baseCanvasHeight = 540;
+
+function createFrameScheduler(callback) {
+  let handle = null;
+  let latestArgs = null;
+
+  const run = () => {
+    handle = null;
+    const args = latestArgs ?? [];
+    latestArgs = null;
+    callback(...args);
+  };
+
+  return (...args) => {
+    latestArgs = args;
+    if (handle !== null) {
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      if (typeof window.requestAnimationFrame === "function") {
+        handle = window.requestAnimationFrame(run);
+        return;
+      }
+      handle = window.setTimeout(run, 16);
+      return;
+    }
+
+    callback(...args);
+  };
+}
+
 function createEmptySprite() {
   return {
     image: null,
@@ -114,25 +147,7 @@ function createOptionalSpriteWithoutManifest(assetPath) {
 
   const spriteState = createSpriteState(assetPath);
 
-  const attemptLoad = () => {
-    spriteState.setSource(resolvedUrl);
-  };
-
-  if (typeof fetch === "function") {
-    fetch(resolvedUrl, { method: "HEAD" })
-      .then((response) => {
-        if (!response || !response.ok) {
-          spriteState.handleError();
-          return;
-        }
-        attemptLoad();
-      })
-      .catch(() => {
-        spriteState.handleError();
-      });
-  } else {
-    attemptLoad();
-  }
+  spriteState.setSource(resolvedUrl);
 
   return {
     image: spriteState.image,
@@ -270,22 +285,44 @@ function createAudioManager() {
     levelUp: { path: "./assets/audio/level-up.wav", volume: 0.68 }
   };
 
-  const sounds = {};
-  for (const [key, config] of Object.entries(soundMap)) {
-    sounds[key] = createOptionalAudio(config.path, config);
-  }
-
-  let unlocked = false;
+  const loadedSounds = new Map();
+  const audioSupported = typeof Audio !== "undefined";
+  let unlocked = !audioSupported;
   let pendingBackground = false;
+  const unlockListeners = new Set();
+
+  const ensureSound = (key) => {
+    if (loadedSounds.has(key)) {
+      return loadedSounds.get(key);
+    }
+    const config = soundMap[key];
+    if (!config) {
+      return null;
+    }
+    const handle = createOptionalAudio(config.path, config);
+    loadedSounds.set(key, handle);
+    return handle;
+  };
+
+  const notifyUnlock = () => {
+    for (const listener of unlockListeners) {
+      try {
+        listener();
+      } catch (error) {
+        console.error("Audio unlock listener failed", error);
+      }
+    }
+  };
 
   const playBackground = ({ restart = false } = {}) => {
-    const music = sounds.background;
-    if (!music) {
+    if (!unlocked) {
+      pendingBackground = true;
+      ensureSound("background");
       return;
     }
 
-    if (!unlocked) {
-      pendingBackground = true;
+    const music = ensureSound("background");
+    if (!music) {
       return;
     }
 
@@ -297,25 +334,29 @@ function createAudioManager() {
       return;
     }
     unlocked = true;
+    notifyUnlock();
     if (pendingBackground) {
       pendingBackground = false;
-      playBackground({ restart: false });
+      const music = ensureSound("background");
+      if (music) {
+        music.play({ restart: false });
+      }
     }
   };
 
   const playEffect = (key) => {
-    const effect = sounds[key];
-    if (!effect) {
+    if (!unlocked && key !== "background") {
       return;
     }
-    if (!unlocked && key !== "background") {
+    const effect = ensureSound(key);
+    if (!effect) {
       return;
     }
     effect.play();
   };
 
   const stopBackground = () => {
-    const music = sounds.background;
+    const music = ensureSound("background");
     if (!music) {
       return;
     }
@@ -327,7 +368,20 @@ function createAudioManager() {
     playEffect,
     stopBackground,
     handleUserGesture,
-    mappings: soundMap
+    mappings: soundMap,
+    onUnlock(listener) {
+      if (typeof listener !== "function") {
+        return () => {};
+      }
+      unlockListeners.add(listener);
+      if (unlocked) {
+        listener();
+      }
+      return () => {
+        unlockListeners.delete(listener);
+      };
+    },
+    isUnlocked: () => unlocked
   };
 }
 
@@ -1060,9 +1114,14 @@ function closeOnboarding() {
   document.body.style.overflow = previousBodyOverflow;
 }
 
+const viewport = {
+  width: baseCanvasWidth,
+  height: baseCanvasHeight
+};
+
 const canvas = document.createElement("canvas");
-canvas.width = 960;
-canvas.height = 540;
+canvas.width = viewport.width;
+canvas.height = viewport.height;
 canvas.className = "game-canvas";
 ui.canvasSurface.append(canvas);
 
@@ -1071,7 +1130,160 @@ if (!ctx) {
   throw new Error("Unable to acquire 2D context");
 }
 
-const groundY = canvas.height - 96;
+let renderScale = 1;
+let devicePixelScale = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+let fallbackBackgroundGradient = null;
+let fallbackGradientKey = "";
+const promptFont = "20px 'Segoe UI', sans-serif";
+let promptMetricsCache = { text: "", width: 0 };
+
+const getFallbackBackgroundGradient = () => {
+  const gradientKey = `${(renderScale * devicePixelScale).toFixed(4)}:${viewport.height}`;
+  if (!fallbackBackgroundGradient || fallbackGradientKey !== gradientKey) {
+    fallbackBackgroundGradient = ctx.createLinearGradient(0, 0, 0, viewport.height);
+    fallbackBackgroundGradient.addColorStop(0, "#1a1a28");
+    fallbackBackgroundGradient.addColorStop(0.6, "#25253a");
+    fallbackBackgroundGradient.addColorStop(1, "#2f3d3f");
+    fallbackGradientKey = gradientKey;
+  }
+  return fallbackBackgroundGradient;
+};
+
+const getPromptMetrics = (text) => {
+  if (promptMetricsCache.text === text) {
+    return promptMetricsCache;
+  }
+  ctx.font = promptFont;
+  const metrics = ctx.measureText(text);
+  promptMetricsCache = { text, width: metrics.width };
+  return promptMetricsCache;
+};
+
+const updateCanvasScale = () => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const dpr = window.devicePixelRatio || 1;
+  const surfaceRect = ui.canvasSurface.getBoundingClientRect();
+  const availableWidth = surfaceRect.width || viewport.width;
+  const availableHeight = Math.max(
+    viewport.height,
+    window.innerHeight - surfaceRect.top - 48
+  );
+  const widthScale = availableWidth > 0 ? availableWidth / viewport.width : 1;
+  const heightScale = availableHeight > 0 ? availableHeight / viewport.height : widthScale;
+  let nextScale = Math.min(widthScale, heightScale, 1.6);
+  if (!Number.isFinite(nextScale) || nextScale <= 0) {
+    nextScale = 1;
+  }
+
+  const targetWidth = viewport.width * nextScale;
+  const targetHeight = viewport.height * nextScale;
+
+  canvas.style.width = `${Math.round(targetWidth)}px`;
+  canvas.style.height = `${Math.round(targetHeight)}px`;
+  canvas.width = Math.round(targetWidth * dpr);
+  canvas.height = Math.round(targetHeight * dpr);
+
+  renderScale = nextScale;
+  devicePixelScale = dpr;
+  fallbackBackgroundGradient = null;
+};
+
+const scheduleCanvasScale = createFrameScheduler(updateCanvasScale);
+scheduleCanvasScale();
+
+if (typeof window !== "undefined") {
+  window.addEventListener("resize", scheduleCanvasScale);
+  if (typeof ResizeObserver === "function") {
+    const resizeObserver = new ResizeObserver(() => scheduleCanvasScale());
+    resizeObserver.observe(ui.canvasSurface);
+  }
+}
+
+function createTouchControls({ onPress, onRelease, onGesture } = {}) {
+  const root = document.createElement("div");
+  root.className = "touch-controls";
+
+  const movementCluster = document.createElement("div");
+  movementCluster.className = "touch-controls__cluster touch-controls__cluster--left";
+
+  const actionsCluster = document.createElement("div");
+  actionsCluster.className = "touch-controls__cluster touch-controls__cluster--right";
+
+  root.append(movementCluster, actionsCluster);
+
+  const createButton = (label) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "touch-controls__button";
+    button.textContent = label;
+    button.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+    });
+    return button;
+  };
+
+  const registerButton = (button, code) => {
+    const activePointers = new Set();
+    const handleStart = (event) => {
+      event.preventDefault();
+      if (typeof onGesture === "function") {
+        onGesture();
+      }
+      if (typeof onPress === "function") {
+        onPress(code);
+      }
+      activePointers.add(event.pointerId);
+      if (typeof button.setPointerCapture === "function") {
+        button.setPointerCapture(event.pointerId);
+      }
+    };
+    const handleEnd = (event) => {
+      if (!activePointers.has(event.pointerId)) {
+        return;
+      }
+      activePointers.delete(event.pointerId);
+      event.preventDefault();
+      if (typeof button.releasePointerCapture === "function") {
+        try {
+          button.releasePointerCapture(event.pointerId);
+        } catch (error) {
+          // Ignore release errors on some browsers.
+        }
+      }
+      if (typeof onRelease === "function") {
+        onRelease(code);
+      }
+    };
+
+    button.addEventListener("pointerdown", handleStart);
+    button.addEventListener("pointerup", handleEnd);
+    button.addEventListener("pointerleave", handleEnd);
+    button.addEventListener("pointercancel", handleEnd);
+  };
+
+  const leftButton = createButton("◀");
+  const rightButton = createButton("▶");
+  const jumpButton = createButton("⤒");
+
+  registerButton(leftButton, "ArrowLeft");
+  registerButton(rightButton, "ArrowRight");
+  registerButton(jumpButton, "Space");
+
+  movementCluster.append(leftButton, rightButton);
+  actionsCluster.append(jumpButton);
+
+  return {
+    root,
+    setVisible(visible) {
+      root.classList.toggle("is-active", Boolean(visible));
+      root.setAttribute("aria-hidden", visible ? "false" : "true");
+    }
+  };
+}
+
+const groundY = viewport.height - 96;
 
 const playerSprite = new Image();
 let playerSpriteReady = false;
@@ -1084,7 +1296,7 @@ if (playerSprite.complete) {
 }
 
 const player = {
-  x: canvas.width / 2 - 36,
+  x: viewport.width / 2 - 36,
   y: groundY - 81,
   width: 72,
   height: 81,
@@ -1114,7 +1326,7 @@ let portalCharged = false;
 let portalCompleted = false;
 
 const portal = {
-  x: canvas.width - 140,
+  x: viewport.width - 140,
   y: groundY - 120,
   width: 100,
   height: 140,
@@ -1254,21 +1466,100 @@ function completeMission(missionId) {
 const keys = new Set();
 const justPressed = new Set();
 
+const pressVirtualKey = (code) => {
+  if (!code) {
+    return;
+  }
+  if (!keys.has(code)) {
+    justPressed.add(code);
+  }
+  keys.add(code);
+};
+
+const releaseVirtualKey = (code) => {
+  if (!code) {
+    return;
+  }
+  keys.delete(code);
+};
+
 window.addEventListener("keydown", (event) => {
   audio.handleUserGesture();
-  if (!event.repeat) {
-    justPressed.add(event.code);
-  }
-  keys.add(event.code);
+  pressVirtualKey(event.code);
 });
 
 window.addEventListener("keyup", (event) => {
-  keys.delete(event.code);
+  releaseVirtualKey(event.code);
 });
 
 window.addEventListener("pointerdown", () => {
   audio.handleUserGesture();
 });
+
+window.addEventListener("blur", () => {
+  keys.clear();
+});
+
+const audioPrompt = document.createElement("button");
+audioPrompt.type = "button";
+audioPrompt.className = "audio-unlock";
+audioPrompt.textContent = "Tap to enable sound";
+audioPrompt.addEventListener("click", () => {
+  audio.handleUserGesture();
+});
+ui.canvasSurface.append(audioPrompt);
+
+const hideAudioPrompt = () => {
+  audioPrompt.classList.add("is-hidden");
+  audioPrompt.disabled = true;
+  audioPrompt.setAttribute("aria-hidden", "true");
+};
+
+const showAudioPrompt = () => {
+  audioPrompt.classList.remove("is-hidden");
+  audioPrompt.disabled = false;
+  audioPrompt.setAttribute("aria-hidden", "false");
+};
+
+if (audio.isUnlocked()) {
+  hideAudioPrompt();
+} else {
+  showAudioPrompt();
+}
+
+audio.onUnlock(() => {
+  hideAudioPrompt();
+});
+
+const touchControls = createTouchControls({
+  onPress: pressVirtualKey,
+  onRelease: releaseVirtualKey,
+  onGesture: () => audio.handleUserGesture()
+});
+ui.canvasSurface.append(touchControls.root);
+
+const pointerPreference =
+  typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia("(pointer: coarse)")
+    : null;
+
+const updateTouchControlsVisibility = (matches) => {
+  touchControls.setVisible(Boolean(matches));
+};
+
+if (pointerPreference) {
+  updateTouchControlsVisibility(pointerPreference.matches);
+  const handlePointerPreferenceChange = (event) => {
+    updateTouchControlsVisibility(event.matches);
+  };
+  if (typeof pointerPreference.addEventListener === "function") {
+    pointerPreference.addEventListener("change", handlePointerPreferenceChange);
+  } else if (typeof pointerPreference.addListener === "function") {
+    pointerPreference.addListener(handlePointerPreferenceChange);
+  }
+} else {
+  touchControls.setVisible(false);
+}
 
 if (activeAccount) {
   showMessage(defaultMessage, 0);
@@ -1339,8 +1630,8 @@ function update(delta) {
     player.vx = 0;
   }
 
-  if (player.x + player.width > canvas.width) {
-    player.x = canvas.width - player.width;
+  if (player.x + player.width > viewport.width) {
+    player.x = viewport.width - player.width;
     player.vx = 0;
   }
 
@@ -1632,22 +1923,27 @@ function update(delta) {
 function render(timestamp) {
   const time = timestamp / 1000;
 
+  ctx.setTransform(
+    renderScale * devicePixelScale,
+    0,
+    0,
+    renderScale * devicePixelScale,
+    0,
+    0
+  );
+
   if (backgroundReady) {
-    ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(backgroundImage, 0, 0, viewport.width, viewport.height);
   } else {
-    const backgroundGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    backgroundGradient.addColorStop(0, "#1a1a28");
-    backgroundGradient.addColorStop(0.6, "#25253a");
-    backgroundGradient.addColorStop(1, "#2f3d3f");
-    ctx.fillStyle = backgroundGradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = getFallbackBackgroundGradient();
+    ctx.fillRect(0, 0, viewport.width, viewport.height);
   }
 
   ctx.fillStyle = "#1c2b33";
-  ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+  ctx.fillRect(0, groundY, viewport.width, viewport.height - groundY);
 
   ctx.fillStyle = "#243b25";
-  ctx.fillRect(0, groundY, canvas.width, 16);
+  ctx.fillRect(0, groundY, viewport.width, 16);
 
   if (platformSprite.isReady() && platformSprite.image) {
     ctx.save();
@@ -1697,10 +1993,16 @@ function render(timestamp) {
   drawPlayer(player, time);
 
   if (ui.promptText) {
-    ctx.font = "20px 'Segoe UI', sans-serif";
+    ctx.font = promptFont;
     ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-    const metrics = ctx.measureText(ui.promptText);
-    const x = Math.max(12, Math.min(player.x + player.width / 2 - metrics.width / 2, canvas.width - metrics.width - 12));
+    const metrics = getPromptMetrics(ui.promptText);
+    const x = Math.max(
+      12,
+      Math.min(
+        player.x + player.width / 2 - metrics.width / 2,
+        viewport.width - metrics.width - 12
+      )
+    );
     const y = player.y - 18;
     ctx.fillRect(x - 8, y - 22, metrics.width + 16, 32);
     ctx.fillStyle = "#f1f1ff";
@@ -2508,7 +2810,7 @@ function createInterface(stats, appearance, options = {}) {
 
   let activeCallSign = isValidCallSign(stats.callSign) ? stats.callSign : null;
 
-  function renderCommsBoard(callSign) {
+  const applyCommsBoard = (callSign) => {
     commsMessages.innerHTML = "";
     if (!callSign) {
       commsMessages.hidden = true;
@@ -2559,7 +2861,11 @@ function createInterface(stats, appearance, options = {}) {
       item.append(meta, body);
       commsMessages.append(item);
     }
-  }
+  };
+
+  const scheduleCommsRender = createFrameScheduler((callSign) => {
+    applyCommsBoard(callSign);
+  });
 
   function updateCommsInterface(callSign) {
     const validCallSign = isValidCallSign(callSign) ? callSign : null;
@@ -2580,7 +2886,7 @@ function createInterface(stats, appearance, options = {}) {
       commsInput.placeholder = "Log in to send transmissions.";
     }
 
-    renderCommsBoard(validCallSign);
+    scheduleCommsRender(validCallSign);
   }
 
   commsForm.addEventListener("submit", (event) => {
@@ -2633,7 +2939,7 @@ function createInterface(stats, appearance, options = {}) {
     commsFeedback.hidden = false;
 
     if (targetCallSign === activeCallSign) {
-      renderCommsBoard(activeCallSign);
+      scheduleCommsRender(activeCallSign);
     }
   });
 
@@ -2652,6 +2958,49 @@ function createInterface(stats, appearance, options = {}) {
   missionList.className = "mission-log__list";
   missionSection.append(missionTitle, missionSummary, missionRequirement, missionList);
   panel.append(missionSection);
+
+  const applyMissionState = (missionState) => {
+    const normalizedState = Array.isArray(missionState) ? missionState : [];
+    const total = normalizedState.length;
+    const completed = normalizedState.filter((mission) => mission.completed).length;
+    missionSummary.textContent =
+      total > 0 ? `${completed} / ${total} completed` : "No missions available";
+    missionList.innerHTML = "";
+    for (const mission of normalizedState) {
+      const item = document.createElement("li");
+      item.className = "mission-log__item";
+      if (mission.completed) {
+        item.classList.add("is-completed");
+      }
+
+      const status = document.createElement("span");
+      status.className = "mission-log__status";
+      status.textContent = mission.completed ? "✓" : "•";
+
+      const content = document.createElement("div");
+      content.className = "mission-log__content";
+
+      const name = document.createElement("p");
+      name.className = "mission-log__name";
+      name.textContent = mission.title;
+
+      const description = document.createElement("p");
+      description.className = "mission-log__description";
+      description.textContent = mission.description;
+
+      const reward = document.createElement("span");
+      reward.className = "mission-log__reward";
+      reward.textContent = `+${mission.xp} EXP`;
+
+      content.append(name, description, reward);
+      item.append(status, content);
+      missionList.append(item);
+    }
+  };
+
+  const scheduleMissionRender = createFrameScheduler((missionState) => {
+    applyMissionState(missionState);
+  });
 
   const appearanceSection = document.createElement("div");
   appearanceSection.className = "appearance-section";
@@ -2820,41 +3169,10 @@ function createInterface(stats, appearance, options = {}) {
       updateCommsInterface(account?.callSign);
     },
     updateMissions(missionState) {
-      const total = missionState.length;
-      const completed = missionState.filter((mission) => mission.completed).length;
-      missionSummary.textContent =
-        total > 0 ? `${completed} / ${total} completed` : "No missions available";
-      missionList.innerHTML = "";
-      for (const mission of missionState) {
-        const item = document.createElement("li");
-        item.className = "mission-log__item";
-        if (mission.completed) {
-          item.classList.add("is-completed");
-        }
-
-        const status = document.createElement("span");
-        status.className = "mission-log__status";
-        status.textContent = mission.completed ? "✓" : "•";
-
-        const content = document.createElement("div");
-        content.className = "mission-log__content";
-
-        const name = document.createElement("p");
-        name.className = "mission-log__name";
-        name.textContent = mission.title;
-
-        const description = document.createElement("p");
-        description.className = "mission-log__description";
-        description.textContent = mission.description;
-
-        const reward = document.createElement("span");
-        reward.className = "mission-log__reward";
-        reward.textContent = `+${mission.xp} EXP`;
-
-        content.append(name, description, reward);
-        item.append(status, content);
-        missionList.append(item);
-      }
+      const snapshot = Array.isArray(missionState)
+        ? missionState.map((mission) => ({ ...mission }))
+        : [];
+      scheduleMissionRender(snapshot);
     },
     addFeedMessage(entry) {
       if (!entry || typeof entry !== "object") {
