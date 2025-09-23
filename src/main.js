@@ -1586,6 +1586,80 @@ const portalRequiredLevel = 3;
 const levelExperienceCurve = [80, 140, 220, 310, 420, 540, 680, 840, 1020, 1220];
 const lateLevelGrowthFactor = 1.17;
 const lateLevelBonus = 120;
+const STAT_POINTS_PER_LEVEL = 3;
+
+const attributeDefinitions = [
+  {
+    key: "vitality",
+    label: "Vitality",
+    description: "Raises maximum health and resilience.",
+    base: 5
+  },
+  {
+    key: "strength",
+    label: "Strength",
+    description: "Boosts physical attack power.",
+    base: 5
+  },
+  {
+    key: "agility",
+    label: "Agility",
+    description: "Improves movement speed and evasion.",
+    base: 5
+  },
+  {
+    key: "focus",
+    label: "Focus",
+    description: "Expands energy reserves for abilities.",
+    base: 5
+  }
+];
+
+function createInitialAttributeState() {
+  const attributes = {};
+  for (const definition of attributeDefinitions) {
+    attributes[definition.key] = definition.base;
+  }
+  return attributes;
+}
+
+function applyAttributeScaling(stats, options = {}) {
+  if (!stats) {
+    return;
+  }
+
+  if (!stats.attributes) {
+    stats.attributes = createInitialAttributeState();
+  }
+
+  const attributes = stats.attributes;
+  const vitality = attributes.vitality ?? attributeDefinitions[0].base;
+  const strength = attributes.strength ?? attributeDefinitions[1].base;
+  const agility = attributes.agility ?? attributeDefinitions[2].base;
+  const focus = attributes.focus ?? attributeDefinitions[3].base;
+
+  const preservePercent = options.preservePercent ?? true;
+  const previousMaxHp = stats.maxHp ?? 0;
+  const previousMaxMp = stats.maxMp ?? 0;
+  const hpRatio =
+    preservePercent && previousMaxHp > 0
+      ? clamp(stats.hp ?? previousMaxHp, 0, previousMaxHp) / previousMaxHp
+      : 1;
+  const mpRatio =
+    preservePercent && previousMaxMp > 0
+      ? clamp(stats.mp ?? previousMaxMp, 0, previousMaxMp) / previousMaxMp
+      : 1;
+
+  const newMaxHp = 70 + vitality * 6;
+  const newMaxMp = 30 + focus * 6;
+
+  stats.maxHp = newMaxHp;
+  stats.maxMp = newMaxMp;
+  stats.hp = clamp(Math.round(newMaxHp * hpRatio), 0, newMaxHp);
+  stats.mp = clamp(Math.round(newMaxMp * mpRatio), 0, newMaxMp);
+  stats.attackPower = 8 + strength * 3;
+  stats.speedRating = 8 + agility * 2;
+}
 
 function getExpForNextLevel(level) {
   if (typeof level !== "number" || !Number.isFinite(level)) {
@@ -1617,8 +1691,14 @@ const playerStats = {
   hp: 85,
   maxHp: 100,
   mp: 40,
-  maxMp: 60
+  maxMp: 60,
+  statPoints: STAT_POINTS_PER_LEVEL,
+  attributes: createInitialAttributeState(),
+  attackPower: 0,
+  speedRating: 0
 };
+
+applyAttributeScaling(playerStats, { preservePercent: true });
 
 const playerSpriteState = createSpriteState("starter sprite");
 let activePlayerSpriteSource = null;
@@ -3262,11 +3342,17 @@ function isNear(playerEntity, object, padding) {
 function gainExperience(amount) {
   playerStats.exp += amount;
   let leveledUp = false;
+  let levelsGained = 0;
   while (playerStats.exp >= playerStats.maxExp) {
     playerStats.exp -= playerStats.maxExp;
     playerStats.level += 1;
+    playerStats.statPoints = (playerStats.statPoints ?? 0) + STAT_POINTS_PER_LEVEL;
     playerStats.maxExp = getExpForNextLevel(playerStats.level);
     leveledUp = true;
+    levelsGained += 1;
+  }
+  if (levelsGained > 0) {
+    applyAttributeScaling(playerStats);
   }
   updateRankFromLevel();
   if (leveledUp) {
@@ -3743,6 +3829,87 @@ function createInterface(stats, appearance, options = {}) {
   const mpBar = createStatBar("MP", "linear-gradient(90deg,#74f2ff,#4fa9ff)");
   const expBar = createStatBar("EXP", "linear-gradient(90deg,#fddb92,#d1fdff)");
 
+  const attributePanel = document.createElement("section");
+  attributePanel.className = "attribute-panel";
+
+  const attributeHeader = document.createElement("div");
+  attributeHeader.className = "attribute-panel__header";
+  const attributeTitle = document.createElement("h2");
+  attributeTitle.className = "attribute-panel__title";
+  attributeTitle.textContent = "Stat Allocation";
+  const statPointsBadge = document.createElement("span");
+  statPointsBadge.className = "attribute-panel__points";
+  attributeHeader.append(attributeTitle, statPointsBadge);
+  attributePanel.append(attributeHeader);
+
+  const attributeHint = document.createElement("p");
+  attributeHint.className = "attribute-panel__hint";
+  attributePanel.append(attributeHint);
+
+  const attributeList = document.createElement("div");
+  attributeList.className = "attribute-panel__list";
+  attributePanel.append(attributeList);
+
+  const attributeRows = new Map();
+  for (const definition of attributeDefinitions) {
+    const row = document.createElement("div");
+    row.className = "attribute-panel__row";
+
+    const info = document.createElement("div");
+    info.className = "attribute-panel__info";
+    const name = document.createElement("span");
+    name.className = "attribute-panel__name";
+    name.textContent = definition.label;
+    const description = document.createElement("span");
+    description.className = "attribute-panel__description";
+    description.textContent = definition.description;
+    info.append(name, description);
+
+    const controls = document.createElement("div");
+    controls.className = "attribute-panel__controls";
+    const value = document.createElement("span");
+    value.className = "attribute-panel__value";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "attribute-panel__action";
+    button.textContent = "+";
+    button.setAttribute(
+      "aria-label",
+      `Spend a stat point to increase ${definition.label}`
+    );
+    button.addEventListener("click", () => {
+      allocateStatPoint(definition.key);
+    });
+    controls.append(value, button);
+
+    row.append(info, controls);
+    attributeList.append(row);
+    attributeRows.set(definition.key, { value, button });
+  }
+
+  const derivedStatsDefinitions = [
+    { key: "maxHp", label: "Max Health" },
+    { key: "maxMp", label: "Max Energy" },
+    { key: "attackPower", label: "Attack Power" },
+    { key: "speedRating", label: "Speed" }
+  ];
+  const derivedStatsList = document.createElement("dl");
+  derivedStatsList.className = "attribute-panel__derived";
+  const derivedStatRows = new Map();
+  for (const definition of derivedStatsDefinitions) {
+    const term = document.createElement("dt");
+    term.className = "attribute-panel__derived-label";
+    term.textContent = definition.label;
+    const detail = document.createElement("dd");
+    detail.className = "attribute-panel__derived-value";
+    detail.textContent = "—";
+    derivedStatsList.append(term, detail);
+    derivedStatRows.set(definition.key, detail);
+  }
+  attributePanel.append(derivedStatsList);
+
+  panel.append(attributePanel);
+
   const crystalsLabel = document.createElement("p");
   crystalsLabel.className = "crystal-label";
   panel.append(crystalsLabel);
@@ -4097,6 +4264,69 @@ function createInterface(stats, appearance, options = {}) {
 
   updateAppearancePreview();
 
+  function updateAttributeInterface(updatedStats) {
+    const availablePoints = Math.max(0, updatedStats.statPoints ?? 0);
+    statPointsBadge.textContent =
+      availablePoints === 1 ? "1 point" : `${availablePoints} points`;
+    statPointsBadge.classList.toggle("is-empty", availablePoints === 0);
+    attributeHint.textContent =
+      availablePoints > 0
+        ? `You have ${availablePoints} stat ${availablePoints === 1 ? "point" : "points"} to spend.`
+        : "Complete missions and level up to earn stat points.";
+
+    for (const definition of attributeDefinitions) {
+      const row = attributeRows.get(definition.key);
+      if (!row) {
+        continue;
+      }
+      const rawValue = updatedStats.attributes?.[definition.key];
+      const value = typeof rawValue === "number" ? rawValue : definition.base;
+      row.value.textContent = value.toString();
+      row.button.disabled = availablePoints === 0;
+    }
+  }
+
+  function updateDerivedStatsInterface(updatedStats) {
+    for (const definition of derivedStatsDefinitions) {
+      const target = derivedStatRows.get(definition.key);
+      if (!target) {
+        continue;
+      }
+      const rawValue = updatedStats?.[definition.key];
+      target.textContent =
+        typeof rawValue === "number" ? Math.round(rawValue).toString() : "—";
+    }
+  }
+
+  function allocateStatPoint(attributeKey) {
+    if (!stats) {
+      return;
+    }
+    const availablePoints = Math.max(0, stats.statPoints ?? 0);
+    if (availablePoints <= 0) {
+      statPointsBadge.classList.add("attribute-panel__points--pulse");
+      setTimeout(() => {
+        statPointsBadge.classList.remove("attribute-panel__points--pulse");
+      }, 320);
+      return;
+    }
+    if (!stats.attributes) {
+      stats.attributes = createInitialAttributeState();
+    }
+    const currentValue = stats.attributes[attributeKey] ?? 0;
+    stats.attributes[attributeKey] = currentValue + 1;
+    stats.statPoints = availablePoints - 1;
+    applyAttributeScaling(stats);
+    updateBar(hpBar, stats.hp, stats.maxHp);
+    updateBar(mpBar, stats.mp, stats.maxMp);
+    updateAttributeInterface(stats);
+    updateDerivedStatsInterface(stats);
+    syncMiniGameProfile();
+  }
+
+  updateAttributeInterface(stats);
+  updateDerivedStatsInterface(stats);
+
   return {
     root,
     canvasWrapper,
@@ -4114,6 +4344,8 @@ function createInterface(stats, appearance, options = {}) {
       updateBar(hpBar, updatedStats.hp, updatedStats.maxHp);
       updateBar(mpBar, updatedStats.mp, updatedStats.maxMp);
       updateBar(expBar, updatedStats.exp, updatedStats.maxExp);
+      updateAttributeInterface(updatedStats);
+      updateDerivedStatsInterface(updatedStats);
       const portalCleared = updatedStats.level >= portalLevelRequirement;
       missionRequirement.classList.toggle("is-complete", portalCleared);
       if (portalCleared) {
