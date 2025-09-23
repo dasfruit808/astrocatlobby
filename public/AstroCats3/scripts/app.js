@@ -3608,17 +3608,6 @@ document.addEventListener('DOMContentLoaded', () => {
         postParentMessage('astrocat:minigame-transmission', { text, meta: normalizedMeta });
     };
 
-    metaProgressManager = createMetaProgressManager({
-        challengeManager: getChallengeManager(),
-        broadcast: broadcastMetaMessage
-    });
-
-    if (metaProgressManager && typeof metaProgressManager.subscribe === 'function') {
-        metaProgressManager.subscribe((snapshot) => {
-            latestMetaSnapshot = snapshot;
-        });
-    }
-
     const intelLoreEntries = [
         {
             id: 'mission',
@@ -4193,6 +4182,17 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             storageAvailable = false;
         }
+    }
+
+    metaProgressManager = createMetaProgressManager({
+        challengeManager: getChallengeManager(),
+        broadcast: broadcastMetaMessage
+    });
+
+    if (metaProgressManager && typeof metaProgressManager.subscribe === 'function') {
+        metaProgressManager.subscribe((snapshot) => {
+            latestMetaSnapshot = snapshot;
+        });
     }
 
     const CUSTOM_LOADOUT_VERSION = 1;
