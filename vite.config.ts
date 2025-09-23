@@ -2,9 +2,6 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { defineConfig } from "vite";
 
-const PUBLIC_MANIFEST_VIRTUAL_ID = "virtual:public-manifest";
-const RESOLVED_PUBLIC_MANIFEST_VIRTUAL_ID = `\0${PUBLIC_MANIFEST_VIRTUAL_ID}`;
-
 type PublicManifest = Record<string, string>;
 
 async function readPublicDirectory(
@@ -62,42 +59,41 @@ function isInsidePublicDir(file: string, publicDir: string | null): boolean {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
+function escapeForInlineScript(source: string): string {
+  return source.replace(/<\//g, "\\u003C/");
+}
+
 function publicManifestPlugin() {
   let publicDir: string | null = null;
+  let command: "build" | "serve" = "serve";
 
   return {
     name: "astrocat-public-manifest",
     configResolved(config) {
       publicDir = config.publicDir ? path.resolve(config.root, config.publicDir) : null;
+      command = config.command;
     },
-    resolveId(id: string) {
-      if (id === PUBLIC_MANIFEST_VIRTUAL_ID) {
-        return RESOLVED_PUBLIC_MANIFEST_VIRTUAL_ID;
-      }
-      return null;
-    },
-    async load(id: string) {
-      if (id !== RESOLVED_PUBLIC_MANIFEST_VIRTUAL_ID) {
-        return null;
-      }
-
+    async transformIndexHtml() {
       const manifest = await createPublicManifest(publicDir);
-      return `const manifest = ${JSON.stringify(manifest, null, 2)};\nexport default manifest;\n`;
+      const serialized = escapeForInlineScript(
+        JSON.stringify(manifest, null, command === "build" ? 0 : 2)
+      );
+
+      return {
+        tags: [
+          {
+            tag: "script",
+            attrs: { id: "astrocat-public-manifest" },
+            children: `window.__ASTROCAT_PUBLIC_MANIFEST__ = ${serialized};`,
+            injectTo: "head"
+          }
+        ]
+      } satisfies import("vite").IndexHtmlTransformResult;
     },
     configureServer(server) {
-      const invalidate = () => {
-        const module = server.moduleGraph.getModuleById(
-          RESOLVED_PUBLIC_MANIFEST_VIRTUAL_ID
-        );
-        if (module) {
-          server.moduleGraph.invalidateModule(module);
-        }
-        server.ws.send({ type: "full-reload" });
-      };
-
       const handleChange = (file: string) => {
         if (isInsidePublicDir(file, publicDir)) {
-          invalidate();
+          server.ws.send({ type: "full-reload" });
         }
       };
 
