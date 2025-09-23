@@ -1012,8 +1012,6 @@ const playerStats = {
   maxMp: 60
 };
 
-setPlayerSpriteFromStarter(playerStats.starterId);
-
 const defaultMessage =
   "Check the Recruit Missions panel for onboarding tasks. Use A/D or ←/→ to move. Press Space to jump.";
 let messageTimerId = 0;
@@ -1347,6 +1345,8 @@ function setPlayerSpriteFromStarter(starterId) {
   activePlayerSpriteSource = source;
   playerSpriteState.setSource(source);
 }
+
+setPlayerSpriteFromStarter(playerStats.starterId);
 
 const player = {
   x: viewport.width / 2 - 36,
