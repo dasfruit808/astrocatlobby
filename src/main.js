@@ -79,6 +79,125 @@ if (backgroundImage.complete && backgroundImage.naturalWidth > 0) {
   markBackgroundReady();
 }
 
+const appearanceStorageKey = "astrocat-appearance";
+const appearancePresets = [
+  {
+    label: "Starbound Scout",
+    hair: "#8b5a2b",
+    skin: "#ffb6c1",
+    shirt: "#4b6cff"
+  },
+  {
+    label: "Nebula Nomad",
+    hair: "#1f1b2e",
+    skin: "#f6d1b1",
+    shirt: "#f06292"
+  },
+  {
+    label: "Solar Sailor",
+    hair: "#d89c59",
+    skin: "#d7a98c",
+    shirt: "#3ddad7"
+  },
+  {
+    label: "Lunar Pathfinder",
+    hair: "#6a4c93",
+    skin: "#bfa0d4",
+    shirt: "#8bc34a"
+  }
+];
+
+const appearanceOptions = {
+  hair: Array.from(new Set(appearancePresets.map((preset) => preset.hair))),
+  skin: Array.from(new Set(appearancePresets.map((preset) => preset.skin))),
+  shirt: Array.from(new Set(appearancePresets.map((preset) => preset.shirt)))
+};
+
+function sanitizeAppearance(source = {}) {
+  return {
+    hair: source.hair ?? appearancePresets[0].hair,
+    skin: source.skin ?? appearancePresets[0].skin,
+    shirt: source.shirt ?? appearancePresets[0].shirt
+  };
+}
+
+const defaultAppearance = sanitizeAppearance(appearancePresets[0]);
+
+function findPresetIndex(appearance) {
+  return appearancePresets.findIndex(
+    (preset) =>
+      preset.hair === appearance.hair &&
+      preset.skin === appearance.skin &&
+      preset.shirt === appearance.shirt
+  );
+}
+
+function loadStoredAppearance() {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(appearanceStorageKey);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    console.warn("Failed to load stored appearance", error);
+    return null;
+  }
+}
+
+function saveAppearance(appearance, presetIndex) {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return;
+  }
+
+  try {
+    const payload = JSON.stringify({
+      appearance: sanitizeAppearance(appearance),
+      presetIndex
+    });
+    window.localStorage.setItem(appearanceStorageKey, payload);
+  } catch (error) {
+    console.warn("Failed to persist appearance selection", error);
+  }
+}
+
+const storedAppearance = loadStoredAppearance();
+const playerAppearance = sanitizeAppearance({
+  ...defaultAppearance,
+  ...(storedAppearance?.appearance ?? storedAppearance ?? {})
+});
+
+let currentAppearancePresetIndex = storedAppearance?.presetIndex;
+if (typeof currentAppearancePresetIndex !== "number") {
+  currentAppearancePresetIndex = findPresetIndex(playerAppearance);
+}
+if (currentAppearancePresetIndex === -1) {
+  // Custom palette stored previously; keep colors but do not snap to preset.
+  currentAppearancePresetIndex = -1;
+} else if (
+  currentAppearancePresetIndex < 0 ||
+  currentAppearancePresetIndex >= appearancePresets.length
+) {
+  currentAppearancePresetIndex = findPresetIndex(playerAppearance);
+}
+if (currentAppearancePresetIndex < -1) {
+  currentAppearancePresetIndex = -1;
+}
+if (currentAppearancePresetIndex === undefined || currentAppearancePresetIndex === null) {
+  currentAppearancePresetIndex = findPresetIndex(playerAppearance);
+}
+if (currentAppearancePresetIndex === undefined || currentAppearancePresetIndex === null) {
+  currentAppearancePresetIndex = 0;
+}
+
 const playerStats = {
   name: "PixelHero",
   level: 15,
@@ -94,7 +213,7 @@ const playerStats = {
 const defaultMessage = "Use A/D or ←/→ to move. Press Space to jump.";
 let messageTimerId = 0;
 
-const ui = createInterface(playerStats);
+const ui = createInterface(playerStats, playerAppearance);
 app.innerHTML = "";
 app.append(ui.root);
 
@@ -129,7 +248,8 @@ const player = {
   vx: 0,
   vy: 0,
   direction: 1,
-  onGround: false
+  onGround: false,
+  appearance: playerAppearance
 };
 
 const platforms = [
@@ -479,6 +599,8 @@ function drawPlayer(entity, time) {
   ctx.scale(entity.direction, 1);
   ctx.translate(-entity.width / 2, -entity.height);
 
+  const appearance = entity.appearance ?? playerAppearance;
+
   if (playerSpriteReady) {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(
@@ -492,14 +614,30 @@ function drawPlayer(entity, time) {
       entity.width,
       entity.height
     );
+
+    ctx.save();
+    ctx.globalCompositeOperation = "source-atop";
+
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = appearance.hair;
+    ctx.fillRect(0, 0, entity.width, entity.height * 0.28);
+
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = appearance.skin;
+    ctx.fillRect(entity.width * 0.18, entity.height * 0.04, entity.width * 0.64, entity.height * 0.34);
+
+    ctx.globalAlpha = 0.24;
+    ctx.fillStyle = appearance.shirt;
+    ctx.fillRect(0, entity.height * 0.32, entity.width, entity.height * 0.68);
+    ctx.restore();
   } else {
-    ctx.fillStyle = "#4b6cff";
+    ctx.fillStyle = appearance.shirt;
     drawRoundedRect(4, 12, entity.width - 8, entity.height - 18, 6);
 
-    ctx.fillStyle = "#ffb6c1";
+    ctx.fillStyle = appearance.skin;
     drawRoundedRect(6, 0, entity.width - 12, 18, 6);
 
-    ctx.fillStyle = "#8b5a2b";
+    ctx.fillStyle = appearance.hair;
     ctx.fillRect(8, 16, entity.width - 16, 6);
 
     ctx.fillStyle = "#111";
@@ -698,7 +836,7 @@ function showMessage(message, duration) {
   }
 }
 
-function createInterface(stats) {
+function createInterface(stats, appearance) {
   const root = document.createElement("div");
   root.className = "game-root";
 
@@ -732,6 +870,91 @@ function createInterface(stats) {
   message.className = "message";
   panel.append(message);
 
+  const appearanceSection = document.createElement("div");
+  appearanceSection.className = "appearance-section";
+
+  const appearanceHeader = document.createElement("div");
+  appearanceHeader.className = "appearance-header";
+  const appearanceTitle = document.createElement("span");
+  appearanceTitle.textContent = "Appearance";
+  appearanceTitle.className = "appearance-title";
+  const customizeButton = document.createElement("button");
+  customizeButton.type = "button";
+  customizeButton.className = "appearance-button";
+  customizeButton.textContent = "Customize";
+  appearanceHeader.append(appearanceTitle, customizeButton);
+  appearanceSection.append(appearanceHeader);
+
+  const appearancePreview = document.createElement("p");
+  appearancePreview.className = "appearance-preview";
+  appearanceSection.append(appearancePreview);
+
+  const previewSwatches = document.createElement("div");
+  previewSwatches.className = "appearance-swatches";
+  const previewSwatchElements = {};
+  for (const key of ["hair", "skin", "shirt"]) {
+    const swatch = document.createElement("span");
+    swatch.className = `appearance-swatch appearance-swatch--${key}`;
+    swatch.title = `${key.charAt(0).toUpperCase()}${key.slice(1)} color`;
+    previewSwatches.append(swatch);
+    previewSwatchElements[key] = swatch;
+  }
+  appearanceSection.append(previewSwatches);
+
+  const appearanceControls = document.createElement("div");
+  appearanceControls.className = "appearance-controls";
+  const colorButtonRegistry = {
+    hair: [],
+    skin: [],
+    shirt: []
+  };
+
+  for (const [key, options] of Object.entries(appearanceOptions)) {
+    const row = document.createElement("div");
+    row.className = "appearance-row";
+    const label = document.createElement("span");
+    label.className = "appearance-row__label";
+    label.textContent = `${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+    const optionGroup = document.createElement("div");
+    optionGroup.className = "appearance-row__options";
+
+    for (const color of options) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "appearance-color";
+      button.style.setProperty("--appearance-color", color);
+      button.title = `${label.textContent}: ${color}`;
+      button.addEventListener("click", () => {
+        appearance[key] = color;
+        const matchedIndex = findPresetIndex(appearance);
+        currentAppearancePresetIndex = matchedIndex >= 0 ? matchedIndex : -1;
+        saveAppearance(appearance, currentAppearancePresetIndex);
+        updateAppearancePreview();
+      });
+      optionGroup.append(button);
+      colorButtonRegistry[key].push({ color, element: button });
+    }
+
+    row.append(label, optionGroup);
+    appearanceControls.append(row);
+  }
+
+  appearanceSection.append(appearanceControls);
+
+  customizeButton.addEventListener("click", () => {
+    const nextIndex =
+      currentAppearancePresetIndex >= 0
+        ? (currentAppearancePresetIndex + 1) % appearancePresets.length
+        : 0;
+    const preset = appearancePresets[nextIndex];
+    appearance.hair = preset.hair;
+    appearance.skin = preset.skin;
+    appearance.shirt = preset.shirt;
+    currentAppearancePresetIndex = nextIndex;
+    saveAppearance(appearance, currentAppearancePresetIndex);
+    updateAppearancePreview();
+  });
+
   const instructions = document.createElement("ul");
   instructions.className = "instruction-list";
   instructions.innerHTML = `
@@ -739,9 +962,11 @@ function createInterface(stats) {
     <li>Jump with Space or W/↑</li>
     <li>Press E near objects to interact</li>
   `;
-  panel.append(instructions);
+  panel.append(appearanceSection, instructions);
 
   root.append(canvasWrapper, panel);
+
+  updateAppearancePreview();
 
   return {
     root,
@@ -763,6 +988,28 @@ function createInterface(stats) {
       this.promptText = text;
     }
   };
+
+  function updateAppearancePreview() {
+    const presetLabel =
+      currentAppearancePresetIndex >= 0
+        ? appearancePresets[currentAppearancePresetIndex].label
+        : "Custom Palette";
+    appearancePreview.textContent = `Palette: ${presetLabel}`;
+
+    for (const [key, swatch] of Object.entries(previewSwatchElements)) {
+      swatch.style.setProperty("--appearance-color", appearance[key]);
+    }
+
+    for (const [key, buttons] of Object.entries(colorButtonRegistry)) {
+      for (const { color, element } of buttons) {
+        if (appearance[key] === color) {
+          element.classList.add("is-selected");
+        } else {
+          element.classList.remove("is-selected");
+        }
+      }
+    }
+  }
 
   function createStatBar(labelText, fillColor) {
     const row = document.createElement("div");
