@@ -6397,15 +6397,60 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     ];
 
-    metaProgressManager = createMetaProgressManager({
-        challengeManager: getChallengeManager(),
-        broadcast: broadcastMetaMessage,
-        seasonTrack: SEASON_PASS_TRACK
-    });
+    function attemptInitializeMetaProgressManager() {
+        if (metaProgressManager) {
+            return metaProgressManager;
+        }
 
-    if (metaProgressManager && typeof metaProgressManager.subscribe === 'function') {
-        metaProgressManager.subscribe((snapshot) => {
-            latestMetaSnapshot = snapshot;
+        let seasonTrack;
+        try {
+            seasonTrack = SEASON_PASS_TRACK;
+        } catch (error) {
+            if (error instanceof ReferenceError) {
+                return null;
+            }
+            throw error;
+        }
+
+        const manager = createMetaProgressManager({
+            challengeManager: getChallengeManager(),
+            broadcast: broadcastMetaMessage,
+            seasonTrack
+        });
+
+        if (!manager) {
+            return null;
+        }
+
+        metaProgressManager = manager;
+
+        if (typeof metaProgressManager.subscribe === 'function') {
+            metaProgressManager.subscribe((snapshot) => {
+                latestMetaSnapshot = snapshot;
+            });
+        }
+
+        return metaProgressManager;
+    }
+
+    if (!attemptInitializeMetaProgressManager()) {
+        const scheduleMetaInitialization =
+            typeof queueMicrotask === 'function'
+                ? queueMicrotask
+                : (callback) => Promise.resolve().then(callback);
+
+        scheduleMetaInitialization(() => {
+            if (!attemptInitializeMetaProgressManager()) {
+                const initializeWhenReady = () => {
+                    attemptInitializeMetaProgressManager();
+                };
+
+                if (typeof document !== 'undefined' && document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', initializeWhenReady, { once: true });
+                } else {
+                    initializeWhenReady();
+                }
+            }
         });
     }
 
