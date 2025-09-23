@@ -148,17 +148,26 @@ function normalizePublicRelativePath(relativePath) {
   return withoutLeadingSlashes.replace(/\\/g, "/");
 }
 
-function hasPublicAsset(relativePath) {
+function getPublicAssetUrl(relativePath) {
   const normalized = normalizePublicRelativePath(relativePath);
   if (!normalized) {
-    return false;
+    return null;
   }
 
   if (!publicManifest || typeof publicManifest !== "object") {
-    return false;
+    return null;
   }
 
-  return Object.prototype.hasOwnProperty.call(publicManifest, normalized);
+  const assetUrl = publicManifest[normalized];
+  if (typeof assetUrl !== "string" || !assetUrl) {
+    return null;
+  }
+
+  return assetUrl;
+}
+
+function hasPublicAsset(relativePath) {
+  return Boolean(getPublicAssetUrl(relativePath));
 }
 
 function ensureBaseStyleSheet(href) {
@@ -285,6 +294,20 @@ function resolvePublicAssetUrl(relativePath) {
   const trimmed = normalizePublicRelativePath(relativePath);
   if (!trimmed) {
     return "/";
+  }
+
+  const manifestUrl = getPublicAssetUrl(trimmed);
+  if (manifestUrl) {
+    if (
+      manifestUrl.startsWith("/") &&
+      typeof window !== "undefined" &&
+      window?.location?.protocol === "file:"
+    ) {
+      const withoutLeadingSlashes = manifestUrl.replace(/^\/+/g, "");
+      return withoutLeadingSlashes ? `./${withoutLeadingSlashes}` : "./";
+    }
+
+    return manifestUrl;
   }
 
   const fallback = `/${trimmed}`;
