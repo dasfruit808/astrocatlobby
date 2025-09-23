@@ -6400,7 +6400,7 @@ document.addEventListener('DOMContentLoaded', () => {
     metaProgressManager = createMetaProgressManager({
         challengeManager: getChallengeManager(),
         broadcast: broadcastMetaMessage,
-        seasonTrack: () => SEASON_PASS_TRACK
+        seasonTrack: SEASON_PASS_TRACK
     });
 
     if (metaProgressManager && typeof metaProgressManager.subscribe === 'function') {
