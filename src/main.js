@@ -67,6 +67,53 @@ const baseCanvasHeight = 540;
 // Place a custom background image at public/webpagebackground.png to override
 // the gradient page backdrop.
 
+function normalizeDirectoryPath(pathname) {
+  if (!pathname) {
+    return "/";
+  }
+
+  if (pathname.endsWith("/")) {
+    return pathname;
+  }
+
+  if (!pathname.includes(".")) {
+    return `${pathname}/`;
+  }
+
+  const withoutFile = pathname.replace(/[^/]*$/, "");
+  if (!withoutFile) {
+    return "/";
+  }
+
+  return withoutFile.endsWith("/") ? withoutFile : `${withoutFile}/`;
+}
+
+function normalizeBaseForPublicAsset(base) {
+  if (typeof base !== "string" || base.startsWith("about:")) {
+    return null;
+  }
+
+  const fallbackBase =
+    typeof window !== "undefined" && window.location
+      ? window.location.href
+      : "http://localhost/";
+
+  try {
+    const resolvedBase = new URL(base, fallbackBase);
+    resolvedBase.pathname = normalizeDirectoryPath(resolvedBase.pathname);
+    resolvedBase.search = "";
+    resolvedBase.hash = "";
+    return resolvedBase;
+  } catch (error) {
+    console.warn(
+      "Failed to normalise base URL for public asset resolution",
+      base,
+      error
+    );
+    return null;
+  }
+}
+
 function resolvePublicAssetUrl(relativePath) {
   if (!relativePath) {
     return "/";
@@ -90,26 +137,31 @@ function resolvePublicAssetUrl(relativePath) {
   }
 
   if (typeof window !== "undefined" && window.location) {
-    const { href, origin } = window.location;
+    const { href, origin, pathname } = window.location;
     if (href) {
       baseCandidates.push(href);
     }
     if (origin && origin !== "null") {
       baseCandidates.push(origin);
+      if (pathname) {
+        const normalisedPath = normalizeDirectoryPath(pathname);
+        baseCandidates.push(`${origin}${normalisedPath}`);
+      }
     }
   }
 
   for (const base of baseCandidates) {
-    if (typeof base !== "string" || base.startsWith("about:")) {
+    const normalisedBase = normalizeBaseForPublicAsset(base);
+    if (!normalisedBase) {
       continue;
     }
 
     try {
-      return new URL(trimmed, base).toString();
+      return new URL(trimmed, normalisedBase).toString();
     } catch (error) {
       console.warn(
         "Failed to resolve public asset URL from base",
-        base,
+        normalisedBase.toString(),
         error
       );
     }
@@ -175,40 +227,9 @@ function shouldUseCustomPageBackground() {
 function resolveMiniGameEntryPoint() {
   const fallback = "./AstroCats3/index.html";
 
-  if (typeof URL !== "function") {
-    return fallback;
-  }
-
-  const baseCandidates = [];
-
-  if (typeof document !== "undefined" && document.baseURI) {
-    baseCandidates.push(document.baseURI);
-  }
-
-  if (typeof window !== "undefined" && window.location) {
-    const { href, origin } = window.location;
-    if (href) {
-      baseCandidates.push(href);
-    }
-    if (origin && origin !== "null") {
-      baseCandidates.push(origin);
-    }
-  }
-
-  for (const base of baseCandidates) {
-    if (typeof base !== "string" || base.startsWith("about:")) {
-      continue;
-    }
-
-    try {
-      return new URL("./AstroCats3/index.html", base).toString();
-    } catch (error) {
-      console.warn(
-        "Failed to resolve the AstroCats3 mini game entry point from base",
-        base,
-        error
-      );
-    }
+  const resolvedEntry = resolvePublicAssetUrl("AstroCats3/index.html");
+  if (resolvedEntry && resolvedEntry !== "/") {
+    return resolvedEntry;
   }
 
   console.warn(
