@@ -6402,20 +6402,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return metaProgressManager;
         }
 
-        let seasonTrack;
-        try {
-            seasonTrack = SEASON_PASS_TRACK;
-        } catch (error) {
-            if (error instanceof ReferenceError) {
-                return null;
-            }
-            throw error;
-        }
-
         const manager = createMetaProgressManager({
             challengeManager: getChallengeManager(),
             broadcast: broadcastMetaMessage,
-            seasonTrack
+            seasonTrack: () => SEASON_PASS_TRACK
         });
 
         if (!manager) {
