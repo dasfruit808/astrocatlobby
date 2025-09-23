@@ -1493,6 +1493,28 @@ const rankThresholds = [
 
 const portalRequiredLevel = 3;
 
+const levelExperienceCurve = [80, 140, 220, 310, 420, 540, 680, 840, 1020, 1220];
+const lateLevelGrowthFactor = 1.17;
+const lateLevelBonus = 120;
+
+function getExpForNextLevel(level) {
+  if (typeof level !== "number" || !Number.isFinite(level)) {
+    return levelExperienceCurve[0];
+  }
+
+  const normalizedLevel = Math.max(1, Math.floor(level));
+  const index = normalizedLevel - 1;
+
+  if (index < levelExperienceCurve.length) {
+    return levelExperienceCurve[index];
+  }
+
+  const extraLevels = index - (levelExperienceCurve.length - 1);
+  const base = levelExperienceCurve[levelExperienceCurve.length - 1];
+  const growth = Math.pow(lateLevelGrowthFactor, extraLevels);
+  return Math.round(base * growth + lateLevelBonus * extraLevels);
+}
+
 const playerStats = {
   name: activeAccount?.catName ?? fallbackAccount.catName,
   handle: activeAccount?.handle ?? fallbackAccount.handle,
@@ -1501,7 +1523,7 @@ const playerStats = {
   level: 1,
   rank: rankThresholds[0].title,
   exp: 0,
-  maxExp: 120,
+  maxExp: getExpForNextLevel(1),
   hp: 85,
   maxHp: 100,
   mp: 40,
@@ -3153,7 +3175,7 @@ function gainExperience(amount) {
   while (playerStats.exp >= playerStats.maxExp) {
     playerStats.exp -= playerStats.maxExp;
     playerStats.level += 1;
-    playerStats.maxExp = Math.round(playerStats.maxExp * 1.2);
+    playerStats.maxExp = getExpForNextLevel(playerStats.level);
     leveledUp = true;
   }
   updateRankFromLevel();
