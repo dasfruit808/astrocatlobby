@@ -7340,6 +7340,17 @@ document.addEventListener('DOMContentLoaded', () => {
             streak: { milestonesEarned: [] }
         });
 
+        const buildSafeDefaultState = () => {
+            try {
+                return defaultState();
+            } catch (error) {
+                if (error instanceof ReferenceError) {
+                    return null;
+                }
+                throw error;
+            }
+        };
+
         function ensureSeasonState(state) {
             if (!state.seasonPass || state.seasonPass.seasonId !== seasonTrack.seasonId) {
                 state.seasonPass = {
@@ -7385,9 +7396,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function migrateMetaState(raw) {
             if (!raw || typeof raw !== 'object') {
-                return defaultState();
+                return buildSafeDefaultState();
             }
-            const state = defaultState();
+            const state = buildSafeDefaultState();
+            if (!state) {
+                return null;
+            }
             if (raw.achievements && typeof raw.achievements === 'object') {
                 for (const [id, entry] of Object.entries(raw.achievements)) {
                     const definition = ACHIEVEMENT_DEFINITIONS.find((candidate) => candidate.id === id);
@@ -7442,22 +7456,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function loadMetaState() {
+            const fallbackState = buildSafeDefaultState();
+            if (!fallbackState) {
+                return null;
+            }
             if (!storageAvailable) {
-                return defaultState();
+                return fallbackState;
             }
             try {
                 const raw = readStorage(STORAGE_KEYS.metaProgress);
                 if (!raw) {
-                    return defaultState();
+                    return fallbackState;
                 }
                 const parsed = JSON.parse(raw);
-                return migrateMetaState(parsed);
+                return migrateMetaState(parsed) ?? fallbackState;
             } catch (error) {
-                return defaultState();
+                return fallbackState;
             }
         }
 
         let state = loadMetaState();
+        if (!state) {
+            return null;
+        }
         state.version = META_PROGRESS_VERSION;
         ensureSeasonState(state);
         for (const goal of COMMUNITY_GOALS) {
