@@ -6400,7 +6400,7 @@ document.addEventListener('DOMContentLoaded', () => {
     metaProgressManager = createMetaProgressManager({
         challengeManager: getChallengeManager(),
         broadcast: broadcastMetaMessage,
-        seasonTrack: SEASON_PASS_TRACK
+        seasonTrack: () => SEASON_PASS_TRACK
     });
 
     if (metaProgressManager && typeof metaProgressManager.subscribe === 'function') {
@@ -7268,6 +7268,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function createMetaProgressManager({ challengeManager, broadcast, seasonTrack } = {}) {
+        if (typeof seasonTrack === 'function') {
+            try {
+                seasonTrack = seasonTrack();
+            } catch (error) {
+                if (error instanceof ReferenceError) {
+                    return null;
+                }
+                throw error;
+            }
+        }
+
         if (!seasonTrack) {
             return null;
         }
