@@ -10,12 +10,26 @@ const playerSpriteUrl = new URL(
 const supportsImportMetaGlob =
   typeof import.meta !== "undefined" && typeof import.meta.glob === "function";
 
-const assetManifest = supportsImportMetaGlob
-  ? import.meta.glob("./assets/*.{png,PNG}", {
+function tryCreateAssetManifest() {
+  if (!supportsImportMetaGlob) {
+    return null;
+  }
+
+  try {
+    return import.meta.glob("./assets/*.{png,PNG}", {
       eager: true,
       import: "default"
-    })
-  : null;
+    });
+  } catch (error) {
+    console.warn(
+      "import.meta.glob is unavailable in this environment. Falling back to dynamic loading.",
+      error
+    );
+    return null;
+  }
+}
+
+const assetManifest = tryCreateAssetManifest();
 
 function createEmptySprite() {
   return {
