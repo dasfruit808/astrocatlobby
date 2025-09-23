@@ -366,6 +366,173 @@ if (backgroundImage.complete && backgroundImage.naturalWidth > 0) {
   markBackgroundReady();
 }
 
+function createStarterSpriteDataUrl({
+  background,
+  body,
+  accent,
+  accessory,
+  eye,
+  highlight
+}) {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">
+      <defs>
+        <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${highlight}" stop-opacity="0.55" />
+          <stop offset="100%" stop-color="${accent}" stop-opacity="0.35" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="160" height="160" rx="28" fill="${background}" />
+      <path d="M48 60 L64 22 L84 58" fill="${body}" stroke="${accent}" stroke-width="6" stroke-linejoin="round" />
+      <path d="M112 58 L128 22 L144 60" fill="${body}" stroke="${accent}" stroke-width="6" stroke-linejoin="round" />
+      <circle cx="96" cy="96" r="52" fill="${body}" stroke="${accent}" stroke-width="6" />
+      <ellipse cx="74" cy="94" rx="11" ry="15" fill="${eye}" opacity="0.9" />
+      <ellipse cx="118" cy="94" rx="11" ry="15" fill="${eye}" opacity="0.9" />
+      <circle cx="74" cy="96" r="3" fill="#ffffff" opacity="0.8" />
+      <circle cx="118" cy="96" r="3" fill="#ffffff" opacity="0.8" />
+      <circle cx="96" cy="112" r="12" fill="${accessory}" stroke="${accent}" stroke-width="4" />
+      <path d="M82 118 Q96 130 110 118" fill="none" stroke="${accessory}" stroke-width="5" stroke-linecap="round" />
+      <circle cx="96" cy="106" r="5" fill="${accent}" />
+      <path d="M70 80 Q96 94 122 80" fill="url(#glow)" opacity="0.85" />
+      <path d="M88 118 Q88 128 78 132" stroke="${accent}" stroke-width="4" stroke-linecap="round" fill="none" />
+      <path d="M104 118 Q104 128 114 132" stroke="${accent}" stroke-width="4" stroke-linecap="round" fill="none" />
+    </svg>
+  `;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+const starterCharacters = [
+  {
+    id: "comet-cadet",
+    name: "Comet Cadet",
+    tagline: "A swift navigator blazing across the cosmos.",
+    description: "Excels at traversal with boosted dash energy.",
+    image: createStarterSpriteDataUrl({
+      background: "#1f2557",
+      body: "#fcbf49",
+      accent: "#f77f00",
+      accessory: "#ff477e",
+      eye: "#1b1d3a",
+      highlight: "#ffd166"
+    })
+  },
+  {
+    id: "nebula-sage",
+    name: "Nebula Sage",
+    tagline: "A mystic tactician attuned to stardust currents.",
+    description: "Starts with enhanced insight for puzzle solving.",
+    image: createStarterSpriteDataUrl({
+      background: "#31163f",
+      body: "#c084fc",
+      accent: "#a855f7",
+      accessory: "#38bdf8",
+      eye: "#120d1f",
+      highlight: "#f472b6"
+    })
+  },
+  {
+    id: "aurora-engineer",
+    name: "Aurora Engineer",
+    tagline: "An inventive builder forging gadgets from nebula light.",
+    description: "Unlocks crafting recipes and supportive drones early.",
+    image: createStarterSpriteDataUrl({
+      background: "#0f2f32",
+      body: "#5eead4",
+      accent: "#22d3ee",
+      accessory: "#facc15",
+      eye: "#052e16",
+      highlight: "#a7f3d0"
+    })
+  }
+];
+
+const accountStorageKey = "astrocat-account";
+
+function normalizeHandle(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  const withoutAt = trimmed.replace(/^@+/, "");
+  const cleaned = withoutAt.replace(/[^a-zA-Z0-9_]/g, "");
+  if (!cleaned) {
+    return "";
+  }
+  return `@${cleaned.slice(0, 20)}`;
+}
+
+function sanitizeAccount(source = {}) {
+  if (!source || typeof source !== "object") {
+    return null;
+  }
+
+  const handle = normalizeHandle(source.handle ?? "");
+  const rawName = typeof source.catName === "string" ? source.catName.trim() : "";
+  const name = rawName.replace(/\s+/g, " ").slice(0, 28);
+  const starterId =
+    typeof source.starterId === "string" && source.starterId
+      ? source.starterId
+      : starterCharacters[0].id;
+
+  if (!handle || !name) {
+    return null;
+  }
+
+  return {
+    handle,
+    catName: name,
+    starterId
+  };
+}
+
+function loadStoredAccount() {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(accountStorageKey);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    return sanitizeAccount(parsed);
+  } catch (error) {
+    console.warn("Failed to read stored account information", error);
+    return null;
+  }
+}
+
+function saveAccount(account) {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return false;
+  }
+
+  const sanitized = sanitizeAccount(account);
+  if (!sanitized) {
+    return false;
+  }
+
+  try {
+    window.localStorage.setItem(accountStorageKey, JSON.stringify(sanitized));
+    return true;
+  } catch (error) {
+    console.warn("Failed to persist account details", error);
+    return false;
+  }
+}
+
+function findStarterCharacter(starterId) {
+  return (
+    starterCharacters.find((character) => character.id === starterId) ?? starterCharacters[0]
+  );
+}
+
+let activeAccount = loadStoredAccount();
+
 const appearanceStorageKey = "astrocat-appearance";
 const appearancePresets = [
   {
@@ -486,7 +653,9 @@ if (currentAppearancePresetIndex === undefined || currentAppearancePresetIndex =
 }
 
 const playerStats = {
-  name: "PixelHero",
+  name: activeAccount?.catName ?? "PixelHero",
+  handle: activeAccount?.handle ?? "",
+  starterId: activeAccount?.starterId ?? starterCharacters[0].id,
   level: 15,
   rank: "Adventurer",
   exp: 750,
@@ -503,6 +672,44 @@ let messageTimerId = 0;
 const ui = createInterface(playerStats, playerAppearance);
 app.innerHTML = "";
 app.append(ui.root);
+
+const initialStarter = findStarterCharacter(playerStats.starterId);
+ui.setAccount(activeAccount, initialStarter);
+
+let onboardingInstance = null;
+let previousBodyOverflow = "";
+
+if (!activeAccount) {
+  previousBodyOverflow = document.body.style.overflow;
+  onboardingInstance = createOnboardingExperience(starterCharacters, {
+    initialAccount: { starterId: initialStarter.id },
+    onComplete(account) {
+      const sanitized = sanitizeAccount(account);
+      if (!sanitized) {
+        return;
+      }
+      activeAccount = sanitized;
+      saveAccount(sanitized);
+      playerStats.name = sanitized.catName;
+      playerStats.handle = sanitized.handle;
+      playerStats.starterId = sanitized.starterId;
+      const chosenStarter = findStarterCharacter(sanitized.starterId);
+      ui.setAccount(sanitized, chosenStarter);
+      ui.refresh(playerStats);
+      showMessage(`Welcome aboard, ${sanitized.catName}!`, 6000);
+      if (onboardingInstance) {
+        onboardingInstance.close();
+        onboardingInstance = null;
+      }
+      document.body.style.overflow = previousBodyOverflow;
+    }
+  });
+  if (onboardingInstance) {
+    document.body.append(onboardingInstance.root);
+    document.body.style.overflow = "hidden";
+    onboardingInstance.focus();
+  }
+}
 
 const canvas = document.createElement("canvas");
 canvas.width = 960;
@@ -620,7 +827,11 @@ window.addEventListener("pointerdown", () => {
   audio.handleUserGesture();
 });
 
-showMessage(defaultMessage, 0);
+if (activeAccount) {
+  showMessage(defaultMessage, 0);
+} else {
+  showMessage("Create your Astrocat account to begin your mission.", 0);
+}
 ui.updateCrystals(0, crystals.length);
 ui.refresh(playerStats);
 
@@ -1216,6 +1427,219 @@ function showMessage(message, duration) {
   }
 }
 
+function createOnboardingExperience(options, config = {}) {
+  const characters = Array.isArray(options) && options.length > 0 ? options : starterCharacters;
+  const { initialAccount = null, onComplete } = config;
+  let activeIndex = Math.max(
+    0,
+    characters.findIndex((option) => option.id === initialAccount?.starterId)
+  );
+  if (activeIndex === -1) {
+    activeIndex = 0;
+  }
+
+  const idSuffix = Math.random().toString(36).slice(2, 8);
+  const root = document.createElement("div");
+  root.className = "onboarding-overlay";
+
+  const modal = document.createElement("div");
+  modal.className = "onboarding-modal";
+  root.append(modal);
+
+  const heading = document.createElement("h2");
+  heading.className = "onboarding-heading";
+  heading.textContent = "Create your Astrocat account";
+  modal.append(heading);
+
+  const intro = document.createElement("p");
+  intro.className = "onboarding-intro";
+  intro.textContent =
+    "Choose your call sign, name your companion, and pick a starter to begin exploring.";
+  modal.append(intro);
+
+  const characterSection = document.createElement("div");
+  characterSection.className = "onboarding-character";
+  const characterImage = document.createElement("img");
+  characterImage.className = "onboarding-character__image";
+  characterImage.alt = "Starter character preview";
+
+  const characterDetails = document.createElement("div");
+  characterDetails.className = "onboarding-character__details";
+  const characterName = document.createElement("h3");
+  characterName.className = "onboarding-character__name";
+  const characterTagline = document.createElement("p");
+  characterTagline.className = "onboarding-character__tagline";
+  const characterDescription = document.createElement("p");
+  characterDescription.className = "onboarding-character__description";
+
+  const nav = document.createElement("div");
+  nav.className = "onboarding-nav";
+  const prevButton = document.createElement("button");
+  prevButton.type = "button";
+  prevButton.className = "onboarding-nav__button";
+  prevButton.textContent = "Previous";
+  const stepIndicator = document.createElement("span");
+  stepIndicator.className = "onboarding-step";
+  const nextButton = document.createElement("button");
+  nextButton.type = "button";
+  nextButton.className = "onboarding-nav__button";
+  nextButton.textContent = "Next";
+  nav.append(prevButton, stepIndicator, nextButton);
+
+  characterDetails.append(characterName, characterTagline, characterDescription, nav);
+  characterSection.append(characterImage, characterDetails);
+  modal.append(characterSection);
+
+  const form = document.createElement("form");
+  form.className = "onboarding-form";
+  modal.append(form);
+
+  const handleField = document.createElement("div");
+  handleField.className = "onboarding-field";
+  const handleLabel = document.createElement("label");
+  handleLabel.className = "onboarding-label";
+  handleLabel.textContent = "X handle";
+  const handleInput = document.createElement("input");
+  handleInput.id = `onboarding-handle-${idSuffix}`;
+  handleInput.name = "handle";
+  handleInput.type = "text";
+  handleInput.required = true;
+  handleInput.maxLength = 24;
+  handleInput.autocomplete = "nickname";
+  handleInput.placeholder = "@starlightPilot";
+  handleInput.className = "onboarding-input";
+  handleLabel.setAttribute("for", handleInput.id);
+  const handleHint = document.createElement("p");
+  handleHint.className = "onboarding-hint";
+  handleHint.textContent = "Use letters, numbers, or underscores.";
+  handleField.append(handleLabel, handleInput, handleHint);
+
+  const nameField = document.createElement("div");
+  nameField.className = "onboarding-field";
+  const nameLabel = document.createElement("label");
+  nameLabel.className = "onboarding-label";
+  nameLabel.textContent = "Astrocat name";
+  const nameInput = document.createElement("input");
+  nameInput.id = `onboarding-name-${idSuffix}`;
+  nameInput.name = "catName";
+  nameInput.type = "text";
+  nameInput.required = true;
+  nameInput.maxLength = 28;
+  nameInput.placeholder = "Luna Voyager";
+  nameInput.className = "onboarding-input";
+  nameLabel.setAttribute("for", nameInput.id);
+  const nameHint = document.createElement("p");
+  nameHint.className = "onboarding-hint";
+  nameHint.textContent = "Give your cosmic companion a memorable title.";
+  nameField.append(nameLabel, nameInput, nameHint);
+
+  const actions = document.createElement("div");
+  actions.className = "onboarding-actions";
+  const submitButton = document.createElement("button");
+  submitButton.type = "submit";
+  submitButton.className = "onboarding-submit";
+  submitButton.textContent = "Create account";
+  actions.append(submitButton);
+
+  form.append(handleField, nameField, actions);
+
+  if (initialAccount?.handle) {
+    handleInput.value = initialAccount.handle;
+  }
+  if (initialAccount?.catName) {
+    nameInput.value = initialAccount.catName;
+  }
+
+  function currentCharacter() {
+    return characters[activeIndex] ?? characters[0];
+  }
+
+  function renderCharacter() {
+    const selection = currentCharacter();
+    characterImage.src = selection.image;
+    characterImage.alt = selection.name;
+    characterName.textContent = selection.name;
+    characterTagline.textContent = selection.tagline;
+    characterDescription.textContent = selection.description;
+    stepIndicator.textContent = `${activeIndex + 1} / ${characters.length}`;
+    const disableNav = characters.length <= 1;
+    prevButton.disabled = disableNav;
+    nextButton.disabled = disableNav;
+  }
+
+  prevButton.addEventListener("click", () => {
+    activeIndex = (activeIndex - 1 + characters.length) % characters.length;
+    renderCharacter();
+  });
+
+  nextButton.addEventListener("click", () => {
+    activeIndex = (activeIndex + 1) % characters.length;
+    renderCharacter();
+  });
+
+  handleInput.addEventListener("input", () => {
+    handleInput.setCustomValidity("");
+  });
+  handleInput.addEventListener("blur", () => {
+    const normalized = normalizeHandle(handleInput.value);
+    if (normalized) {
+      handleInput.value = normalized;
+    }
+  });
+
+  nameInput.addEventListener("input", () => {
+    nameInput.setCustomValidity("");
+  });
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const normalizedHandle = normalizeHandle(handleInput.value);
+    if (!normalizedHandle) {
+      handleInput.setCustomValidity("Enter a valid handle to continue.");
+      handleInput.reportValidity();
+      return;
+    }
+
+    const trimmedName = nameInput.value.trim().replace(/\s+/g, " ");
+    if (!trimmedName) {
+      nameInput.setCustomValidity("Name your astrocat to continue.");
+      nameInput.reportValidity();
+      return;
+    }
+
+    const selection = currentCharacter();
+    const sanitized = sanitizeAccount({
+      handle: normalizedHandle,
+      catName: trimmedName,
+      starterId: selection.id
+    });
+
+    if (!sanitized) {
+      nameInput.setCustomValidity("Please provide account details to continue.");
+      nameInput.reportValidity();
+      return;
+    }
+
+    handleInput.value = sanitized.handle;
+    nameInput.value = sanitized.catName;
+    if (typeof onComplete === "function") {
+      onComplete(sanitized);
+    }
+  });
+
+  renderCharacter();
+
+  return {
+    root,
+    focus() {
+      handleInput.focus();
+    },
+    close() {
+      root.remove();
+    }
+  };
+}
+
 function createInterface(stats, appearance) {
   const root = document.createElement("div");
   root.className = "game-root";
@@ -1233,6 +1657,39 @@ function createInterface(stats, appearance) {
   const subtitle = document.createElement("p");
   subtitle.className = "player-subtitle";
   panel.append(subtitle);
+
+  const accountCard = document.createElement("section");
+  accountCard.className = "account-card account-card--empty";
+
+  const accountHeading = document.createElement("span");
+  accountHeading.className = "account-card__title";
+  accountHeading.textContent = "Your Astrocat Profile";
+  accountCard.append(accountHeading);
+
+  const accountHandle = document.createElement("p");
+  accountHandle.className = "account-card__handle";
+  accountCard.append(accountHandle);
+
+  const accountCatName = document.createElement("p");
+  accountCatName.className = "account-card__cat-name";
+  accountCard.append(accountCatName);
+
+  const accountStarter = document.createElement("div");
+  accountStarter.className = "account-card__starter";
+  const accountStarterImage = document.createElement("img");
+  accountStarterImage.className = "account-card__starter-image";
+  accountStarterImage.alt = "Starter preview";
+  const accountStarterInfo = document.createElement("div");
+  accountStarterInfo.className = "account-card__starter-info";
+  const accountStarterName = document.createElement("span");
+  accountStarterName.className = "account-card__starter-name";
+  const accountStarterTagline = document.createElement("span");
+  accountStarterTagline.className = "account-card__starter-tagline";
+  accountStarterInfo.append(accountStarterName, accountStarterTagline);
+  accountStarter.append(accountStarterImage, accountStarterInfo);
+  accountCard.append(accountStarter);
+
+  panel.append(accountCard);
 
   const statsContainer = document.createElement("div");
   statsContainer.className = "stats-container";
@@ -1353,7 +1810,14 @@ function createInterface(stats, appearance) {
     canvasWrapper,
     promptText: "",
     refresh(updatedStats) {
-      subtitle.textContent = `${updatedStats.name} — Level ${updatedStats.level} ${updatedStats.rank}`;
+      const subtitleParts = [];
+      if (updatedStats.handle) {
+        subtitleParts.push(updatedStats.handle);
+      }
+      subtitleParts.push(
+        `${updatedStats.name} — Level ${updatedStats.level} ${updatedStats.rank}`
+      );
+      subtitle.textContent = subtitleParts.join(" · ");
       updateBar(hpBar, updatedStats.hp, updatedStats.maxHp);
       updateBar(mpBar, updatedStats.mp, updatedStats.maxMp);
       updateBar(expBar, updatedStats.exp, updatedStats.maxExp);
@@ -1366,6 +1830,9 @@ function createInterface(stats, appearance) {
     },
     setPrompt(text) {
       this.promptText = text;
+    },
+    setAccount(account, starter) {
+      updateAccountCard(account, starter);
     }
   };
 
@@ -1422,5 +1889,29 @@ function createInterface(stats, appearance) {
     const percent = max === 0 ? 0 : (clamped / max) * 100;
     bar.fill.style.width = `${percent}%`;
     bar.value.textContent = `${Math.round(clamped)} / ${Math.round(max)}`;
+  }
+
+  function updateAccountCard(account, starterOverride) {
+    const fallbackStarter = starterOverride ?? starterCharacters[0];
+
+    if (!account) {
+      accountCard.classList.add("account-card--empty");
+      accountHandle.textContent = "@handle";
+      accountCatName.textContent = "Name your Astrocat to begin your mission.";
+      accountStarterImage.src = fallbackStarter.image;
+      accountStarterImage.alt = fallbackStarter.name;
+      accountStarterName.textContent = fallbackStarter.name;
+      accountStarterTagline.textContent = fallbackStarter.tagline;
+      return;
+    }
+
+    const resolvedStarter = starterOverride ?? findStarterCharacter(account.starterId);
+    accountCard.classList.remove("account-card--empty");
+    accountHandle.textContent = account.handle;
+    accountCatName.textContent = account.catName;
+    accountStarterImage.src = resolvedStarter.image;
+    accountStarterImage.alt = resolvedStarter.name;
+    accountStarterName.textContent = resolvedStarter.name;
+    accountStarterTagline.textContent = resolvedStarter.tagline;
   }
 }
