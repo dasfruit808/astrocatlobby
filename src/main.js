@@ -29,6 +29,21 @@ if (publicManifest && typeof publicManifest === "object") {
 }
 let publicManifestPromise = null;
 
+function shouldAttemptManifestImport() {
+  if (typeof import.meta !== "undefined" && import.meta && import.meta.env) {
+    return true;
+  }
+
+  if (typeof document !== "undefined") {
+    const manifestScript = document.getElementById("astrocat-public-manifest");
+    if (manifestScript) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function assignPublicManifest(manifest) {
   if (!manifest || typeof manifest !== "object") {
     return null;
@@ -92,37 +107,41 @@ function ensurePublicManifestAvailable() {
     }
   };
 
-  try {
-    publicManifestPromise = importManifestModule(PUBLIC_MANIFEST_MODULE_ID).then(
-      async (manifest) => {
-        if (manifest) {
-          return manifest;
+  if (shouldAttemptManifestImport()) {
+    try {
+      publicManifestPromise = importManifestModule(PUBLIC_MANIFEST_MODULE_ID).then(
+        async (manifest) => {
+          if (manifest) {
+            return manifest;
+          }
+
+          if (PUBLIC_MANIFEST_MODULE_ID === LEGACY_PUBLIC_MANIFEST_MODULE_ID) {
+            return null;
+          }
+
+          const fallback = await importManifestModule(LEGACY_PUBLIC_MANIFEST_MODULE_ID, {
+            logFailure: false
+          });
+
+          if (!fallback && typeof console !== "undefined") {
+            console.warn(
+              "Failed to load the legacy public manifest module fallback. Falling back to runtime asset probing."
+            );
+          }
+
+          return fallback;
         }
-
-        if (PUBLIC_MANIFEST_MODULE_ID === LEGACY_PUBLIC_MANIFEST_MODULE_ID) {
-          return null;
-        }
-
-        const fallback = await importManifestModule(LEGACY_PUBLIC_MANIFEST_MODULE_ID, {
-          logFailure: false
-        });
-
-        if (!fallback && typeof console !== "undefined") {
-          console.warn(
-            "Failed to load the legacy public manifest module fallback. Falling back to runtime asset probing."
-          );
-        }
-
-        return fallback;
-      }
-    );
-  } catch (error) {
-    if (error && typeof console !== "undefined") {
-      console.warn(
-        "Dynamic import for the public manifest is unavailable in this environment. Falling back to runtime asset probing.",
-        error
       );
+    } catch (error) {
+      if (error && typeof console !== "undefined") {
+        console.warn(
+          "Dynamic import for the public manifest is unavailable in this environment. Falling back to runtime asset probing.",
+          error
+        );
+      }
+      publicManifestPromise = Promise.resolve(null);
     }
+  } else {
     publicManifestPromise = Promise.resolve(null);
   }
 
