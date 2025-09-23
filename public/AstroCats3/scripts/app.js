@@ -4188,17 +4188,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    metaProgressManager = createMetaProgressManager({
-        challengeManager: getChallengeManager(),
-        broadcast: broadcastMetaMessage
-    });
-
-    if (metaProgressManager && typeof metaProgressManager.subscribe === 'function') {
-        metaProgressManager.subscribe((snapshot) => {
-            latestMetaSnapshot = snapshot;
-        });
-    }
-
     const CUSTOM_LOADOUT_VERSION = 1;
     const CUSTOM_LOADOUT_SLOTS = [
         { slot: 'slotA', defaultName: 'Custom Loadout A' },
@@ -6407,6 +6396,17 @@ document.addEventListener('DOMContentLoaded', () => {
             icon: '🌐'
         }
     ];
+
+    metaProgressManager = createMetaProgressManager({
+        challengeManager: getChallengeManager(),
+        broadcast: broadcastMetaMessage
+    });
+
+    if (metaProgressManager && typeof metaProgressManager.subscribe === 'function') {
+        metaProgressManager.subscribe((snapshot) => {
+            latestMetaSnapshot = snapshot;
+        });
+    }
 
     const CHALLENGE_STATE_VERSION = 1;
 
