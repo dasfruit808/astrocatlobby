@@ -6399,7 +6399,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     metaProgressManager = createMetaProgressManager({
         challengeManager: getChallengeManager(),
-        broadcast: broadcastMetaMessage
+        broadcast: broadcastMetaMessage,
+        seasonTrack: SEASON_PASS_TRACK
     });
 
     if (metaProgressManager && typeof metaProgressManager.subscribe === 'function') {
@@ -7266,14 +7267,18 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    function createMetaProgressManager({ challengeManager, broadcast } = {}) {
+    function createMetaProgressManager({ challengeManager, broadcast, seasonTrack } = {}) {
+        if (!seasonTrack) {
+            return null;
+        }
+
         const META_PROGRESS_VERSION = 1;
 
         const defaultState = () => ({
             version: META_PROGRESS_VERSION,
             achievements: {},
             seasonPass: {
-                seasonId: SEASON_PASS_TRACK.seasonId,
+                seasonId: seasonTrack.seasonId,
                 points: 0,
                 claimedTiers: []
             },
@@ -7288,9 +7293,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         function ensureSeasonState(state) {
-            if (!state.seasonPass || state.seasonPass.seasonId !== SEASON_PASS_TRACK.seasonId) {
+            if (!state.seasonPass || state.seasonPass.seasonId !== seasonTrack.seasonId) {
                 state.seasonPass = {
-                    seasonId: SEASON_PASS_TRACK.seasonId,
+                    seasonId: seasonTrack.seasonId,
                     points: 0,
                     claimedTiers: []
                 };
@@ -7352,16 +7357,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (raw.seasonPass && typeof raw.seasonPass === 'object') {
                 state.seasonPass = {
-                    seasonId: raw.seasonPass.seasonId === SEASON_PASS_TRACK.seasonId
-                        ? SEASON_PASS_TRACK.seasonId
-                        : SEASON_PASS_TRACK.seasonId,
+                    seasonId: raw.seasonPass.seasonId === seasonTrack.seasonId
+                        ? seasonTrack.seasonId
+                        : seasonTrack.seasonId,
                     points:
-                        raw.seasonPass.seasonId === SEASON_PASS_TRACK.seasonId &&
+                        raw.seasonPass.seasonId === seasonTrack.seasonId &&
                         Number.isFinite(raw.seasonPass.points)
                             ? Math.max(0, raw.seasonPass.points)
                             : 0,
                     claimedTiers:
-                        raw.seasonPass.seasonId === SEASON_PASS_TRACK.seasonId &&
+                        raw.seasonPass.seasonId === seasonTrack.seasonId &&
                         Array.isArray(raw.seasonPass.claimedTiers)
                             ? Array.from(new Set(raw.seasonPass.claimedTiers.map((value) => String(value))))
                             : []
@@ -7418,7 +7423,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function buildSnapshot() {
             const season = ensureSeasonState(state);
-            const tiers = (SEASON_PASS_TRACK.tiers ?? []).map((tier, index, array) => {
+            const tiers = (seasonTrack.tiers ?? []).map((tier, index, array) => {
                 const previousThreshold = index > 0 ? array[index - 1].threshold : 0;
                 const unlocked = season.points >= tier.threshold;
                 return {
@@ -7452,7 +7457,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 })),
                 seasonPass: {
                     seasonId: season.seasonId,
-                    label: SEASON_PASS_TRACK.label,
+                    label: seasonTrack.label,
                     points: season.points,
                     tiers,
                     currentTier,
@@ -7535,7 +7540,7 @@ document.addEventListener('DOMContentLoaded', () => {
             season.points += Math.max(0, Math.round(points));
             let changed = true;
             const messages = [];
-            for (const tier of SEASON_PASS_TRACK.tiers ?? []) {
+            for (const tier of seasonTrack.tiers ?? []) {
                 if (season.points >= tier.threshold && !season.claimedTiers.includes(tier.id)) {
                     season.claimedTiers.push(tier.id);
                     messages.push({
