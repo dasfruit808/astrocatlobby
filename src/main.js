@@ -79,36 +79,43 @@ function ensureBaseStyleSheet(href) {
 
 ensureBaseStyleSheet(styleSheetUrl);
 
-const supportsImportMetaGlob =
-  typeof import.meta !== "undefined" && typeof import.meta.glob === "function";
-
 function tryCreateAssetManifest() {
-  if (!supportsImportMetaGlob) {
-    return null;
-  }
-
   try {
     return import.meta.glob("./assets/*.{png,PNG}", {
       eager: true,
       import: "default"
     });
   } catch (error) {
-    console.warn(
-      "import.meta.glob is unavailable in this environment. Falling back to dynamic loading.",
-      error
-    );
+    if (error && typeof console !== "undefined") {
+      console.warn(
+        "import.meta.glob is unavailable in this environment. Falling back to dynamic loading.",
+        error
+      );
+    }
     return null;
   }
 }
 
 const assetManifest = tryCreateAssetManifest();
 
-const audioManifest = supportsImportMetaGlob
-  ? import.meta.glob("./assets/audio/*.{wav,mp3,ogg}", {
+function tryCreateAudioManifest() {
+  try {
+    return import.meta.glob("./assets/audio/*.{wav,mp3,ogg}", {
       eager: true,
       import: "default"
-    })
-  : null;
+    });
+  } catch (error) {
+    if (error && typeof console !== "undefined") {
+      console.warn(
+        "import.meta.glob is unavailable for audio assets. Falling back to dynamic loading.",
+        error
+      );
+    }
+    return null;
+  }
+}
+
+const audioManifest = tryCreateAudioManifest();
 
 const baseCanvasWidth = 960;
 const baseCanvasHeight = 540;
