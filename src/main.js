@@ -1050,6 +1050,19 @@ const callSignRegistryKey = "astrocat-call-signs";
 const messageBoardStorageKey = "astrocat-message-boards";
 const callSignLength = 5;
 
+function createCallSignExample() {
+  const digits = "1234567890";
+  let sequence = "";
+  while (sequence.length < callSignLength) {
+    const remaining = callSignLength - sequence.length;
+    sequence += digits.slice(0, Math.min(digits.length, remaining));
+  }
+  return `@${sequence.slice(0, callSignLength)}`;
+}
+
+const callSignExample = createCallSignExample();
+const callSignMentionPattern = new RegExp(`@(\\d{${callSignLength}})\\b`);
+
 function getLocalStorage() {
   if (typeof window === "undefined") {
     return null;
@@ -1074,6 +1087,15 @@ function getLocalStorage() {
 
 function isValidCallSign(value) {
   return typeof value === "string" && new RegExp(`^\\d{${callSignLength}}$`).test(value);
+}
+
+function extractMentionedCallSign(message) {
+  if (typeof message !== "string") {
+    return null;
+  }
+
+  const match = message.match(callSignMentionPattern);
+  return match ? match[1] : null;
 }
 
 function loadCallSignRegistry() {
@@ -3699,7 +3721,7 @@ function createInterface(stats, appearance, options = {}) {
   const commsDescription = document.createElement("p");
   commsDescription.className = "comms-center__description";
   commsDescription.textContent =
-    "Tag a call sign (e.g. @12345) in your message to deliver it to another Astrocat.";
+    `Tag a call sign (e.g. ${callSignExample}) in your message to deliver it to another Astrocat.`;
 
   const commsFeedback = document.createElement("p");
   commsFeedback.className = "comms-center__feedback";
@@ -3808,7 +3830,8 @@ function createInterface(stats, appearance, options = {}) {
     if (validCallSign) {
       commsCallSign.textContent = `@${validCallSign}`;
       commsCallSign.hidden = false;
-      commsInput.placeholder = "Message another Astrocat by tagging their call sign (e.g. @12345)";
+      commsInput.placeholder =
+        `Message another Astrocat by tagging their call sign (e.g. ${callSignExample})`;
     } else {
       commsCallSign.textContent = "";
       commsCallSign.hidden = true;
@@ -3835,9 +3858,9 @@ function createInterface(stats, appearance, options = {}) {
       return;
     }
 
-    const mentionMatch = rawMessage.match(/@(\d{5})/);
-    if (!mentionMatch) {
-      const errorText = "Include a call sign like @12345 to route your message.";
+    const targetCallSign = extractMentionedCallSign(rawMessage);
+    if (!targetCallSign) {
+      const errorText = `Include a call sign like ${callSignExample} to route your message.`;
       commsInput.setCustomValidity(errorText);
       commsInput.reportValidity();
       commsFeedback.textContent = errorText;
@@ -3847,7 +3870,6 @@ function createInterface(stats, appearance, options = {}) {
     }
 
     commsInput.setCustomValidity("");
-    const targetCallSign = mentionMatch[1];
     const sanitizedContent = sanitizeMessageContent(rawMessage);
     const senderCallSign = isValidCallSign(stats.callSign) ? stats.callSign : null;
     const result = appendMessageToBoard(targetCallSign, {
