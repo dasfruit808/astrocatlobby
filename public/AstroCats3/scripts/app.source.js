@@ -7292,12 +7292,7 @@ const LOADOUTS_MANAGED_EXTERNALLY = true;
             }
 
             try {
-                if (!Object.prototype.hasOwnProperty.call(globalThis, 'SEASON_PASS_TRACK')) {
-                    return undefined;
-                }
-
-                const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'SEASON_PASS_TRACK');
-                return descriptor?.value;
+                return globalThis.SEASON_PASS_TRACK;
             } catch (error) {
                 if (error instanceof ReferenceError || (typeof error?.message === 'string' && error.message.includes('SEASON_PASS_TRACK'))) {
                     return undefined;
