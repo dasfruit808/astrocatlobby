@@ -1,4 +1,3 @@
-import "./style.css";
 
 const backgroundImageUrl = new URL(
   "./assets/LobbyBackground.png",
