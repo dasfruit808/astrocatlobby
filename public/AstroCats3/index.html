@@ -779,6 +779,42 @@
         </div>
     </div>
     <script>
+        (function ensureSeasonPassTrackGlobal() {
+            const scope = typeof globalThis === 'object' && globalThis
+                ? globalThis
+                : typeof window === 'object'
+                    ? window
+                    : null;
+            if (!scope) {
+                return;
+            }
+            const property = 'SEASON_PASS_TRACK';
+            try {
+                if (!Object.prototype.hasOwnProperty.call(scope, property)) {
+                    Object.defineProperty(scope, property, {
+                        configurable: true,
+                        enumerable: false,
+                        writable: true,
+                        value: null
+                    });
+                }
+            }
+            catch (error) {
+                if (error instanceof ReferenceError) {
+                    try {
+                        scope[property] = scope[property] ?? null;
+                    }
+                    catch (assignmentError) {
+                        if (typeof console !== 'undefined') {
+                            console.warn('Failed to provide fallback season pass track binding.', assignmentError);
+                        }
+                    }
+                }
+                else if (typeof console !== 'undefined') {
+                    console.warn('Encountered an unexpected error while preparing the season pass track binding.', error);
+                }
+            }
+        })();
         window.NYAN_ESCAPE_API_BASE_URL = "https://api.xpal.fun";
     </script>
     <script type="module" src="scripts/app.js"></script>
