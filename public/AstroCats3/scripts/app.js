@@ -6182,40 +6182,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let seasonPassTrackRef = null;
 
-    const SEASON_PASS_TRACK = {
-        seasonId: '2024-quantum',
-        label: 'Season 3 · Quantum Drift',
-        tiers: [
-            { id: 'tier-1', threshold: 40, label: 'Tier 1 — Recon Cache' },
-            {
-                id: 'tier-2',
-                threshold: 100,
-                label: 'Tier 2 — Quantum Wake',
-                reward: {
-                    type: 'cosmetic',
-                    category: 'trail',
-                    id: 'quantum',
-                    label: 'Quantum Drift Trail',
-                    rarity: 'legendary'
+    function buildSeasonPassTrack() {
+        return {
+            seasonId: '2024-quantum',
+            label: 'Season 3 · Quantum Drift',
+            tiers: [
+                { id: 'tier-1', threshold: 40, label: 'Tier 1 — Recon Cache' },
+                {
+                    id: 'tier-2',
+                    threshold: 100,
+                    label: 'Tier 2 — Quantum Wake',
+                    reward: {
+                        type: 'cosmetic',
+                        category: 'trail',
+                        id: 'quantum',
+                        label: 'Quantum Drift Trail',
+                        rarity: 'legendary'
+                    }
+                },
+                { id: 'tier-3', threshold: 180, label: 'Tier 3 — Vanguard Cache' },
+                {
+                    id: 'tier-4',
+                    threshold: 260,
+                    label: 'Tier 4 — Embercore Monarch',
+                    reward: {
+                        type: 'cosmetic',
+                        category: 'skin',
+                        id: 'embercore',
+                        label: 'Embercore Monarch Hull',
+                        rarity: 'mythic'
+                    }
                 }
-            },
-            { id: 'tier-3', threshold: 180, label: 'Tier 3 — Vanguard Cache' },
-            {
-                id: 'tier-4',
-                threshold: 260,
-                label: 'Tier 4 — Embercore Monarch',
-                reward: {
-                    type: 'cosmetic',
-                    category: 'skin',
-                    id: 'embercore',
-                    label: 'Embercore Monarch Hull',
-                    rarity: 'mythic'
-                }
-            }
-        ]
-    };
+            ]
+        };
+    }
 
-    seasonPassTrackRef = SEASON_PASS_TRACK;
+    function ensureSeasonPassTrack() {
+        if (!seasonPassTrackRef) {
+            seasonPassTrackRef = buildSeasonPassTrack();
+        }
+        return seasonPassTrackRef;
+    }
+
+    ensureSeasonPassTrack();
 
     const CHALLENGE_DEFINITIONS = {
         daily: [
@@ -6356,8 +6365,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 title: milestone.title ?? milestone.id
             });
         }
-        if (SEASON_PASS_TRACK?.tiers) {
-            for (const tier of SEASON_PASS_TRACK.tiers) {
+        const seasonPassTrack = ensureSeasonPassTrack();
+        if (seasonPassTrack?.tiers) {
+            for (const tier of seasonPassTrack.tiers) {
                 if (!tier || !tier.reward) {
                     continue;
                 }
@@ -6409,7 +6419,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const manager = createMetaProgressManager({
             challengeManager: getChallengeManager(),
             broadcast: broadcastMetaMessage,
-            seasonTrack: () => seasonPassTrackRef
+            seasonTrack: () => ensureSeasonPassTrack()
         });
 
         if (!manager) {
