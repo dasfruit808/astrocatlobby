@@ -6759,7 +6759,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 streak: { milestonesEarned: [] }
             };
             try {
-                baseState.seasonPass = { track: SEASON_PASS_TRACK };
+                const track = typeof globalThis !== 'undefined' ? globalThis.SEASON_PASS_TRACK : undefined;
+                if (typeof track !== 'undefined') {
+                    baseState.seasonPass = { track: track };
+                }
             }
             catch (error) {
                 if (!(error instanceof ReferenceError)) {
