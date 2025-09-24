@@ -367,8 +367,41 @@ function resolveMiniGameEntryPoint() {
   return "./AstroCats3/index.html";
 }
 
-const miniGameEntryPoint = resolveMiniGameEntryPoint();
+function createMiniGameEntryCandidates() {
+  const candidates = [];
+  const seen = new Set();
+
+  const addCandidate = (entry) => {
+    const normalised = normaliseMiniGameEntryPoint(entry);
+    if (!normalised || seen.has(normalised)) {
+      return;
+    }
+    seen.add(normalised);
+    candidates.push(normalised);
+  };
+
+  addCandidate(resolveMiniGameEntryPoint());
+  addCandidate(resolvePublicAssetUrl("public/AstroCats3/index.html"));
+  addCandidate("./AstroCats3/index.html");
+  addCandidate("./public/AstroCats3/index.html");
+
+  return candidates;
+}
+
+const miniGameEntryCandidates = createMiniGameEntryCandidates();
+let miniGameEntryCandidateIndex = miniGameEntryCandidates.length > 0 ? 0 : -1;
+let miniGameEntryPoint =
+  miniGameEntryCandidateIndex >= 0
+    ? miniGameEntryCandidates[miniGameEntryCandidateIndex]
+    : "./AstroCats3/index.html";
+
+if (miniGameEntryCandidateIndex < 0) {
+  miniGameEntryCandidates.push(miniGameEntryPoint);
+  miniGameEntryCandidateIndex = 0;
+}
+
 let miniGameOrigin = "";
+let miniGameEntryAvailabilityProbe = null;
 
 function computeMiniGameOrigin(entryPoint = miniGameEntryPoint) {
   if (typeof window === "undefined") {
@@ -382,14 +415,79 @@ function computeMiniGameOrigin(entryPoint = miniGameEntryPoint) {
   }
 }
 
-function updateMiniGameEntryPointTargets() {
+function updateMiniGameEntryPointTargets(entry = miniGameEntryPoint) {
   if (miniGameOverlayState?.frame) {
-    miniGameOverlayState.frame.src = miniGameEntryPoint;
+    miniGameOverlayState.frame.src = entry;
   }
 
   if (miniGameOverlayState?.supportLink) {
-    miniGameOverlayState.supportLink.href = miniGameEntryPoint;
+    miniGameOverlayState.supportLink.href = entry;
   }
+}
+
+function advanceMiniGameEntryPoint() {
+  for (
+    let index = Math.max(0, miniGameEntryCandidateIndex + 1);
+    index < miniGameEntryCandidates.length;
+    index += 1
+  ) {
+    const candidate = miniGameEntryCandidates[index];
+    if (!candidate || candidate === miniGameEntryPoint) {
+      continue;
+    }
+
+    miniGameEntryCandidateIndex = index;
+    miniGameEntryPoint = candidate;
+    updateMiniGameEntryPointTargets(candidate);
+    miniGameOrigin = computeMiniGameOrigin(candidate);
+    return candidate;
+  }
+
+  return null;
+}
+
+function ensureMiniGameEntryPointAvailability() {
+  if (miniGameEntryAvailabilityProbe) {
+    return miniGameEntryAvailabilityProbe;
+  }
+
+  if (typeof fetch !== "function") {
+    miniGameEntryAvailabilityProbe = Promise.resolve(miniGameEntryPoint);
+    return miniGameEntryAvailabilityProbe;
+  }
+
+  miniGameEntryAvailabilityProbe = (async () => {
+    for (let index = 0; index < miniGameEntryCandidates.length; index += 1) {
+      const candidate = miniGameEntryCandidates[index];
+      if (!candidate) {
+        continue;
+      }
+
+      try {
+        const response = await fetch(candidate, { method: "HEAD", cache: "no-store" });
+        if (response?.ok) {
+          if (miniGameEntryPoint !== candidate) {
+            miniGameEntryCandidateIndex = index;
+            miniGameEntryPoint = candidate;
+            updateMiniGameEntryPointTargets(candidate);
+            miniGameOrigin = computeMiniGameOrigin(candidate);
+            if (typeof console !== "undefined") {
+              console.info("Resolved AstroCats3 mini game entry point.", candidate);
+            }
+          }
+          return candidate;
+        }
+      } catch (error) {
+        if (typeof console !== "undefined" && error) {
+          console.warn("Failed to probe AstroCats3 mini game entry point.", candidate, error);
+        }
+      }
+    }
+
+    return miniGameEntryPoint;
+  })();
+
+  return miniGameEntryAvailabilityProbe;
 }
 
 function applyCustomPageBackground() {
@@ -1953,6 +2051,8 @@ function openMiniGame() {
   description.textContent =
     "The cabinet spins up the AstroCats3 mini game in an in-universe console.";
 
+  let supportLinkRef = null;
+
   const frame = document.createElement("iframe");
   frame.className = "minigame-frame";
   frame.src = miniGameEntryPoint;
@@ -1962,11 +2062,29 @@ function openMiniGame() {
   frame.addEventListener("load", () => {
     syncMiniGameProfile();
   });
+  frame.addEventListener("error", () => {
+    const previousEntry = miniGameEntryPoint;
+    const nextEntry = advanceMiniGameEntryPoint();
+    if (!nextEntry || nextEntry === previousEntry) {
+      return;
+    }
+    frame.src = nextEntry;
+    if (supportLinkRef) {
+      supportLinkRef.href = nextEntry;
+    }
+    if (typeof console !== "undefined") {
+      console.warn(
+        "Retrying AstroCats3 mini game load with a fallback entry point.",
+        { previous: previousEntry, next: nextEntry }
+      );
+    }
+  });
 
   const support = document.createElement("p");
   support.className = "minigame-support";
   support.textContent = "Trouble loading? ";
   const supportLink = document.createElement("a");
+  supportLinkRef = supportLink;
   supportLink.href = miniGameEntryPoint;
   supportLink.target = "_blank";
   supportLink.rel = "noopener noreferrer";
@@ -3724,6 +3842,7 @@ function showMessage(input, duration, meta = {}) {
 }
 
 if (typeof window !== "undefined") {
+  ensureMiniGameEntryPointAvailability();
   window.astrocatLobby = window.astrocatLobby ?? {};
   window.astrocatLobby.openMiniGame = openMiniGame;
   window.astrocatLobby.closeMiniGame = closeMiniGame;
@@ -3762,7 +3881,7 @@ if (typeof window !== "undefined") {
     );
   };
 
-  miniGameOrigin = computeMiniGameOrigin();
+  miniGameOrigin = computeMiniGameOrigin(miniGameEntryPoint);
 
   const formatRunDuration = (timeMs) => {
     const totalSeconds = Math.max(0, Math.round(timeMs / 1000));
