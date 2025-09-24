@@ -1844,68 +1844,6 @@ body.touch-enabled #preflightPrompt .desktop-only {
     color: rgba(148, 163, 184, 0.95);
 }
 
-.season-pass-progress {
-    position: relative;
-    width: 100%;
-    height: 10px;
-    border-radius: 999px;
-    background: rgba(30, 58, 138, 0.45);
-    overflow: hidden;
-}
-
-#seasonPassProgressFill {
-    position: absolute;
-    inset: 0;
-    width: 0;
-    border-radius: 999px;
-    background: linear-gradient(90deg, #f472b6, #fbbf24);
-    transition: width 200ms ease;
-}
-
-.season-pass-tier-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.season-pass-tier {
-    border: 1px solid rgba(148, 210, 255, 0.14);
-    border-radius: 12px;
-    padding: 10px 12px;
-    background: rgba(15, 23, 42, 0.5);
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.season-pass-tier.unlocked {
-    border-color: rgba(250, 204, 21, 0.5);
-}
-
-.season-pass-tier.claimed {
-    opacity: 0.85;
-}
-
-.season-pass-tier-label {
-    font-weight: 600;
-    color: rgba(226, 232, 240, 0.92);
-}
-
-.season-pass-tier-threshold {
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: rgba(148, 163, 184, 0.95);
-}
-
-.season-pass-tier-reward {
-    font-size: 0.78rem;
-    color: rgba(253, 224, 71, 0.92);
-}
-
 .community-goal-list {
     list-style: none;
     margin: 0;

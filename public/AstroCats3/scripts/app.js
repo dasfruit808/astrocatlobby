@@ -2521,27 +2521,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const shareButton = document.getElementById('shareButton');
     const shareStatusEl = document.getElementById('shareStatus');
     const rewardCatalogueListEl = document.getElementById('rewardCatalogueList');
-    const seasonPassPanel = document.getElementById('seasonPassPanel');
-    const seasonPassSummaryEl = document.getElementById('seasonPassSummary');
-    const seasonPassProgressFill = document.getElementById('seasonPassProgressFill');
-    const seasonPassTierListEl = document.getElementById('seasonPassTierList');
-    function disableSeasonPassUI() {
-        if (seasonPassPanel) {
-            seasonPassPanel.hidden = true;
-            seasonPassPanel.setAttribute('aria-hidden', 'true');
-        }
-        if (seasonPassSummaryEl) {
-            seasonPassSummaryEl.textContent = 'Season pass unavailable';
-        }
-        if (seasonPassProgressFill) {
-            seasonPassProgressFill.style.width = '0%';
-        }
-        if (seasonPassTierListEl) {
-            while (seasonPassTierListEl.firstChild) {
-                seasonPassTierListEl.removeChild(seasonPassTierListEl.firstChild);
-            }
-        }
-    }
     const communityGoalListEl = document.getElementById('communityGoalList');
     const achievementBadgeListEl = document.getElementById('achievementBadgeList');
     const intelLogEl = document.getElementById('intelLog');
@@ -5753,40 +5732,6 @@ document.addEventListener('DOMContentLoaded', () => {
             rarity: 'rare'
         }
     ];
-    // Provide a minimal placeholder season track so meta progress initialisation
-    // never touches the original SEASON_PASS_TRACK constant when it is missing.
-    // This prevents a ReferenceError that previously stopped the app from
-    // booting before the real season data could load.
-    const DISABLED_SEASON_PASS_TRACK = Object.freeze({
-        seasonId: 'season-disabled',
-        label: 'Season Pass',
-        tiers: []
-    });
-    function resolveSeasonPassTrack() {
-        const globalScope = typeof globalThis !== 'undefined'
-            ? globalThis
-            : typeof window !== 'undefined'
-                ? window
-                : null;
-        if (globalScope) {
-            try {
-                const track = globalScope.SEASON_PASS_TRACK;
-                if (typeof track !== 'undefined') {
-                    return track;
-                }
-            }
-            catch (error) {
-                if (!(error instanceof ReferenceError)) {
-                    throw error;
-                }
-            }
-        }
-        return null;
-    }
-    let seasonPassTrackRef = resolveSeasonPassTrack();
-    if (!seasonPassTrackRef) {
-        seasonPassTrackRef = DISABLED_SEASON_PASS_TRACK;
-    }
     const CHALLENGE_DEFINITIONS = {
         daily: [
             {
@@ -5897,7 +5842,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     const COSMETIC_REWARD_SOURCES = (() => {
-        var _a, _b, _c;
+        var _a, _b;
         const map = new Map();
         for (const [slotKey, list] of Object.entries(CHALLENGE_DEFINITIONS)) {
             if (!Array.isArray(list)) {
@@ -5919,17 +5864,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 type: 'milestone',
                 title: (_b = milestone.title) !== null && _b !== void 0 ? _b : milestone.id
             });
-        }
-        if (seasonPassTrackRef === null || seasonPassTrackRef === void 0 ? void 0 : seasonPassTrackRef.tiers) {
-            for (const tier of seasonPassTrackRef.tiers) {
-                if (!tier || !tier.reward) {
-                    continue;
-                }
-                registerCosmeticRewardSource(map, tier.reward, {
-                    type: 'season',
-                    title: (_c = tier.label) !== null && _c !== void 0 ? _c : tier.id
-                });
-            }
         }
         return map;
     })();
@@ -5963,69 +5897,13 @@ document.addEventListener('DOMContentLoaded', () => {
             icon: '🌐'
         }
     ];
-    function attemptInitializeMetaProgressManager() {
-        if (metaProgressManager) {
-            return metaProgressManager;
-        }
-        const resolvedTrack = resolveSeasonPassTrack();
-        if (resolvedTrack) {
-            seasonPassTrackRef = resolvedTrack;
-        }
-        // Skip initialization entirely when the season pass track has been
-        // disabled or failed to load. Attempting to create the manager would
-        // otherwise trigger access to the deferred season track definition and
-        // throw before it becomes available in some environments.
-        if (!seasonPassTrackRef || seasonPassTrackRef === DISABLED_SEASON_PASS_TRACK) {
-            disableSeasonPassUI();
-            return null;
-        }
-        let manager = null;
-        try {
-            manager = createMetaProgressManager({
-                challengeManager: getChallengeManager(),
-                broadcast: broadcastMetaMessage,
-                seasonTrack: () => seasonPassTrackRef
-            });
-        }
-        catch (error) {
-            if (error instanceof ReferenceError) {
-                seasonPassTrackRef = DISABLED_SEASON_PASS_TRACK;
-                disableSeasonPassUI();
-                return null;
-            }
-            throw error;
-        }
-        if (!manager) {
-            return null;
-        }
-        metaProgressManager = manager;
-        if (seasonPassPanel) {
-            seasonPassPanel.hidden = false;
-            seasonPassPanel.removeAttribute('aria-hidden');
-        }
-        if (typeof metaProgressManager.subscribe === 'function') {
-            metaProgressManager.subscribe((snapshot) => {
-                latestMetaSnapshot = snapshot;
-            });
-        }
-        return metaProgressManager;
-    }
-    if (!attemptInitializeMetaProgressManager()) {
-        const scheduleMetaInitialization = typeof queueMicrotask === 'function'
-            ? queueMicrotask
-            : (callback) => Promise.resolve().then(callback);
-        scheduleMetaInitialization(() => {
-            if (!attemptInitializeMetaProgressManager()) {
-                const initializeWhenReady = () => {
-                    attemptInitializeMetaProgressManager();
-                };
-                if (typeof document !== 'undefined' && document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', initializeWhenReady, { once: true });
-                }
-                else {
-                    initializeWhenReady();
-                }
-            }
+    metaProgressManager = createMetaProgressManager({
+        challengeManager: getChallengeManager(),
+        broadcast: broadcastMetaMessage
+    });
+    if (metaProgressManager && typeof metaProgressManager.subscribe === 'function') {
+        metaProgressManager.subscribe((snapshot) => {
+            latestMetaSnapshot = snapshot;
         });
     }
     const CHALLENGE_STATE_VERSION = 1;
@@ -6864,47 +6742,12 @@ document.addEventListener('DOMContentLoaded', () => {
             getSnapshot: () => cachedSnapshot
         };
     }
-    function createMetaProgressManager({ challengeManager, broadcast, seasonTrack } = {}) {
+    function createMetaProgressManager({ challengeManager, broadcast } = {}) {
         var _a;
-        if (typeof seasonTrack === 'function') {
-            try {
-                seasonTrack = seasonTrack();
-            }
-            catch (error) {
-                if (error instanceof ReferenceError) {
-                    return null;
-                }
-                throw error;
-            }
-        }
-        else {
-            try {
-                // Trigger access to the binding early so environments with
-                // deferred season data defined via top-level const bindings do
-                // not throw later during initialization when the variable is
-                // still in its temporal dead zone.
-                seasonTrack;
-            }
-            catch (error) {
-                if (error instanceof ReferenceError) {
-                    return null;
-                }
-                throw error;
-            }
-        }
-        if (!seasonTrack) {
-            return null;
-        }
         const META_PROGRESS_VERSION = 1;
-        let missingGrantCosmeticWarningLogged = false;
         const defaultState = () => ({
             version: META_PROGRESS_VERSION,
             achievements: {},
-            seasonPass: {
-                seasonId: seasonTrack.seasonId,
-                points: 0,
-                claimedTiers: []
-            },
             communityGoals: COMMUNITY_GOALS.map((goal) => ({
                 id: goal.id,
                 progress: 0,
@@ -6925,24 +6768,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw error;
             }
         };
-        function ensureSeasonState(state) {
-            if (!state.seasonPass || state.seasonPass.seasonId !== seasonTrack.seasonId) {
-                state.seasonPass = {
-                    seasonId: seasonTrack.seasonId,
-                    points: 0,
-                    claimedTiers: []
-                };
-            }
-            else {
-                state.seasonPass.points = Number.isFinite(state.seasonPass.points)
-                    ? Math.max(0, state.seasonPass.points)
-                    : 0;
-                state.seasonPass.claimedTiers = Array.isArray(state.seasonPass.claimedTiers)
-                    ? Array.from(new Set(state.seasonPass.claimedTiers.map((value) => String(value))))
-                    : [];
-            }
-            return state.seasonPass;
-        }
         function ensureCommunityEntry(state, goalId) {
             let entry = Array.isArray(state.communityGoals)
                 ? state.communityGoals.find((item) => item.id === goalId)
@@ -6968,7 +6793,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return entry;
         }
         function migrateMetaState(raw) {
-            var _a;
             if (!raw || typeof raw !== 'object') {
                 return buildSafeDefaultState();
             }
@@ -6983,28 +6807,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         continue;
                     }
                     const unlockedAt = Number(entry.unlockedAt);
-                    if (Number.isFinite(unlockedAt)) {
-                        state.achievements[id] = {
-                            unlockedAt,
-                            context: (_a = entry.context) !== null && _a !== void 0 ? _a : null
-                        };
-                    }
+                    state.achievements[id] = {
+                        unlockedAt: Number.isFinite(unlockedAt) ? unlockedAt : Date.now(),
+                        context: entry.context && typeof entry.context === 'object' ? entry.context : null
+                    };
                 }
-            }
-            if (raw.seasonPass && typeof raw.seasonPass === 'object') {
-                state.seasonPass = {
-                    seasonId: raw.seasonPass.seasonId === seasonTrack.seasonId
-                        ? seasonTrack.seasonId
-                        : seasonTrack.seasonId,
-                    points: raw.seasonPass.seasonId === seasonTrack.seasonId &&
-                        Number.isFinite(raw.seasonPass.points)
-                        ? Math.max(0, raw.seasonPass.points)
-                        : 0,
-                    claimedTiers: raw.seasonPass.seasonId === seasonTrack.seasonId &&
-                        Array.isArray(raw.seasonPass.claimedTiers)
-                        ? Array.from(new Set(raw.seasonPass.claimedTiers.map((value) => String(value))))
-                        : []
-                };
             }
             if (Array.isArray(raw.communityGoals)) {
                 state.communityGoals = raw.communityGoals
@@ -7050,7 +6857,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return null;
         }
         state.version = META_PROGRESS_VERSION;
-        ensureSeasonState(state);
         for (const goal of COMMUNITY_GOALS) {
             ensureCommunityEntry(state, goal.id);
         }
@@ -7059,17 +6865,6 @@ document.addEventListener('DOMContentLoaded', () => {
             : [];
         const listeners = new Set();
         function buildSnapshot() {
-            var _a, _b, _c;
-            const season = ensureSeasonState(state);
-            const tiers = ((_a = seasonTrack.tiers) !== null && _a !== void 0 ? _a : []).map((tier, index, array) => {
-                const previousThreshold = index > 0 ? array[index - 1].threshold : 0;
-                const unlocked = season.points >= tier.threshold;
-                return Object.assign(Object.assign({}, tier), { unlocked, claimed: season.claimedTiers.includes(tier.id), previousThreshold });
-            });
-            const nextTier = (_b = tiers.find((tier) => !tier.claimed && season.points < tier.threshold)) !== null && _b !== void 0 ? _b : null;
-            const currentTier = nextTier
-                ? tiers[Math.max(0, tiers.indexOf(nextTier) - 1)]
-                : (_c = tiers[tiers.length - 1]) !== null && _c !== void 0 ? _c : null;
             const community = COMMUNITY_GOALS.map((goal) => {
                 const entry = ensureCommunityEntry(state, goal.id);
                 const percent = goal.target > 0 ? Math.min(100, Math.round((entry.progress / goal.target) * 100)) : 0;
@@ -7080,14 +6875,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     var _a, _b;
                     return (Object.assign(Object.assign({}, definition), { unlockedAt: (_b = (_a = state.achievements[definition.id]) === null || _a === void 0 ? void 0 : _a.unlockedAt) !== null && _b !== void 0 ? _b : null }));
                 }),
-                seasonPass: {
-                    seasonId: season.seasonId,
-                    label: seasonTrack.label,
-                    points: season.points,
-                    tiers,
-                    currentTier,
-                    nextTier
-                },
                 communityGoals: community,
                 streak: {
                     milestones: STREAK_MILESTONES.map((milestone) => (Object.assign(Object.assign({}, milestone), { earned: state.streak.milestonesEarned.includes(milestone.id) })))
@@ -7149,41 +6936,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     meta: { type: 'achievement' }
                 }
             };
-        }
-        function addSeasonPassPoints(points) {
-            var _a, _b;
-            if (!Number.isFinite(points) || points <= 0) {
-                return { changed: false, messages: [] };
-            }
-            const season = ensureSeasonState(state);
-            season.points += Math.max(0, Math.round(points));
-            let changed = true;
-            const messages = [];
-            for (const tier of (_a = seasonTrack.tiers) !== null && _a !== void 0 ? _a : []) {
-                if (season.points >= tier.threshold && !season.claimedTiers.includes(tier.id)) {
-                    season.claimedTiers.push(tier.id);
-                    messages.push({
-                        text: `Season pass tier unlocked: ${(_b = tier.label) !== null && _b !== void 0 ? _b : tier.id}`,
-                        meta: { type: 'season' }
-                    });
-                    if (tier.reward) {
-                        if (typeof (challengeManager === null || challengeManager === void 0 ? void 0 : challengeManager.grantCosmeticReward) === 'function') {
-                            try {
-                                challengeManager.grantCosmeticReward(tier.reward, { reason: `season-${tier.id}` });
-                            }
-                            catch (error) {
-                                console.error('season reward grant failed', error);
-                            }
-                        }
-                        else if (!missingGrantCosmeticWarningLogged) {
-                            console.warn('season reward grant skipped: grantCosmeticReward callback missing');
-                            missingGrantCosmeticWarningLogged = true;
-                        }
-                    }
-                }
-            }
-            season.claimedTiers = Array.from(new Set(season.claimedTiers));
-            return { changed, messages };
         }
         function addCommunityContribution(goalId, amount) {
             if (!Number.isFinite(amount) || amount <= 0) {
@@ -7267,14 +7019,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 commit({ messages });
             }
         }
-        function calculateSeasonPoints(summary = {}) {
-            const score = Number(summary.score) || 0;
-            const placement = Number(summary.placement);
-            const recordedBonus = summary.recorded ? 12 : 6;
-            const scoreBonus = Math.floor(score / 40000) * 8;
-            const placementBonus = Number.isFinite(placement) && placement > 0 ? Math.max(0, 40 - Math.min(placement, 40)) : 0;
-            return Math.max(0, recordedBonus + scoreBonus + placementBonus);
-        }
         function recordRun(summary = {}) {
             var _a;
             const messages = [];
@@ -7298,20 +7042,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
-            const seasonResult = addSeasonPassPoints(calculateSeasonPoints(summary));
-            if (seasonResult.changed) {
-                changed = true;
-            }
-            messages.push(...seasonResult.messages);
             if (changed || messages.length) {
                 commit({ messages });
             }
         }
-        function registerChallengeCompletion(definition) {
-            const seasonResult = addSeasonPassPoints(20);
-            if (seasonResult.changed || seasonResult.messages.length) {
-                commit({ messages: seasonResult.messages });
-            }
+        function registerChallengeCompletion() {
+            // Season pass rewards removed; nothing to record here.
         }
         function registerRewardClaim(definition, reward) {
             if (!reward) {
