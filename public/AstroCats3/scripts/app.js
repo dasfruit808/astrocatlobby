@@ -2744,6 +2744,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const seasonPassSummaryEl = document.getElementById('seasonPassSummary');
     const seasonPassProgressFill = document.getElementById('seasonPassProgressFill');
     const seasonPassTierListEl = document.getElementById('seasonPassTierList');
+
+    function disableSeasonPassUI() {
+        if (seasonPassPanel) {
+            seasonPassPanel.hidden = true;
+            seasonPassPanel.setAttribute('aria-hidden', 'true');
+        }
+        if (seasonPassSummaryEl) {
+            seasonPassSummaryEl.textContent = 'Season pass unavailable';
+        }
+        if (seasonPassProgressFill) {
+            seasonPassProgressFill.style.width = '0%';
+        }
+        if (seasonPassTierListEl) {
+            while (seasonPassTierListEl.firstChild) {
+                seasonPassTierListEl.removeChild(seasonPassTierListEl.firstChild);
+            }
+        }
+    }
     const communityGoalListEl = document.getElementById('communityGoalList');
     const achievementBadgeListEl = document.getElementById('achievementBadgeList');
     const intelLogEl = document.getElementById('intelLog');
@@ -6203,11 +6221,41 @@ document.addEventListener('DOMContentLoaded', () => {
     // never touches the original SEASON_PASS_TRACK constant when it is missing.
     // This prevents a ReferenceError that previously stopped the app from
     // booting before the real season data could load.
-    let seasonPassTrackRef = {
+    const DISABLED_SEASON_PASS_TRACK = Object.freeze({
         seasonId: 'season-disabled',
         label: 'Season Pass',
         tiers: []
-    };
+    });
+
+    function resolveSeasonPassTrack() {
+        try {
+            if (typeof SEASON_PASS_TRACK !== 'undefined' && SEASON_PASS_TRACK) {
+                return SEASON_PASS_TRACK;
+            }
+        } catch (error) {
+            if (!(error instanceof ReferenceError)) {
+                throw error;
+            }
+        }
+
+        const globalScope =
+            typeof globalThis !== 'undefined'
+                ? globalThis
+                : typeof window !== 'undefined'
+                    ? window
+                    : null;
+
+        if (globalScope && globalScope.SEASON_PASS_TRACK) {
+            return globalScope.SEASON_PASS_TRACK;
+        }
+
+        return null;
+    }
+
+    let seasonPassTrackRef = resolveSeasonPassTrack();
+    if (!seasonPassTrackRef) {
+        seasonPassTrackRef = DISABLED_SEASON_PASS_TRACK;
+    }
 
     const CHALLENGE_DEFINITIONS = {
         daily: [
@@ -6398,11 +6446,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return metaProgressManager;
         }
 
+        const resolvedTrack = resolveSeasonPassTrack();
+        if (resolvedTrack) {
+            seasonPassTrackRef = resolvedTrack;
+        }
+
         // Skip initialization entirely when the season pass track has been
         // disabled or failed to load. Attempting to create the manager would
         // otherwise trigger access to the deferred season track definition and
         // throw before it becomes available in some environments.
-        if (!seasonPassTrackRef) {
+        if (!seasonPassTrackRef || seasonPassTrackRef === DISABLED_SEASON_PASS_TRACK) {
+            disableSeasonPassUI();
             return null;
         }
 
@@ -6417,6 +6471,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         metaProgressManager = manager;
+
+        if (seasonPassPanel) {
+            seasonPassPanel.hidden = false;
+            seasonPassPanel.removeAttribute('aria-hidden');
+        }
 
         if (typeof metaProgressManager.subscribe === 'function') {
             metaProgressManager.subscribe((snapshot) => {
