@@ -2214,7 +2214,68 @@ function createTouchControls({ onPress, onRelease, onGesture } = {}) {
   };
 }
 
-const lobbySpriteScale = 1.25;
+const lobbySpriteScale = 1.5;
+
+const scaleLobbyEntity = (entity) => {
+  if (!entity || typeof entity !== "object") {
+    return entity;
+  }
+
+  const scaledWidth = Math.round(entity.width * lobbySpriteScale);
+  const scaledHeight = Math.round(entity.height * lobbySpriteScale);
+  const bottom = entity.y + entity.height;
+  const centerX = entity.x + entity.width / 2;
+
+  const scaledEntity = {
+    ...entity,
+    width: scaledWidth,
+    height: scaledHeight,
+    x: Math.round(centerX - scaledWidth / 2),
+    y: Math.round(bottom - scaledHeight)
+  };
+
+  if (typeof entity.interactionPadding === "number") {
+    scaledEntity.interactionPadding = Math.round(
+      entity.interactionPadding * lobbySpriteScale
+    );
+  }
+
+  return scaledEntity;
+};
+
+const scalePlatform = (platform) => {
+  if (!platform || typeof platform !== "object") {
+    return platform;
+  }
+
+  const scaledWidth = Math.round(platform.width * lobbySpriteScale);
+  const centerX = platform.x + platform.width / 2;
+  const scaledHeight = Math.round(platform.height * lobbySpriteScale);
+
+  return {
+    ...platform,
+    width: scaledWidth,
+    height: scaledHeight,
+    x: Math.round(centerX - scaledWidth / 2),
+    y: platform.y
+  };
+};
+
+const scaleCrystal = (crystal) => {
+  if (!crystal || typeof crystal !== "object") {
+    return crystal;
+  }
+
+  const baseBottom = crystal.y + crystal.radius;
+  const scaledRadius = Math.round(crystal.radius * lobbySpriteScale);
+
+  return {
+    ...crystal,
+    radius: scaledRadius,
+    x: Math.round(crystal.x),
+    y: Math.round(baseBottom - scaledRadius)
+  };
+};
 
 const groundY = viewport.height - 96;
 const playerWidth = Math.round(72 * 1.1 * lobbySpriteScale);
@@ -2236,7 +2297,7 @@ const platforms = [
   { x: 140, y: groundY - 120, width: 160, height: 18 },
   { x: 468, y: groundY - 180, width: 200, height: 18 },
   { x: 724, y: groundY - 80, width: 150, height: 18 }
-];
+].map((platform) => scalePlatform(platform));
 
 const crystals = [
   { x: 220, y: groundY - 36, radius: 12, collected: false },
@@ -2244,19 +2305,35 @@ const crystals = [
   { x: 780, y: groundY - 116, radius: 12, collected: false },
   { x: 360, y: groundY - 156, radius: 12, collected: false },
   { x: 640, y: groundY - 36, radius: 12, collected: false }
-];
+].map((crystal) => scaleCrystal(crystal));
 
 let portalCharge = 0;
 let portalCharged = false;
 let portalCompleted = false;
 
-const portal = {
-  x: viewport.width - 140,
-  y: groundY - 120,
-  width: 100,
-  height: 140,
-  interactionPadding: 36
-};
+const portal = (() => {
+  const basePortal = {
+    x: viewport.width - 140,
+    y: groundY - 120,
+    width: 100,
+    height: 140,
+    interactionPadding: 36
+  };
+
+  const portalRightMargin = viewport.width - (basePortal.x + basePortal.width);
+  const portalBottom = basePortal.y + basePortal.height;
+  const scaledWidth = Math.round(basePortal.width * lobbySpriteScale);
+  const scaledHeight = Math.round(basePortal.height * lobbySpriteScale);
+
+  return {
+    ...basePortal,
+    width: scaledWidth,
+    height: scaledHeight,
+    x: Math.round(viewport.width - portalRightMargin - scaledWidth),
+    y: Math.round(portalBottom - scaledHeight),
+    interactionPadding: Math.round(basePortal.interactionPadding * lobbySpriteScale)
+  };
+})();
 
 const guideBaseX = 320;
 const guideBaseWidth = 42;
@@ -2267,25 +2344,6 @@ const guideFloatOffset = 6;
 const guideCenterX = guideBaseX + guideBaseWidth / 2;
 const guideX = Math.round(guideCenterX - guideWidth / 2);
 const guideY = groundY - guideFloatOffset - guideHeight;
-
-const scaleLobbyEntity = (entity) => {
-  if (!entity || typeof entity !== "object") {
-    return entity;
-  }
-
-  const scaledWidth = Math.round(entity.width * lobbySpriteScale);
-  const scaledHeight = Math.round(entity.height * lobbySpriteScale);
-  const bottom = entity.y + entity.height;
-  const centerX = entity.x + entity.width / 2;
-
-  return {
-    ...entity,
-    width: scaledWidth,
-    height: scaledHeight,
-    x: Math.round(centerX - scaledWidth / 2),
-    y: Math.round(bottom - scaledHeight)
-  };
-};
 
 const interactables = [
   {
@@ -3180,22 +3238,6 @@ function drawPlayer(entity, time) {
       entity.width,
       entity.height
     );
-
-    ctx.save();
-    ctx.globalCompositeOperation = "source-atop";
-
-    ctx.globalAlpha = 0.28;
-    ctx.fillStyle = appearance.hair;
-    ctx.fillRect(0, 0, entity.width, entity.height * 0.28);
-
-    ctx.globalAlpha = 0.2;
-    ctx.fillStyle = appearance.skin;
-    ctx.fillRect(entity.width * 0.18, entity.height * 0.04, entity.width * 0.64, entity.height * 0.34);
-
-    ctx.globalAlpha = 0.24;
-    ctx.fillStyle = appearance.shirt;
-    ctx.fillRect(0, entity.height * 0.32, entity.width, entity.height * 0.68);
-    ctx.restore();
   } else {
     ctx.fillStyle = appearance.shirt;
     drawRoundedRect(4, 12, entity.width - 8, entity.height - 18, 6);
