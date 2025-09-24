@@ -6745,18 +6745,29 @@ document.addEventListener('DOMContentLoaded', () => {
     function createMetaProgressManager({ challengeManager, broadcast } = {}) {
         var _a;
         const META_PROGRESS_VERSION = 1;
-        const defaultState = () => ({
-            version: META_PROGRESS_VERSION,
-            achievements: {},
-            communityGoals: COMMUNITY_GOALS.map((goal) => ({
-                id: goal.id,
-                progress: 0,
-                contributions: 0,
-                completedAt: null,
-                lastBroadcastPercent: 0
-            })),
-            streak: { milestonesEarned: [] }
-        });
+        const defaultState = () => {
+            const baseState = {
+                version: META_PROGRESS_VERSION,
+                achievements: {},
+                communityGoals: COMMUNITY_GOALS.map((goal) => ({
+                    id: goal.id,
+                    progress: 0,
+                    contributions: 0,
+                    completedAt: null,
+                    lastBroadcastPercent: 0
+                })),
+                streak: { milestonesEarned: [] }
+            };
+            try {
+                baseState.seasonPass = { track: SEASON_PASS_TRACK };
+            }
+            catch (error) {
+                if (!(error instanceof ReferenceError)) {
+                    throw error;
+                }
+            }
+            return baseState;
+        };
         const buildSafeDefaultState = () => {
             try {
                 return defaultState();
