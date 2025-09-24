@@ -1,3 +1,57 @@
+// Provide minimal runtime shims before the rest of the lobby bootstraps. These
+// ensure the game can execute on browsers that predate modern globals but still
+// support ES modules.
+(function ensureGlobalThis() {
+  if (typeof globalThis === "object") {
+    return;
+  }
+
+  if (typeof self !== "undefined" && self) {
+    self.globalThis = self;
+    return;
+  }
+
+  if (typeof window !== "undefined" && window) {
+    window.globalThis = window;
+    return;
+  }
+
+  if (typeof global !== "undefined" && global) {
+    global.globalThis = global;
+  }
+})();
+
+const runtimeGlobal =
+  typeof globalThis === "object"
+    ? globalThis
+    : typeof window !== "undefined"
+      ? window
+      : typeof self !== "undefined"
+        ? self
+        : typeof global !== "undefined"
+          ? global
+          : {};
+
+// Safari < 15 occasionally exposes URL but without the URLSearchParams helpers.
+// Fall back to the anchor element resolver to guarantee relative paths resolve.
+if (typeof runtimeGlobal.URL !== "function" && typeof document !== "undefined") {
+  runtimeGlobal.URL = function legacyURL(url, base) {
+    if (base) {
+      const tempDocument = document.implementation.createHTMLDocument("");
+      const baseElement = tempDocument.createElement("base");
+      baseElement.href = `${base}`;
+      tempDocument.head.appendChild(baseElement);
+      const anchor = tempDocument.createElement("a");
+      anchor.href = `${url}`;
+      tempDocument.body.appendChild(anchor);
+      return anchor;
+    }
+
+    const anchor = document.createElement("a");
+    anchor.href = `${url}`;
+    return anchor;
+  };
+}
 
 const backgroundImageUrl = new URL(
   "./assets/LobbyBackground.png",
