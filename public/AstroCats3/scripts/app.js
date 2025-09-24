@@ -7374,6 +7374,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 throw error;
             }
+        } else {
+            try {
+                // Trigger access to the binding early so environments with
+                // deferred season data defined via top-level const bindings do
+                // not throw later during initialization when the variable is
+                // still in its temporal dead zone.
+                seasonTrack;
+            } catch (error) {
+                if (error instanceof ReferenceError) {
+                    return null;
+                }
+                throw error;
+            }
         }
 
         if (!seasonTrack) {
