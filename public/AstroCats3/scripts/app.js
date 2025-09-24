@@ -6745,6 +6745,24 @@ document.addEventListener('DOMContentLoaded', () => {
     function createMetaProgressManager({ challengeManager, broadcast } = {}) {
         var _a;
         const META_PROGRESS_VERSION = 1;
+        const safeReadSeasonPassTrack = () => {
+            if (typeof globalThis === 'undefined') {
+                return undefined;
+            }
+            try {
+                if (!Object.prototype.hasOwnProperty.call(globalThis, 'SEASON_PASS_TRACK')) {
+                    return undefined;
+                }
+                const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'SEASON_PASS_TRACK');
+                return (descriptor === null || descriptor === void 0 ? void 0 : descriptor.value);
+            }
+            catch (error) {
+                if (error instanceof ReferenceError || (typeof (error === null || error === void 0 ? void 0 : error.message) === 'string' && error.message.includes('SEASON_PASS_TRACK'))) {
+                    return undefined;
+                }
+                throw error;
+            }
+        };
         const defaultState = () => {
             const baseState = {
                 version: META_PROGRESS_VERSION,
@@ -6759,11 +6777,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 streak: { milestonesEarned: [] }
             };
             try {
-                let track = undefined;
-                if (typeof globalThis !== 'undefined') {
-                    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'SEASON_PASS_TRACK');
-                    track = descriptor && descriptor.value;
-                }
+                const track = safeReadSeasonPassTrack();
                 if (typeof track !== 'undefined') {
                     baseState.seasonPass = { track: track };
                 }
