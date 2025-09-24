@@ -1483,6 +1483,71 @@ function clearStoredAccount() {
   }
 }
 
+const miniGameLoadoutStorageKey = "nyanEscape.customLoadouts";
+const miniGameLoadoutVersion = 1;
+const miniGameLoadoutSlots = [
+  { slot: "slotA", defaultName: "Custom Loadout A" },
+  { slot: "slotB", defaultName: "Custom Loadout B" }
+];
+const miniGameMaxLoadoutNameLength = 32;
+
+const miniGamePilotOptions = [
+  {
+    id: "nova",
+    name: "Nova",
+    role: "Squad Vanguard",
+    summary:
+      "Balanced thrusters and pinpoint instincts keep Nova stable during any sortie."
+  },
+  {
+    id: "aurora",
+    name: "Aurora",
+    role: "Skystreak Ace",
+    summary:
+      "Aurora’s tuned reactors favour evasive manoeuvres and quick recoveries through dense fields."
+  },
+  {
+    id: "ember",
+    name: "Ember",
+    role: "Siegebreak Specialist",
+    summary:
+      "Ember channels heavier ordinance to crack shielded foes when the pressure spikes."
+  }
+];
+
+const miniGameWeaponOptions = [
+  {
+    id: "pulse",
+    name: "Pulse Array",
+    summary: "Reliable dual-phase cannons engineered for steady clears."
+  },
+  {
+    id: "scatter",
+    name: "Scatter Volley",
+    summary: "Triple-shot volley that carpets the lane with plasma."
+  },
+  {
+    id: "lance",
+    name: "Photon Lance",
+    summary: "Charged spear shot that pierces heavy armour and bosses."
+  }
+];
+
+const miniGameSuitOptions = [
+  { id: "default", name: "Aurora Standard" },
+  { id: "midnight", name: "Midnight Mirage" },
+  { id: "sunrise", name: "Solar Flare" }
+];
+
+const miniGameStreamOptions = [
+  { id: "rainbow", name: "Spectrum Stream" },
+  { id: "aurora", name: "Aurora Wake" },
+  { id: "ember", name: "Ember Wake" },
+  { id: "ion", name: "Ion Surge" },
+  { id: "solstice", name: "Solstice Bloom" },
+  { id: "quantum", name: "Quantum Drift" }
+];
+
 function createDefaultMiniGameLoadout(slotMeta, index = 0) {
   const fallbackSlot = slotMeta?.slot ?? `slot${index + 1}`;
   const fallbackName = slotMeta?.defaultName ?? `Custom Loadout ${index + 1}`;
@@ -1723,72 +1788,6 @@ const attributeDefinitions = [
     base: 5
   }
 ];
-
-const miniGameLoadoutStorageKey = "nyanEscape.customLoadouts";
-const miniGameLoadoutVersion = 1;
-const miniGameLoadoutSlots = [
-  { slot: "slotA", defaultName: "Custom Loadout A" },
-  { slot: "slotB", defaultName: "Custom Loadout B" }
-];
-const miniGameMaxLoadoutNameLength = 32;
-
-const miniGamePilotOptions = [
-  {
-    id: "nova",
-    name: "Nova",
-    role: "Squad Vanguard",
-    summary:
-      "Balanced thrusters and pinpoint instincts keep Nova stable during any sortie."
-  },
-  {
-    id: "aurora",
-    name: "Aurora",
-    role: "Skystreak Ace",
-    summary:
-      "Aurora’s tuned reactors favour evasive manoeuvres and quick recoveries through dense fields."
-  },
-  {
-    id: "ember",
-    name: "Ember",
-    role: "Siegebreak Specialist",
-    summary:
-      "Ember channels heavier ordinance to crack shielded foes when the pressure spikes."
-  }
-];
-
-const miniGameWeaponOptions = [
-  {
-    id: "pulse",
-    name: "Pulse Array",
-    summary: "Reliable dual-phase cannons engineered for steady clears."
-  },
-  {
-    id: "scatter",
-    name: "Scatter Volley",
-    summary: "Triple-shot volley that carpets the lane with plasma."
-  },
-  {
-    id: "lance",
-    name: "Photon Lance",
-    summary: "Charged spear shot that pierces heavy armour and bosses."
-  }
-];
-
-const miniGameSuitOptions = [
-  { id: "default", name: "Aurora Standard" },
-  { id: "midnight", name: "Midnight Mirage" },
-  { id: "sunrise", name: "Solar Flare" }
-];
-
-const miniGameStreamOptions = [
-  { id: "rainbow", name: "Spectrum Stream" },
-  { id: "aurora", name: "Aurora Wake" },
-  { id: "ember", name: "Ember Wake" },
-  { id: "ion", name: "Ion Surge" },
-  { id: "solstice", name: "Solstice Bloom" },
-  { id: "quantum", name: "Quantum Drift" }
-];
-
 function createInitialAttributeState() {
   const attributes = {};
   for (const definition of attributeDefinitions) {
