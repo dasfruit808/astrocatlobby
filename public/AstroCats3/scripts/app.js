@@ -6228,16 +6228,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function resolveSeasonPassTrack() {
-        try {
-            if (typeof SEASON_PASS_TRACK !== 'undefined' && SEASON_PASS_TRACK) {
-                return SEASON_PASS_TRACK;
-            }
-        } catch (error) {
-            if (!(error instanceof ReferenceError)) {
-                throw error;
-            }
-        }
-
         const globalScope =
             typeof globalThis !== 'undefined'
                 ? globalThis
@@ -6245,7 +6235,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? window
                     : null;
 
-        if (globalScope && globalScope.SEASON_PASS_TRACK) {
+        if (globalScope && typeof globalScope.SEASON_PASS_TRACK !== 'undefined') {
             return globalScope.SEASON_PASS_TRACK;
         }
 
