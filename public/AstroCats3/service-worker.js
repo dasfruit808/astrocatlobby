@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'flyin-nyan-v1';
+const CACHE_VERSION = 'flyin-nyan-v2';
 const PRECACHE_PATHS = [
   './',
   'index.html',
