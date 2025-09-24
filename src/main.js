@@ -1,219 +1,42 @@
-const PUBLIC_MANIFEST_GLOBAL_KEY = "__ASTROCAT_PUBLIC_MANIFEST__";
-const PUBLIC_MANIFEST_MODULE_ID = "virtual:astrocat-public-manifest";
-const LEGACY_PUBLIC_MANIFEST_MODULE_ID = "virtual:public-manifest";
-
-function readPublicManifest() {
-  const globalScope =
-    typeof globalThis !== "undefined"
-      ? globalThis
-      : typeof window !== "undefined"
-        ? window
-        : null;
-
-  if (
-    globalScope &&
-    Object.prototype.hasOwnProperty.call(globalScope, PUBLIC_MANIFEST_GLOBAL_KEY)
-  ) {
-    const manifest = globalScope[PUBLIC_MANIFEST_GLOBAL_KEY];
-    if (manifest && typeof manifest === "object") {
-      return manifest;
-    }
-  }
-
-  return null;
-}
-
-let publicManifest = readPublicManifest();
-if (publicManifest && typeof publicManifest === "object") {
-  assignPublicManifest(publicManifest);
-}
-let publicManifestPromise = null;
-
-function shouldAttemptManifestImport() {
-  if (typeof import.meta !== "undefined" && import.meta && import.meta.env) {
-    return true;
-  }
-
-  if (typeof document !== "undefined") {
-    const manifestScript = document.getElementById("astrocat-public-manifest");
-    if (manifestScript) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function assignPublicManifest(manifest) {
-  if (!manifest || typeof manifest !== "object") {
-    return null;
-  }
-
-  publicManifest = manifest;
-
-  const globalScope =
-    typeof globalThis !== "undefined"
-      ? globalThis
-      : typeof window !== "undefined"
-        ? window
-        : null;
-
-  if (globalScope) {
-    try {
-      globalScope[PUBLIC_MANIFEST_GLOBAL_KEY] = manifest;
-    } catch (error) {
-      if (error && typeof console !== "undefined") {
-        console.warn("Failed to assign public manifest to global scope", error);
-      }
-    }
-  }
-
-  return manifest;
-}
-
-function ensurePublicManifestAvailable() {
-  if (publicManifest && typeof publicManifest === "object") {
-    return Promise.resolve(publicManifest);
-  }
-
-  if (publicManifestPromise) {
-    return publicManifestPromise;
-  }
-
-  const importManifestModule = async (moduleId, { logFailure = true } = {}) => {
-    try {
-      const module = await import(moduleId);
-      if (!module || typeof module !== "object") {
-        return null;
-      }
-
-      const manifest =
-        module.default && typeof module.default === "object" ? module.default : module;
-
-      if (!manifest || typeof manifest !== "object") {
-        return null;
-      }
-
-      assignPublicManifest(manifest);
-      return manifest;
-    } catch (error) {
-      if (logFailure && error && typeof console !== "undefined") {
-        console.warn(
-          `Failed to dynamically import the public manifest module "${moduleId}".`,
-          error
-        );
-      }
-      return null;
-    }
-  };
-
-  if (shouldAttemptManifestImport()) {
-    try {
-      publicManifestPromise = importManifestModule(PUBLIC_MANIFEST_MODULE_ID).then(
-        async (manifest) => {
-          if (manifest) {
-            return manifest;
-          }
-
-          if (PUBLIC_MANIFEST_MODULE_ID === LEGACY_PUBLIC_MANIFEST_MODULE_ID) {
-            return null;
-          }
-
-          const fallback = await importManifestModule(LEGACY_PUBLIC_MANIFEST_MODULE_ID, {
-            logFailure: false
-          });
-
-          if (!fallback && typeof console !== "undefined") {
-            console.warn(
-              "Failed to load the legacy public manifest module fallback. Falling back to runtime asset probing."
-            );
-          }
-
-          return fallback;
-        }
-      );
-    } catch (error) {
-      if (error && typeof console !== "undefined") {
-        console.warn(
-          "Dynamic import for the public manifest is unavailable in this environment. Falling back to runtime asset probing.",
-          error
-        );
-      }
-      publicManifestPromise = Promise.resolve(null);
-    }
-  } else {
-    publicManifestPromise = Promise.resolve(null);
-  }
-
-  return publicManifestPromise;
-}
-
-const publicManifestReady = ensurePublicManifestAvailable();
+import "./style.css";
 
 const backgroundImageUrl = new URL(
   "./assets/LobbyBackground.png",
   import.meta.url
 ).href;
 
-const styleSheetUrl = new URL("./style.css", import.meta.url).href;
-
 function normalizePublicRelativePath(relativePath) {
   if (typeof relativePath !== "string") {
     return "";
   }
 
-  const withoutDots = relativePath.replace(/^(?:\.\/)+/, "");
-  const withoutLeadingSlashes = withoutDots.replace(/^[/\\]+/, "");
-  return withoutLeadingSlashes.replace(/\\/g, "/");
+  return relativePath
+    .trim()
+    .replace(/^(?:\.\/)+/, "")
+    .replace(/^\/+/, "")
+    .replace(/\\/g, "/");
 }
 
-function getPublicAssetUrl(relativePath) {
+function resolvePublicAssetUrl(relativePath) {
   const normalized = normalizePublicRelativePath(relativePath);
   if (!normalized) {
     return null;
   }
 
-  if (!publicManifest || typeof publicManifest !== "object") {
-    return null;
+  const candidate = normalized;
+
+  if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(candidate) || candidate.startsWith("//")) {
+    return candidate;
   }
 
-  const assetUrl = publicManifest[normalized];
-  if (typeof assetUrl !== "string" || !assetUrl) {
-    return null;
+  if (candidate.startsWith("./") || candidate.startsWith("../")) {
+    return candidate;
   }
 
-  return assetUrl;
+  const base = import.meta?.env?.BASE_URL ?? "/";
+  const separator = base.endsWith("/") ? "" : "/";
+  return `${base}${separator}${candidate}`;
 }
-
-function hasPublicAsset(relativePath) {
-  return Boolean(getPublicAssetUrl(relativePath));
-}
-
-function ensureBaseStyleSheet(href) {
-  if (typeof document === "undefined") {
-    return;
-  }
-
-  const head = document.head;
-  if (!head) {
-    return;
-  }
-
-  const existingLink = Array.from(
-    document.querySelectorAll('link[rel="stylesheet"]')
-  ).find((link) => link.href === href);
-
-  if (existingLink) {
-    return;
-  }
-
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href = href;
-  head.append(link);
-}
-
-ensureBaseStyleSheet(styleSheetUrl);
 
 function tryCreateAssetManifest() {
   try {
@@ -260,165 +83,11 @@ const baseCanvasHeight = 540;
 // Place a custom background image at public/webpagebackground.png to override
 // the gradient page backdrop.
 
-function normalizeDirectoryPath(pathname) {
-  if (!pathname) {
-    return "/";
-  }
-
-  if (pathname.endsWith("/")) {
-    return pathname;
-  }
-
-  if (!pathname.includes(".")) {
-    return `${pathname}/`;
-  }
-
-  const withoutFile = pathname.replace(/[^/]*$/, "");
-  if (!withoutFile) {
-    return "/";
-  }
-
-  return withoutFile.endsWith("/") ? withoutFile : `${withoutFile}/`;
-}
-
-function normalizeBaseForPublicAsset(base) {
-  if (typeof base !== "string" || base.startsWith("about:")) {
-    return null;
-  }
-
-  const fallbackBase = (() => {
-    if (typeof window === "undefined" || !window.location) {
-      return "http://localhost/";
-    }
-
-    const { origin, pathname, href } = window.location;
-    const normalisedPathname = normalizeDirectoryPath(pathname);
-
-    if (origin && origin !== "null") {
-      return `${origin}${normalisedPathname}`;
-    }
-
-    if (href && href.startsWith("file:")) {
-      try {
-        const url = new URL(href);
-        url.pathname = normalisedPathname;
-        url.search = "";
-        url.hash = "";
-        return url.toString();
-      } catch (error) {
-        console.warn(
-          "Failed to normalise file:// fallback base for public asset resolution",
-          error
-        );
-        return href;
-      }
-    }
-
-    return href || "http://localhost/";
-  })();
-
-  try {
-    const resolvedBase = new URL(base, fallbackBase);
-    resolvedBase.pathname = normalizeDirectoryPath(resolvedBase.pathname);
-    resolvedBase.search = "";
-    resolvedBase.hash = "";
-    return resolvedBase;
-  } catch (error) {
-    console.warn(
-      "Failed to normalise base URL for public asset resolution",
-      base,
-      error
-    );
-    return null;
-  }
-}
-
-function resolvePublicAssetUrl(relativePath) {
-  if (!relativePath) {
-    return "/";
-  }
-
-  const trimmed = normalizePublicRelativePath(relativePath);
-  if (!trimmed) {
-    return "/";
-  }
-
-  const manifestUrl = getPublicAssetUrl(trimmed);
-  if (manifestUrl) {
-    if (
-      manifestUrl.startsWith("/") &&
-      typeof window !== "undefined" &&
-      window?.location?.protocol === "file:"
-    ) {
-      const withoutLeadingSlashes = manifestUrl.replace(/^\/+/g, "");
-      return withoutLeadingSlashes ? `./${withoutLeadingSlashes}` : "./";
-    }
-
-    return manifestUrl;
-  }
-
-  const fallback = `./${trimmed}`;
-  const baseCandidates = [];
-
-  if (
-    typeof import.meta !== "undefined" &&
-    import.meta &&
-    import.meta.env &&
-    typeof import.meta.env.BASE_URL === "string"
-  ) {
-    baseCandidates.push(import.meta.env.BASE_URL);
-  }
-
-  if (typeof document !== "undefined" && document.baseURI) {
-    baseCandidates.push(document.baseURI);
-  }
-
-  if (typeof window !== "undefined" && window.location) {
-    const { href, origin, pathname } = window.location;
-    if (href) {
-      baseCandidates.push(href);
-    }
-    if (origin && origin !== "null") {
-      baseCandidates.push(origin);
-      if (pathname) {
-        const normalisedPath = normalizeDirectoryPath(pathname);
-        baseCandidates.push(`${origin}${normalisedPath}`);
-      }
-    }
-  }
-
-  for (const base of baseCandidates) {
-    const normalisedBase = normalizeBaseForPublicAsset(base);
-    if (!normalisedBase) {
-      continue;
-    }
-
-    try {
-      return new URL(trimmed, normalisedBase).toString();
-    } catch (error) {
-      console.warn(
-        "Failed to resolve public asset URL from base",
-        normalisedBase.toString(),
-        error
-      );
-    }
-  }
-
-  if (!fallback.startsWith("//")) {
-    return fallback;
-  }
-
-  return `./${fallback.replace(/^\.\/+/g, "")}`;
-}
-
-let customBackgroundAssetAvailable = hasPublicAsset("webpagebackground.png");
-let customPageBackgroundUrl = customBackgroundAssetAvailable
-  ? resolvePublicAssetUrl("webpagebackground.png")
-  : null;
+const customPageBackgroundUrl = resolvePublicAssetUrl("webpagebackground.png");
 let customBackgroundAvailabilityProbe = null;
 
 function shouldUseCustomPageBackground() {
-  if (!customBackgroundAssetAvailable || !customPageBackgroundUrl) {
+  if (!customPageBackgroundUrl) {
     return Promise.resolve(false);
   }
 
@@ -491,34 +160,20 @@ function normaliseMiniGameEntryPoint(entry) {
 }
 
 function resolveMiniGameEntryPoint() {
-  const candidateEntries = [
-    {
-      relative: "public/AstroCats3/index.html",
-      fallback: "./public/AstroCats3/index.html",
-    },
-    {
-      relative: "AstroCats3/index.html",
-      fallback: "./AstroCats3/index.html",
-    },
-  ];
+  const resolvedEntry = resolvePublicAssetUrl("AstroCats3/index.html");
+  const normalisedEntry = normaliseMiniGameEntryPoint(resolvedEntry);
 
-  for (const candidate of candidateEntries) {
-    const resolvedEntry = resolvePublicAssetUrl(candidate.relative);
-    const normalisedEntry = normaliseMiniGameEntryPoint(resolvedEntry);
-
-    if (normalisedEntry && normalisedEntry !== "/") {
-      return normalisedEntry;
-    }
+  if (normalisedEntry && normalisedEntry !== "/") {
+    return normalisedEntry;
   }
 
-  const [{ fallback }] = candidateEntries;
   console.warn(
     "Falling back to a relative AstroCats3 mini game entry point. Ensure public/AstroCats3/index.html is reachable from the current path."
   );
-  return fallback;
+  return "./AstroCats3/index.html";
 }
 
-let miniGameEntryPoint = resolveMiniGameEntryPoint();
+const miniGameEntryPoint = resolveMiniGameEntryPoint();
 let miniGameOrigin = "";
 
 function computeMiniGameOrigin(entryPoint = miniGameEntryPoint) {
@@ -542,31 +197,6 @@ function updateMiniGameEntryPointTargets() {
     miniGameOverlayState.supportLink.href = miniGameEntryPoint;
   }
 }
-
-function refreshPublicManifestDependents() {
-  customBackgroundAssetAvailable = hasPublicAsset("webpagebackground.png");
-  customPageBackgroundUrl = customBackgroundAssetAvailable
-    ? resolvePublicAssetUrl("webpagebackground.png")
-    : null;
-  customBackgroundAvailabilityProbe = null;
-  applyCustomPageBackground();
-
-  const previousEntryPoint = miniGameEntryPoint;
-  miniGameEntryPoint = resolveMiniGameEntryPoint();
-
-  if (miniGameEntryPoint !== previousEntryPoint) {
-    updateMiniGameEntryPointTargets();
-    miniGameOrigin = computeMiniGameOrigin();
-  }
-}
-
-publicManifestReady.then((manifest) => {
-  if (!manifest) {
-    return;
-  }
-
-  refreshPublicManifestDependents();
-});
 
 function applyCustomPageBackground() {
   if (typeof document === "undefined") {
