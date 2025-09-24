@@ -6750,7 +6750,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return undefined;
             }
             try {
-                return globalThis.SEASON_PASS_TRACK;
+                if (!Object.prototype.hasOwnProperty.call(globalThis, 'SEASON_PASS_TRACK')) {
+                    return undefined;
+                }
+                const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'SEASON_PASS_TRACK');
+                return descriptor === null || descriptor === void 0 ? void 0 : descriptor.value;
             }
             catch (error) {
                 if (error instanceof ReferenceError || (typeof (error === null || error === void 0 ? void 0 : error.message) === 'string' && error.message.includes('SEASON_PASS_TRACK'))) {
