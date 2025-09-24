@@ -1514,6 +1514,158 @@ function clearStoredAccount() {
   }
 }
 
+function createDefaultMiniGameLoadout(slotMeta, index = 0) {
+  const fallbackSlot = slotMeta?.slot ?? `slot${index + 1}`;
+  const fallbackName = slotMeta?.defaultName ?? `Custom Loadout ${index + 1}`;
+  return {
+    slot: fallbackSlot,
+    name: fallbackName,
+    characterId: miniGamePilotOptions[0]?.id ?? "nova",
+    weaponId: miniGameWeaponOptions[0]?.id ?? "pulse",
+    skinId: miniGameSuitOptions[0]?.id ?? "default",
+    trailId: miniGameStreamOptions[0]?.id ?? "rainbow"
+  };
+}
+
+function sanitizeMiniGameLoadoutOption(options, candidate, fallbackId) {
+  if (!Array.isArray(options) || options.length === 0) {
+    return fallbackId;
+  }
+
+  const match = options.find((option) => option.id === candidate);
+  if (match) {
+    return match.id;
+  }
+
+  const fallbackOption = options.find((option) => option.id === fallbackId);
+  if (fallbackOption) {
+    return fallbackOption.id;
+  }
+
+  return options[0].id;
+}
+
+function sanitizeMiniGameLoadout(entry, slotMeta, index) {
+  const fallback = createDefaultMiniGameLoadout(slotMeta, index);
+  if (!entry || typeof entry !== "object") {
+    return { ...fallback };
+  }
+
+  const slotId = slotMeta?.slot ?? fallback.slot;
+  const defaultName = slotMeta?.defaultName ?? fallback.name;
+  const rawName = typeof entry.name === "string" ? entry.name.trim() : "";
+  const sanitizedName = rawName
+    ? rawName.slice(0, miniGameMaxLoadoutNameLength)
+    : defaultName;
+
+  return {
+    slot: slotId,
+    name: sanitizedName,
+    characterId: sanitizeMiniGameLoadoutOption(
+      miniGamePilotOptions,
+      entry.characterId,
+      fallback.characterId
+    ),
+    weaponId: sanitizeMiniGameLoadoutOption(
+      miniGameWeaponOptions,
+      entry.weaponId,
+      fallback.weaponId
+    ),
+    skinId: sanitizeMiniGameLoadoutOption(
+      miniGameSuitOptions,
+      entry.skinId,
+      fallback.skinId
+    ),
+    trailId: sanitizeMiniGameLoadoutOption(
+      miniGameStreamOptions,
+      entry.trailId,
+      fallback.trailId
+    )
+  };
+}
+
+function sanitizeMiniGameLoadoutsState(state) {
+  const slots = miniGameLoadoutSlots.map((slotMeta, index) => {
+    const source = Array.isArray(state?.slots)
+      ? state.slots.find((entry) => entry && entry.slot === slotMeta.slot) ?? state.slots[index]
+      : null;
+    return sanitizeMiniGameLoadout(source, slotMeta, index);
+  });
+
+  const availableSlots = new Set(slots.map((entry) => entry.slot));
+  const requestedActiveSlot = typeof state?.activeSlot === "string" ? state.activeSlot : null;
+  const fallbackSlot = slots[0]?.slot ?? null;
+  const activeSlot =
+    requestedActiveSlot && availableSlots.has(requestedActiveSlot)
+      ? requestedActiveSlot
+      : fallbackSlot;
+
+  return { slots, activeSlot };
+}
+
+function loadMiniGameLoadoutsFromStorage() {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return sanitizeMiniGameLoadoutsState(null);
+  }
+
+  try {
+    const raw = storage.getItem(miniGameLoadoutStorageKey);
+    if (!raw) {
+      return sanitizeMiniGameLoadoutsState(null);
+    }
+
+    const parsed = JSON.parse(raw);
+    return sanitizeMiniGameLoadoutsState(parsed);
+  } catch (error) {
+    console.warn("Failed to read mini game loadouts", error);
+    return sanitizeMiniGameLoadoutsState(null);
+  }
+}
+
+function saveMiniGameLoadoutsToStorage(state) {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    const sanitized = sanitizeMiniGameLoadoutsState(state);
+    const payload = {
+      version: miniGameLoadoutVersion,
+      activeSlot: sanitized.activeSlot,
+      slots: sanitized.slots.map((entry) => ({
+        slot: entry.slot,
+        name: entry.name,
+        characterId: entry.characterId,
+        weaponId: entry.weaponId,
+        skinId: entry.skinId,
+        trailId: entry.trailId
+      }))
+    };
+    storage.setItem(miniGameLoadoutStorageKey, JSON.stringify(payload));
+    return true;
+  } catch (error) {
+    console.warn("Failed to persist mini game loadouts", error);
+    return false;
+  }
+}
+
+function getMiniGameLoadoutBySlot(slots, slotId) {
+  if (!Array.isArray(slots) || slots.length === 0) {
+    return null;
+  }
+
+  if (slotId) {
+    const match = slots.find((entry) => entry.slot === slotId);
+    if (match) {
+      return match;
+    }
+  }
+
+  return slots[0];
+}
+
 function findStarterCharacter(starterId) {
   return (
     starterCharacters.find((character) => character.id === starterId) ?? starterCharacters[0]
@@ -1527,6 +1679,8 @@ const fallbackAccount = {
   catName: "PixelHero",
   starterId: starterCharacters[0].id
 };
+
+let miniGameLoadoutState = loadMiniGameLoadoutsFromStorage();
 
 const appearancePresets = [
   {
@@ -1599,6 +1753,71 @@ const attributeDefinitions = [
     description: "Expands energy reserves for abilities.",
     base: 5
   }
+];
+
+const miniGameLoadoutStorageKey = "nyanEscape.customLoadouts";
+const miniGameLoadoutVersion = 1;
+const miniGameLoadoutSlots = [
+  { slot: "slotA", defaultName: "Custom Loadout A" },
+  { slot: "slotB", defaultName: "Custom Loadout B" }
+];
+const miniGameMaxLoadoutNameLength = 32;
+
+const miniGamePilotOptions = [
+  {
+    id: "nova",
+    name: "Nova",
+    role: "Squad Vanguard",
+    summary:
+      "Balanced thrusters and pinpoint instincts keep Nova stable during any sortie."
+  },
+  {
+    id: "aurora",
+    name: "Aurora",
+    role: "Skystreak Ace",
+    summary:
+      "Aurora’s tuned reactors favour evasive manoeuvres and quick recoveries through dense fields."
+  },
+  {
+    id: "ember",
+    name: "Ember",
+    role: "Siegebreak Specialist",
+    summary:
+      "Ember channels heavier ordinance to crack shielded foes when the pressure spikes."
+  }
+];
+
+const miniGameWeaponOptions = [
+  {
+    id: "pulse",
+    name: "Pulse Array",
+    summary: "Reliable dual-phase cannons engineered for steady clears."
+  },
+  {
+    id: "scatter",
+    name: "Scatter Volley",
+    summary: "Triple-shot volley that carpets the lane with plasma."
+  },
+  {
+    id: "lance",
+    name: "Photon Lance",
+    summary: "Charged spear shot that pierces heavy armour and bosses."
+  }
+];
+
+const miniGameSuitOptions = [
+  { id: "default", name: "Aurora Standard" },
+  { id: "midnight", name: "Midnight Mirage" },
+  { id: "sunrise", name: "Solar Flare" }
+];
+
+const miniGameStreamOptions = [
+  { id: "rainbow", name: "Spectrum Stream" },
+  { id: "aurora", name: "Aurora Wake" },
+  { id: "ember", name: "Ember Wake" },
+  { id: "ion", name: "Ion Surge" },
+  { id: "solstice", name: "Solstice Bloom" },
+  { id: "quantum", name: "Quantum Drift" }
 ];
 
 function createInitialAttributeState() {
@@ -1884,6 +2103,21 @@ function syncMiniGameProfile() {
     exp: playerStats.exp,
     maxExp: playerStats.maxExp
   };
+
+  const activeLoadout = getMiniGameLoadoutBySlot(
+    miniGameLoadoutState?.slots,
+    miniGameLoadoutState?.activeSlot
+  );
+  if (activeLoadout) {
+    profile.loadout = {
+      slot: activeLoadout.slot,
+      name: activeLoadout.name,
+      characterId: activeLoadout.characterId,
+      weaponId: activeLoadout.weaponId,
+      skinId: activeLoadout.skinId,
+      trailId: activeLoadout.trailId
+    };
+  }
 
   contentWindow.postMessage(profile, targetOrigin);
 }
@@ -4008,6 +4242,443 @@ function createOnboardingExperience(options, config = {}) {
   };
 }
 
+function createMiniGameLoadoutPanel(initialState, options = {}) {
+  const { onLoadoutsChange } = options;
+  const storageAvailable = Boolean(getLocalStorage());
+  let currentState = sanitizeMiniGameLoadoutsState(initialState);
+  let activeSlotId =
+    currentState.activeSlot &&
+    getMiniGameLoadoutBySlot(currentState.slots, currentState.activeSlot)
+      ? currentState.activeSlot
+      : currentState.slots[0]?.slot ?? null;
+
+  const root = document.createElement("section");
+  root.className = "loadout-panel";
+  if (!storageAvailable) {
+    root.classList.add("is-disabled");
+  }
+
+  const idSuffix = Math.random().toString(36).slice(2);
+
+  const header = document.createElement("div");
+  header.className = "loadout-panel__header";
+  const title = document.createElement("h2");
+  title.className = "loadout-panel__title";
+  title.textContent = "Mini Game Loadout";
+  const description = document.createElement("p");
+  description.className = "loadout-panel__description";
+  description.textContent = storageAvailable
+    ? "Choose your Starcade preset before launching the arcade cabinet."
+    : "Storage is unavailable, so presets cannot be updated in this session.";
+  header.append(title, description);
+  root.append(header);
+
+  const form = document.createElement("div");
+  form.className = "loadout-panel__form";
+  root.append(form);
+
+  function createField(labelText, control) {
+    const field = document.createElement("div");
+    field.className = "loadout-panel__field";
+    const label = document.createElement("label");
+    label.className = "loadout-panel__label";
+    label.textContent = labelText;
+    label.setAttribute("for", control.id);
+    field.append(label, control);
+    return field;
+  }
+
+  const slotSelect = document.createElement("select");
+  slotSelect.className = "loadout-panel__select";
+  slotSelect.id = `miniGameLoadoutSlot-${idSuffix}`;
+  const slotField = createField("Preset slot", slotSelect);
+  form.append(slotField);
+
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.id = `miniGameLoadoutName-${idSuffix}`;
+  nameInput.className = "loadout-panel__input";
+  nameInput.maxLength = miniGameMaxLoadoutNameLength;
+  nameInput.placeholder = "Custom preset name";
+  nameInput.autocomplete = "off";
+  const nameField = createField("Preset name", nameInput);
+  form.append(nameField);
+
+  const pilotSelect = document.createElement("select");
+  pilotSelect.id = `miniGameLoadoutPilot-${idSuffix}`;
+  pilotSelect.className = "loadout-panel__select";
+  for (const option of miniGamePilotOptions) {
+    const element = document.createElement("option");
+    element.value = option.id;
+    element.textContent = option.name;
+    pilotSelect.append(element);
+  }
+  const pilotField = createField("Pilot", pilotSelect);
+  form.append(pilotField);
+
+  const weaponSelect = document.createElement("select");
+  weaponSelect.id = `miniGameLoadoutWeapon-${idSuffix}`;
+  weaponSelect.className = "loadout-panel__select";
+  for (const option of miniGameWeaponOptions) {
+    const element = document.createElement("option");
+    element.value = option.id;
+    element.textContent = option.name;
+    weaponSelect.append(element);
+  }
+  const weaponField = createField("Weapon", weaponSelect);
+  form.append(weaponField);
+
+  const suitSelect = document.createElement("select");
+  suitSelect.id = `miniGameLoadoutSuit-${idSuffix}`;
+  suitSelect.className = "loadout-panel__select";
+  for (const option of miniGameSuitOptions) {
+    const element = document.createElement("option");
+    element.value = option.id;
+    element.textContent = option.name;
+    suitSelect.append(element);
+  }
+  const suitField = createField("Suit", suitSelect);
+  form.append(suitField);
+
+  const streamSelect = document.createElement("select");
+  streamSelect.id = `miniGameLoadoutStream-${idSuffix}`;
+  streamSelect.className = "loadout-panel__select";
+  for (const option of miniGameStreamOptions) {
+    const element = document.createElement("option");
+    element.value = option.id;
+    element.textContent = option.name;
+    streamSelect.append(element);
+  }
+  const streamField = createField("Stream", streamSelect);
+  form.append(streamField);
+
+  const summary = document.createElement("div");
+  summary.className = "loadout-summary";
+  const summaryHeader = document.createElement("div");
+  summaryHeader.className = "loadout-summary__header";
+  const summaryTitle = document.createElement("span");
+  summaryTitle.className = "loadout-summary__title";
+  summaryTitle.textContent = "Preset overview";
+  const activeBadge = document.createElement("span");
+  activeBadge.className = "loadout-summary__active-badge";
+  activeBadge.textContent = "Equipped preset";
+  summaryHeader.append(summaryTitle, activeBadge);
+  summary.append(summaryHeader);
+
+  const summaryList = document.createElement("dl");
+  summaryList.className = "loadout-summary__list";
+  summary.append(summaryList);
+
+  function createSummaryRow(labelText) {
+    const term = document.createElement("dt");
+    term.className = "loadout-summary__label";
+    term.textContent = labelText;
+    const value = document.createElement("dd");
+    value.className = "loadout-summary__value";
+    value.textContent = "—";
+    summaryList.append(term, value);
+    return value;
+  }
+
+  const summaryValues = {
+    pilot: createSummaryRow("Pilot"),
+    weapon: createSummaryRow("Weapon"),
+    suit: createSummaryRow("Suit"),
+    stream: createSummaryRow("Stream")
+  };
+
+  root.append(summary);
+
+  const equipButton = document.createElement("button");
+  equipButton.type = "button";
+  equipButton.className = "loadout-panel__equip";
+  equipButton.textContent = "Equip this preset";
+  root.append(equipButton);
+
+  const statusMessage = document.createElement("p");
+  statusMessage.className = "loadout-panel__status";
+  root.append(statusMessage);
+
+  const baseStatusMessage = storageAvailable
+    ? "Changes save automatically for the Starcade console."
+    : "Loadouts cannot be saved because local storage is unavailable.";
+  let statusResetId = 0;
+
+  function cloneState(state) {
+    return {
+      slots: Array.isArray(state?.slots)
+        ? state.slots.map((entry) => ({ ...entry }))
+        : [],
+      activeSlot: state?.activeSlot ?? null
+    };
+  }
+
+  function emitChange(persisted) {
+    if (typeof onLoadoutsChange !== "function") {
+      return;
+    }
+    onLoadoutsChange(cloneState(currentState), { persisted });
+  }
+
+  function setStatus(message, type = "info") {
+    const text = message ?? "";
+    statusMessage.textContent = text || baseStatusMessage;
+    statusMessage.classList.remove("is-success", "is-error");
+    if (type === "success") {
+      statusMessage.classList.add("is-success");
+    } else if (type === "error") {
+      statusMessage.classList.add("is-error");
+    }
+    if (statusResetId) {
+      window.clearTimeout(statusResetId);
+      statusResetId = 0;
+    }
+    if (type === "success" && text) {
+      statusResetId = window.setTimeout(() => {
+        statusMessage.textContent = baseStatusMessage;
+        statusMessage.classList.remove("is-success", "is-error");
+        statusResetId = 0;
+      }, 3200);
+    }
+  }
+
+  function rebuildSlotOptions() {
+    slotSelect.innerHTML = "";
+    for (const entry of currentState.slots) {
+      const option = document.createElement("option");
+      option.value = entry.slot;
+      option.textContent = entry.name;
+      slotSelect.append(option);
+    }
+    if (activeSlotId && currentState.slots.some((entry) => entry.slot === activeSlotId)) {
+      slotSelect.value = activeSlotId;
+    } else if (slotSelect.options.length > 0) {
+      activeSlotId = slotSelect.options[0].value;
+      slotSelect.value = activeSlotId;
+    }
+  }
+
+  function setSelectValue(select, value, fallback) {
+    if (!select) {
+      return;
+    }
+    const candidates = Array.from(select.options, (option) => option.value);
+    if (value && candidates.includes(value)) {
+      select.value = value;
+      return;
+    }
+    if (fallback && candidates.includes(fallback)) {
+      select.value = fallback;
+      return;
+    }
+    if (candidates.length > 0) {
+      select.value = candidates[0];
+    }
+  }
+
+  function getCurrentLoadout() {
+    return getMiniGameLoadoutBySlot(currentState.slots, activeSlotId);
+  }
+
+  function updateActiveIndicators() {
+    const activeLoadout = getCurrentLoadout();
+    const isActive = Boolean(activeLoadout && currentState.activeSlot === activeLoadout.slot);
+    activeBadge.hidden = !isActive;
+    equipButton.disabled = !storageAvailable || !activeLoadout || isActive;
+    equipButton.textContent = isActive ? "Equipped" : "Equip this preset";
+  }
+
+  function updateSummary(loadout) {
+    const pilot =
+      miniGamePilotOptions.find((option) => option.id === loadout?.characterId) ??
+      miniGamePilotOptions[0] ??
+      null;
+    const weapon =
+      miniGameWeaponOptions.find((option) => option.id === loadout?.weaponId) ??
+      miniGameWeaponOptions[0] ??
+      null;
+    const suit =
+      miniGameSuitOptions.find((option) => option.id === loadout?.skinId) ??
+      miniGameSuitOptions[0] ??
+      null;
+    const stream =
+      miniGameStreamOptions.find((option) => option.id === loadout?.trailId) ??
+      miniGameStreamOptions[0] ??
+      null;
+
+    summaryValues.pilot.textContent = pilot
+      ? pilot.role
+        ? `${pilot.name} — ${pilot.role}`
+        : pilot.name
+      : "—";
+    summaryValues.pilot.title = pilot?.summary ?? "";
+
+    summaryValues.weapon.textContent = weapon ? weapon.name : "—";
+    summaryValues.weapon.title = weapon?.summary ?? "";
+
+    summaryValues.suit.textContent = suit ? suit.name : "—";
+    summaryValues.stream.textContent = stream ? stream.name : "—";
+  }
+
+  function applyFormValues(loadout) {
+    const resolved = loadout ?? getCurrentLoadout() ?? currentState.slots[0] ?? null;
+    if (resolved) {
+      nameInput.value = resolved.name;
+      setSelectValue(pilotSelect, resolved.characterId, miniGamePilotOptions[0]?.id);
+      setSelectValue(weaponSelect, resolved.weaponId, miniGameWeaponOptions[0]?.id);
+      setSelectValue(suitSelect, resolved.skinId, miniGameSuitOptions[0]?.id);
+      setSelectValue(streamSelect, resolved.trailId, miniGameStreamOptions[0]?.id);
+    }
+    if (activeSlotId) {
+      slotSelect.value = activeSlotId;
+    }
+    updateSummary(resolved);
+    updateActiveIndicators();
+  }
+
+  function persistState({ message, type } = {}) {
+    const persisted = storageAvailable ? saveMiniGameLoadoutsToStorage(currentState) : false;
+    if (persisted) {
+      const current = getCurrentLoadout();
+      const fallbackMessage = current ? `Saved ${current.name}.` : "Preset saved.";
+      setStatus(message ?? fallbackMessage, type ?? "success");
+    } else if (storageAvailable) {
+      setStatus("Unable to save loadout. Try again.", "error");
+    } else {
+      setStatus(baseStatusMessage, "error");
+    }
+    emitChange(persisted);
+    return persisted;
+  }
+
+  function updateSlot(patch) {
+    if (!activeSlotId) {
+      return;
+    }
+    const index = currentState.slots.findIndex((entry) => entry.slot === activeSlotId);
+    if (index === -1) {
+      return;
+    }
+    const previous = currentState.slots[index];
+    const slotMeta =
+      miniGameLoadoutSlots.find((slot) => slot.slot === previous.slot) ??
+      miniGameLoadoutSlots[index] ??
+      { slot: previous.slot };
+    const candidate = { ...previous, ...patch };
+    const sanitized = sanitizeMiniGameLoadout(candidate, slotMeta, index);
+    if (
+      sanitized.name === previous.name &&
+      sanitized.characterId === previous.characterId &&
+      sanitized.weaponId === previous.weaponId &&
+      sanitized.skinId === previous.skinId &&
+      sanitized.trailId === previous.trailId
+    ) {
+      applyFormValues(previous);
+      return;
+    }
+
+    currentState = sanitizeMiniGameLoadoutsState({
+      slots: currentState.slots.map((entry, idx) => (idx === index ? sanitized : entry)),
+      activeSlot: currentState.activeSlot
+    });
+    activeSlotId = sanitized.slot;
+    rebuildSlotOptions();
+    applyFormValues(sanitized);
+    persistState();
+  }
+
+  if (!storageAvailable) {
+    nameInput.disabled = true;
+    pilotSelect.disabled = true;
+    weaponSelect.disabled = true;
+    suitSelect.disabled = true;
+    streamSelect.disabled = true;
+    equipButton.disabled = true;
+  }
+
+  slotSelect.addEventListener("change", () => {
+    activeSlotId = slotSelect.value;
+    const loadout = getMiniGameLoadoutBySlot(currentState.slots, activeSlotId);
+    if (loadout) {
+      activeSlotId = loadout.slot;
+    }
+    applyFormValues(loadout);
+  });
+
+  let nameUpdateTimer = 0;
+  nameInput.addEventListener("input", () => {
+    if (!storageAvailable) {
+      return;
+    }
+    if (nameUpdateTimer) {
+      window.clearTimeout(nameUpdateTimer);
+    }
+    nameUpdateTimer = window.setTimeout(() => {
+      nameUpdateTimer = 0;
+      updateSlot({ name: nameInput.value });
+    }, 260);
+  });
+  nameInput.addEventListener("blur", () => {
+    if (!storageAvailable) {
+      return;
+    }
+    if (nameUpdateTimer) {
+      window.clearTimeout(nameUpdateTimer);
+      nameUpdateTimer = 0;
+    }
+    updateSlot({ name: nameInput.value });
+  });
+
+  pilotSelect.addEventListener("change", () => {
+    updateSlot({ characterId: pilotSelect.value });
+  });
+  weaponSelect.addEventListener("change", () => {
+    updateSlot({ weaponId: weaponSelect.value });
+  });
+  suitSelect.addEventListener("change", () => {
+    updateSlot({ skinId: suitSelect.value });
+  });
+  streamSelect.addEventListener("change", () => {
+    updateSlot({ trailId: streamSelect.value });
+  });
+
+  equipButton.addEventListener("click", () => {
+    const loadout = getCurrentLoadout();
+    if (!loadout) {
+      return;
+    }
+    currentState = sanitizeMiniGameLoadoutsState({
+      slots: currentState.slots,
+      activeSlot: loadout.slot
+    });
+    activeSlotId = loadout.slot;
+    updateActiveIndicators();
+    persistState({ message: `Equipped ${loadout.name}.`, type: "success" });
+  });
+
+  rebuildSlotOptions();
+  applyFormValues(getCurrentLoadout());
+  setStatus(baseStatusMessage);
+
+  return {
+    root,
+    refresh(nextState) {
+      currentState = sanitizeMiniGameLoadoutsState(nextState);
+      activeSlotId =
+        currentState.activeSlot &&
+        getMiniGameLoadoutBySlot(currentState.slots, currentState.activeSlot)
+          ? currentState.activeSlot
+          : currentState.slots[0]?.slot ?? activeSlotId;
+      rebuildSlotOptions();
+      applyFormValues(getCurrentLoadout());
+      setStatus(baseStatusMessage);
+    },
+    getState() {
+      return cloneState(currentState);
+    }
+  };
+}
+
 function createInterface(stats, options = {}) {
   const { onRequestLogin, onRequestLogout, portalLevelRequirement = 1 } = options;
   const root = document.createElement("div");
@@ -4179,6 +4850,15 @@ function createInterface(stats, options = {}) {
   attributePanel.append(derivedStatsList);
 
   panel.append(attributePanel);
+
+  const loadoutPanel = createMiniGameLoadoutPanel(miniGameLoadoutState, {
+    onLoadoutsChange(nextState) {
+      miniGameLoadoutState = nextState;
+      syncMiniGameProfile();
+    }
+  });
+  miniGameLoadoutState = loadoutPanel.getState();
+  panel.append(loadoutPanel.root);
 
   const crystalsLabel = document.createElement("p");
   crystalsLabel.className = "crystal-label";

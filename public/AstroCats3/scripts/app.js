@@ -2734,9 +2734,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const pilotPreviewDescription = document.getElementById('pilotPreviewDescription');
     const defaultPilotPreviewDescription =
         (pilotPreviewDescription?.textContent ?? '').trim() ||
-        'Equip one of your saved presets instantly before launch. Manage the presets in the Custom Loadouts panel below.';
+        'Presets sync from the Astrocat Lobby. Launch once you are happy with the lobby selection.';
     const loadoutCreationPromptText =
-        'No loadout equipped. Want to save your current pilot, suit, stream, and weapon as a preset before launch?';
+        'Loadouts are managed in the Astrocat Lobby. Equip a preset there before launch.';
     const shareButton = document.getElementById('shareButton');
     const shareStatusEl = document.getElementById('shareStatus');
     const rewardCatalogueListEl = document.getElementById('rewardCatalogueList');
@@ -2794,25 +2794,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadoutEditorSaveButton = document.getElementById('loadoutEditorSave');
     const loadoutEditorCancelButton = document.getElementById('loadoutEditorCancel');
     const loadoutEditorCloseButton = document.getElementById('loadoutEditorClose');
-    if (loadoutEditorSaveButton) {
-        loadoutEditorSaveButton.addEventListener('click', () => handleLoadoutEditorSave());
-    }
-    if (loadoutEditorCancelButton) {
-        loadoutEditorCancelButton.addEventListener('click', () => closeLoadoutEditor());
-    }
-    if (loadoutEditorCloseButton) {
-        loadoutEditorCloseButton.addEventListener('click', () => closeLoadoutEditor());
-    }
-    if (loadoutEditorBackdrop) {
-        loadoutEditorBackdrop.addEventListener('click', () => closeLoadoutEditor());
-    }
-    if (loadoutEditorModal) {
-        loadoutEditorModal.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                closeLoadoutEditor();
-            }
-        });
+    if (!LOADOUTS_MANAGED_EXTERNALLY) {
+        if (loadoutEditorSaveButton) {
+            loadoutEditorSaveButton.addEventListener('click', () => handleLoadoutEditorSave());
+        }
+        if (loadoutEditorCancelButton) {
+            loadoutEditorCancelButton.addEventListener('click', () => closeLoadoutEditor());
+        }
+        if (loadoutEditorCloseButton) {
+            loadoutEditorCloseButton.addEventListener('click', () => closeLoadoutEditor());
+        }
+        if (loadoutEditorBackdrop) {
+            loadoutEditorBackdrop.addEventListener('click', () => closeLoadoutEditor());
+        }
+        if (loadoutEditorModal) {
+            loadoutEditorModal.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    closeLoadoutEditor();
+                }
+            });
+        }
     }
     const instructionsEl = document.getElementById('instructions');
     const instructionPanelsEl = document.getElementById('instructionPanels');
@@ -4225,12 +4227,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    const CUSTOM_LOADOUT_VERSION = 1;
-    const CUSTOM_LOADOUT_SLOTS = [
-        { slot: 'slotA', defaultName: 'Custom Loadout A' },
-        { slot: 'slotB', defaultName: 'Custom Loadout B' }
-    ];
-    const MAX_LOADOUT_NAME_LENGTH = 32;
+const CUSTOM_LOADOUT_VERSION = 1;
+const CUSTOM_LOADOUT_SLOTS = [
+    { slot: 'slotA', defaultName: 'Custom Loadout A' },
+    { slot: 'slotB', defaultName: 'Custom Loadout B' }
+];
+const MAX_LOADOUT_NAME_LENGTH = 32;
+const LOADOUTS_MANAGED_EXTERNALLY = true;
 
     function sanitizeLoadoutName(name, fallback) {
         const base = typeof name === 'string' ? name.trim() : '';
@@ -4273,15 +4276,29 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    function sanitizeStoredActiveSlot(slots, candidate) {
+        if (!Array.isArray(slots) || slots.length === 0) {
+            return null;
+        }
+        const fallback = slots[0]?.slot ?? null;
+        if (typeof candidate !== 'string') {
+            return fallback;
+        }
+        const match = slots.find((entry) => entry && entry.slot === candidate);
+        return match ? match.slot : fallback;
+    }
+
     function loadCustomLoadouts() {
         const defaults = CUSTOM_LOADOUT_SLOTS.map((slotMeta, index) =>
             createDefaultCustomLoadout(slotMeta, index)
         );
         if (!storageAvailable) {
+            storedActiveLoadoutSlot = defaults[0]?.slot ?? null;
             return defaults;
         }
         const raw = readStorage(STORAGE_KEYS.customLoadouts);
         if (!raw) {
+            storedActiveLoadoutSlot = defaults[0]?.slot ?? null;
             return defaults;
         }
         try {
@@ -4293,8 +4310,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     slots[index];
                 return coerceLoadoutRecord(match, defaults[index], slotMeta, index);
             });
+            storedActiveLoadoutSlot = sanitizeStoredActiveSlot(sanitized, parsed?.activeSlot);
             return sanitized;
         } catch (error) {
+            storedActiveLoadoutSlot = defaults[0]?.slot ?? null;
             return defaults;
         }
     }
@@ -4305,6 +4324,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const payload = {
             version: CUSTOM_LOADOUT_VERSION,
+            activeSlot: sanitizeStoredActiveSlot(loadouts, storedActiveLoadoutSlot ?? activeLoadoutId),
             slots: Array.isArray(loadouts)
                 ? loadouts.map((entry, index) => {
                       const slotMeta = CUSTOM_LOADOUT_SLOTS[index] ?? null;
@@ -4321,10 +4341,13 @@ document.addEventListener('DOMContentLoaded', () => {
                   })
                 : []
         };
+        storedActiveLoadoutSlot = payload.activeSlot;
         writeStorage(STORAGE_KEYS.customLoadouts, JSON.stringify(payload));
     }
 
+    let storedActiveLoadoutSlot = null;
     let customLoadouts = loadCustomLoadouts();
+    storedActiveLoadoutSlot = sanitizeStoredActiveSlot(customLoadouts, storedActiveLoadoutSlot);
     const loadoutStatusMessages = new Map();
     let latestCosmeticSnapshot = null;
     let activeLoadoutId = null;
@@ -4609,6 +4632,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (activeLoadoutId && slotId === activeLoadoutId) {
             card.classList.add('is-active');
         }
+        if (LOADOUTS_MANAGED_EXTERNALLY) {
+            card.classList.add('is-readonly');
+        }
 
         const pilot = getPilotDefinition(loadout?.characterId);
         const weapon = getWeaponDefinition(loadout?.weaponId);
@@ -4629,7 +4655,7 @@ document.addEventListener('DOMContentLoaded', () => {
         nameField.appendChild(nameValue);
         header.appendChild(nameField);
 
-        if (context === 'panel') {
+        if (context === 'panel' && !LOADOUTS_MANAGED_EXTERNALLY) {
             const headerActions = document.createElement('div');
             headerActions.className = 'custom-loadout-header-actions';
             const editButton = document.createElement('button');
@@ -4694,33 +4720,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const footer = document.createElement('div');
         footer.className = 'custom-loadout-footer';
-        const applyButton = document.createElement('button');
-        applyButton.type = 'button';
-        applyButton.className = 'custom-loadout-apply';
-        applyButton.textContent = context === 'overlay' ? 'Equip Now' : 'Equip Loadout';
-        applyButton.addEventListener('click', (event) => {
-            event.stopPropagation();
-            applyCustomLoadout(loadout);
-        });
-        footer.appendChild(applyButton);
-
         const statusMessage = document.createElement('p');
         statusMessage.className = 'custom-loadout-status';
-        const status = loadoutStatusMessages.get(slotId);
-        if (status) {
-            statusMessage.textContent = status.message;
-            if (status.type === 'success') {
-                statusMessage.classList.add('success');
-            } else if (status.type === 'error') {
-                statusMessage.classList.add('error');
+        if (LOADOUTS_MANAGED_EXTERNALLY) {
+            statusMessage.classList.add('info');
+            statusMessage.textContent =
+                context === 'overlay'
+                    ? 'Preset equipped from lobby selection.'
+                    : 'Manage presets in the Astrocat Lobby.';
+        } else {
+            const applyButton = document.createElement('button');
+            applyButton.type = 'button';
+            applyButton.className = 'custom-loadout-apply';
+            applyButton.textContent = context === 'overlay' ? 'Equip Now' : 'Equip Loadout';
+            applyButton.addEventListener('click', (event) => {
+                event.stopPropagation();
+                applyCustomLoadout(loadout);
+            });
+            footer.appendChild(applyButton);
+            const status = loadoutStatusMessages.get(slotId);
+            if (status) {
+                statusMessage.textContent = status.message;
+                if (status.type === 'success') {
+                    statusMessage.classList.add('success');
+                } else if (status.type === 'error') {
+                    statusMessage.classList.add('error');
+                }
             }
         }
         footer.appendChild(statusMessage);
         card.appendChild(footer);
 
-        card.addEventListener('click', () => {
-            applyCustomLoadout(loadout);
-        });
+        if (!LOADOUTS_MANAGED_EXTERNALLY) {
+            card.addEventListener('click', () => {
+                applyCustomLoadout(loadout);
+            });
+        }
 
         return card;
     }
@@ -5361,7 +5396,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function initializeLoadoutSelections() {
         const cosmetics = ensureCosmeticsState();
-        const initial = Array.isArray(customLoadouts) && customLoadouts.length ? customLoadouts[0] : null;
+        const preferredSlot = sanitizeStoredActiveSlot(customLoadouts, storedActiveLoadoutSlot);
+        const initial = preferredSlot
+            ? customLoadouts.find((entry) => entry && entry.slot === preferredSlot)
+            : Array.isArray(customLoadouts) && customLoadouts.length
+                ? customLoadouts[0]
+                : null;
+        storedActiveLoadoutSlot = preferredSlot;
         if (initial) {
             activePilotId = getPilotDefinition(initial.characterId).id;
             pendingPilotId = activePilotId;
@@ -5404,10 +5445,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setActiveLoadoutId(slotId) {
-        if (slotId && getCustomLoadout(slotId)) {
-            activeLoadoutId = slotId;
-        } else {
-            activeLoadoutId = null;
+        const resolved = slotId && getCustomLoadout(slotId) ? slotId : null;
+        if (activeLoadoutId === resolved && storedActiveLoadoutSlot === resolved) {
+            updateActiveLoadoutPrompt();
+            return;
+        }
+        activeLoadoutId = resolved;
+        storedActiveLoadoutSlot = resolved;
+        if (!LOADOUTS_MANAGED_EXTERNALLY) {
+            persistCustomLoadouts();
         }
         updateActiveLoadoutPrompt();
     }

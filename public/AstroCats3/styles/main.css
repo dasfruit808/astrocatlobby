@@ -1333,6 +1333,19 @@ body.touch-enabled #preflightPrompt .desktop-only {
     border-color: rgba(248, 113, 113, 0.6);
 }
 
+.custom-loadout-card.is-readonly {
+    cursor: default;
+}
+
+.custom-loadout-card.is-readonly:hover {
+    transform: none;
+}
+
+.custom-loadout-card.is-readonly .custom-loadout-header-actions,
+.custom-loadout-card.is-readonly .custom-loadout-apply {
+    display: none;
+}
+
 .custom-loadout-badge {
     position: absolute;
     top: 12px;
@@ -1558,6 +1571,10 @@ body.touch-enabled #preflightPrompt .desktop-only {
     min-height: 0.9rem;
     font-size: 0.7rem;
     color: rgba(148, 210, 255, 0.82);
+}
+
+.custom-loadout-status.info {
+    color: rgba(196, 210, 255, 0.85);
 }
 
 .custom-loadout-status.error {
