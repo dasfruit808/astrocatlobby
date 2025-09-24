@@ -74,6 +74,33 @@ function normaliseHrefForDirectory(baseHref) {
   return `${trimmed}/`;
 }
 
+function normalisePathnameForDirectory(pathname) {
+  if (typeof pathname !== "string" || !pathname) {
+    return "/";
+  }
+
+  let working = pathname;
+  if (!working.startsWith("/")) {
+    working = `/${working}`;
+  }
+
+  if (working.endsWith("/")) {
+    return working;
+  }
+
+  const segments = working.split("/");
+  const lastSegment = segments[segments.length - 1] ?? "";
+  if (!lastSegment || !lastSegment.includes(".")) {
+    return `${working}/`;
+  }
+
+  const trimmed = working.replace(/[^/]*$/, "");
+  if (trimmed.endsWith("/")) {
+    return trimmed;
+  }
+  return `${trimmed}/`;
+}
+
 function resolveUsingDocumentBase(candidate) {
   const baseHref = getDocumentBaseHref();
   const normalisedBase = normaliseHrefForDirectory(baseHref);
@@ -278,12 +305,45 @@ function resolveMiniGameEntryPoint() {
   const normalisedEntry = normaliseMiniGameEntryPoint(resolvedEntry);
 
   if (normalisedEntry && normalisedEntry !== "/") {
+    if (typeof window !== "undefined" && window.location) {
+      try {
+        const entryUrl = new URL(normalisedEntry, window.location.href);
+        const directoryPath = normalisePathnameForDirectory(window.location.pathname ?? "/");
+
+        if (
+          directoryPath !== "/" &&
+          entryUrl.origin === window.location.origin &&
+          !entryUrl.pathname.startsWith(directoryPath)
+        ) {
+          const baseHref = normaliseHrefForDirectory(window.location.href);
+          if (baseHref) {
+            const correctedUrl = new URL(normalisedEntry, baseHref);
+            return correctedUrl.toString();
+          }
+        }
+      } catch (error) {
+        if (typeof console !== "undefined" && error) {
+          console.warn(
+            "Failed to normalise mini game entry point against current location.",
+            error
+          );
+        }
+      }
+    }
+
     return normalisedEntry;
   }
 
   console.warn(
     "Falling back to a relative AstroCats3 mini game entry point. Ensure public/AstroCats3/index.html is reachable from the current path."
   );
+  try {
+    return new URL("../AstroCats3/index.html", import.meta.url).toString();
+  } catch (error) {
+    if (typeof console !== "undefined" && error) {
+      console.warn("Failed to resolve AstroCats3 mini game relative to the current module.", error);
+    }
+  }
   return "./AstroCats3/index.html";
 }
 
