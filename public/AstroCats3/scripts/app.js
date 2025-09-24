@@ -6235,8 +6235,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? window
                     : null;
 
-        if (globalScope && typeof globalScope.SEASON_PASS_TRACK !== 'undefined') {
-            return globalScope.SEASON_PASS_TRACK;
+        if (globalScope) {
+            try {
+                const track = globalScope.SEASON_PASS_TRACK;
+                if (typeof track !== 'undefined') {
+                    return track;
+                }
+            } catch (error) {
+                if (!(error instanceof ReferenceError)) {
+                    throw error;
+                }
+            }
         }
 
         return null;
