@@ -3338,7 +3338,34 @@ function render(timestamp) {
   );
 
   if (backgroundReady) {
-    ctx.drawImage(backgroundImage, 0, 0, viewport.width, viewport.height);
+    ctx.fillStyle = getFallbackBackgroundGradient();
+    ctx.fillRect(0, 0, viewport.width, viewport.height);
+
+    const sourceWidth = backgroundImage.naturalWidth || backgroundImage.width;
+    const sourceHeight = backgroundImage.naturalHeight || backgroundImage.height;
+
+    if (sourceWidth > 0 && sourceHeight > 0) {
+      const imageAspect = sourceWidth / sourceHeight;
+      const viewportAspect = viewport.width / viewport.height;
+
+      let drawWidth = viewport.width;
+      let drawHeight = viewport.height;
+
+      if (imageAspect > viewportAspect) {
+        drawHeight = viewport.height;
+        drawWidth = drawHeight * imageAspect;
+      } else {
+        drawWidth = viewport.width;
+        drawHeight = drawWidth / imageAspect;
+      }
+
+      const offsetX = (viewport.width - drawWidth) / 2;
+      const offsetY = (viewport.height - drawHeight) / 2;
+
+      ctx.drawImage(backgroundImage, offsetX, offsetY, drawWidth, drawHeight);
+    } else {
+      ctx.drawImage(backgroundImage, 0, 0, viewport.width, viewport.height);
+    }
   } else {
     ctx.fillStyle = getFallbackBackgroundGradient();
     ctx.fillRect(0, 0, viewport.width, viewport.height);
@@ -3492,22 +3519,6 @@ function drawPlayer(entity, time) {
       entity.width,
       entity.height
     );
-
-    ctx.save();
-    ctx.globalCompositeOperation = "source-atop";
-
-    ctx.globalAlpha = 0.28;
-    ctx.fillStyle = appearance.hair;
-    ctx.fillRect(0, 0, entity.width, entity.height * 0.28);
-
-    ctx.globalAlpha = 0.2;
-    ctx.fillStyle = appearance.skin;
-    ctx.fillRect(entity.width * 0.18, entity.height * 0.04, entity.width * 0.64, entity.height * 0.34);
-
-    ctx.globalAlpha = 0.24;
-    ctx.fillStyle = appearance.shirt;
-    ctx.fillRect(0, entity.height * 0.32, entity.width, entity.height * 0.68);
-    ctx.restore();
   } else {
     ctx.fillStyle = appearance.shirt;
     drawRoundedRect(4, 12, entity.width - 8, entity.height - 18, 6);
