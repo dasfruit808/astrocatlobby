@@ -1,15 +1,3 @@
-var __rest = (this && this.__rest) || function (s, e) {
-    var t = {};
-    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
-        t[p] = s[p];
-    if (s != null && typeof Object.getOwnPropertySymbols === "function")
-        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
-            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
-                t[p[i]] = s[p[i]];
-        }
-    return t;
-};
-var _a, _b;
 let firstRunExperience = true;
 let quickStartUsed = false;
 let state = { gameState: 'ready' };
@@ -27,20 +15,29 @@ let preflightSwapPilotButton = null;
 let swapWeaponButton = null;
 let preflightSwapWeaponButton = null;
 let openWeaponSelectButton = null;
+
 const weaponPatternStates = new Map();
+
 const weaponLoadouts = {};
-const serviceWorkerSupported = typeof window !== 'undefined' &&
+
+const serviceWorkerSupported =
+    typeof window !== 'undefined' &&
     'serviceWorker' in navigator &&
-    typeof ((_a = navigator.serviceWorker) === null || _a === void 0 ? void 0 : _a.register) === 'function';
-const serviceWorkerRegistrationEnabled = serviceWorkerSupported &&
+    typeof navigator.serviceWorker?.register === 'function';
+
+const serviceWorkerRegistrationEnabled =
+    serviceWorkerSupported &&
     typeof window !== 'undefined' &&
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
 let serviceWorkerRegistrationPromise = null;
+
 function markOfflineCapabilityReady() {
     if (typeof document !== 'undefined' && document.body) {
         document.body.dataset.offlineReady = 'true';
     }
 }
+
 function registerGameServiceWorker() {
     if (!serviceWorkerRegistrationEnabled) {
         return null;
@@ -52,34 +49,36 @@ function registerGameServiceWorker() {
     serviceWorkerRegistrationPromise = navigator.serviceWorker
         .register(scriptUrl.href, { updateViaCache: 'none' })
         .then((registration) => {
-        console.info('[service-worker] Registered', registration.scope);
-        navigator.serviceWorker.ready
-            .then(() => {
-            markOfflineCapabilityReady();
+            console.info('[service-worker] Registered', registration.scope);
+            navigator.serviceWorker.ready
+                .then(() => {
+                    markOfflineCapabilityReady();
+                })
+                .catch(() => {
+                    // No-op: readiness is best-effort.
+                });
+            return registration;
         })
-            .catch(() => {
-            // No-op: readiness is best-effort.
-        });
-        return registration;
-    })
         .catch((error) => {
-        console.warn('[service-worker] Registration failed', error);
-        return null;
-    });
+            console.warn('[service-worker] Registration failed', error);
+            return null;
+        });
     return serviceWorkerRegistrationPromise;
 }
+
 if (serviceWorkerSupported && !serviceWorkerRegistrationEnabled) {
-    if (typeof ((_b = navigator.serviceWorker) === null || _b === void 0 ? void 0 : _b.getRegistrations) === 'function') {
+    if (typeof navigator.serviceWorker?.getRegistrations === 'function') {
         navigator.serviceWorker
             .getRegistrations()
             .then((registrations) => {
-            for (const registration of registrations) {
-                registration.unregister().catch(() => { });
-            }
-        })
-            .catch(() => { });
+                for (const registration of registrations) {
+                    registration.unregister().catch(() => {});
+                }
+            })
+            .catch(() => {});
     }
 }
+
 if (serviceWorkerRegistrationEnabled) {
     if (navigator.serviceWorker.controller) {
         markOfflineCapabilityReady();
@@ -91,13 +90,15 @@ if (serviceWorkerRegistrationEnabled) {
         registerGameServiceWorker();
     });
 }
+
 const pilotRoster = [
     {
         id: 'nova',
         name: 'Nova',
         role: 'Squad Vanguard',
         image: 'assets/player.png',
-        summary: 'Balanced thrusters and pinpoint instincts keep Nova stable during any sortie. A dependable captain for first-time flyers.',
+        summary:
+            'Balanced thrusters and pinpoint instincts keep Nova stable during any sortie. A dependable captain for first-time flyers.',
         highlights: [
             'Responsive handling with forgiving dash timing.',
             'Launches with the Rainbow stream for clear trail visibility.',
@@ -109,7 +110,8 @@ const pilotRoster = [
         name: 'Aurora',
         role: 'Skystreak Ace',
         image: 'assets/player2.png',
-        summary: 'Aurora’s tuned reactors favour evasive manoeuvres and quick recoveries, perfect for weaving through dense asteroid fields.',
+        summary:
+            'Aurora’s tuned reactors favour evasive manoeuvres and quick recoveries, perfect for weaving through dense asteroid fields.',
         highlights: [
             'Improved dash recharge for aggressive repositioning.',
             'Ships with a cool-tone Midnight hull finish.',
@@ -121,7 +123,8 @@ const pilotRoster = [
         name: 'Ember',
         role: 'Siegebreak Specialist',
         image: 'assets/player3.png',
-        summary: 'Ember thrives when the pressure spikes—charging forward with heavier ordinance to shatter shielded foes and bosses.',
+        summary:
+            'Ember thrives when the pressure spikes—charging forward with heavier ordinance to shatter shielded foes and bosses.',
         highlights: [
             'Higher impact tolerance before combo decay.',
             'Ships with a Sunrise hull tuned for power bursts.',
@@ -129,12 +132,15 @@ const pilotRoster = [
         ]
     }
 ];
+
 const pilotIndex = new Map(pilotRoster.map((pilot) => [pilot.id, pilot]));
+
 const SKIN_LABELS = {
     default: 'Aurora Standard',
     midnight: 'Midnight Mirage',
     sunrise: 'Solar Flare'
 };
+
 const TRAIL_LABELS = {
     rainbow: 'Spectrum Stream',
     aurora: 'Aurora Wake',
@@ -143,6 +149,7 @@ const TRAIL_LABELS = {
     solstice: 'Solstice Bloom',
     quantum: 'Quantum Drift'
 };
+
 Object.assign(weaponLoadouts, {
     pulse: {
         id: 'pulse',
@@ -150,7 +157,8 @@ Object.assign(weaponLoadouts, {
         icon: 'assets/weapon-pulse.svg',
         rarity: 'common',
         summary: 'Reliable dual-phase cannons that excel at steady clears.',
-        description: 'Baseline cannons engineered for all pilots. Fires a focused plasma bolt with every trigger pull and keeps combos stable.',
+        description:
+            'Baseline cannons engineered for all pilots. Fires a focused plasma bolt with every trigger pull and keeps combos stable.',
         highlights: [
             'Balanced cadence with no cooldown penalties.',
             'Bolts travel straight with a luminous trail for easy tracking.',
@@ -159,7 +167,7 @@ Object.assign(weaponLoadouts, {
         cooldownMultiplier: 1,
         speedMultiplier: 1,
         createPatternState: () => ({}),
-        resetPatternState() { },
+        resetPatternState() {},
         pattern(createProjectile) {
             createProjectile(0, 'standard');
         }
@@ -170,7 +178,8 @@ Object.assign(weaponLoadouts, {
         icon: 'assets/weapon-scatter.svg',
         rarity: 'rare',
         summary: 'Triple-shot volley that carpets the lane with plasma.',
-        description: 'A close-quarters spread built for clearing swarms. Fires three bolts in a cone, saturating obstacles that drift too close.',
+        description:
+            'A close-quarters spread built for clearing swarms. Fires three bolts in a cone, saturating obstacles that drift too close.',
         highlights: [
             'Widens coverage to keep asteroid clusters in check.',
             'Slightly slower recharge to compensate for the volley.',
@@ -179,7 +188,7 @@ Object.assign(weaponLoadouts, {
         cooldownMultiplier: 1.12,
         speedMultiplier: 0.98,
         createPatternState: () => ({}),
-        resetPatternState() { },
+        resetPatternState() {},
         pattern(createProjectile) {
             const spread = 0.22;
             createProjectile(-spread, 'scatter', { audioType: 'scatter' });
@@ -193,7 +202,8 @@ Object.assign(weaponLoadouts, {
         icon: 'assets/weapon-lance.svg',
         rarity: 'epic',
         summary: 'Charged spear shot that pierces heavy armour and bosses.',
-        description: 'Focuses the ship’s reactors into a piercing lance. The beam slows the firing rhythm but rips through anything aligned with the nose.',
+        description:
+            'Focuses the ship’s reactors into a piercing lance. The beam slows the firing rhythm but rips through anything aligned with the nose.',
         highlights: [
             'High impact projectile that pierces multiple targets.',
             'Reduced fire rate—make every shot count.',
@@ -202,15 +212,17 @@ Object.assign(weaponLoadouts, {
         cooldownMultiplier: 1.32,
         speedMultiplier: 1.18,
         createPatternState: () => ({}),
-        resetPatternState() { },
+        resetPatternState() {},
         pattern(createProjectile) {
             createProjectile(0, 'lance', { applyLoadoutSpeed: false, audioType: 'lance' });
         }
     }
 });
+
 if (typeof window !== 'undefined') {
     window.weaponLoadouts = weaponLoadouts;
 }
+
 function getGlobalScope() {
     if (typeof globalThis !== 'undefined') {
         return globalThis;
@@ -223,18 +235,22 @@ function getGlobalScope() {
     }
     return null;
 }
+
 function getWeaponLoadoutCollection() {
     const scope = getGlobalScope();
     if (scope && scope.weaponLoadouts && typeof scope.weaponLoadouts === 'object') {
         return scope.weaponLoadouts;
     }
-    if (typeof weaponLoadouts !== 'undefined' &&
+    if (
+        typeof weaponLoadouts !== 'undefined' &&
         weaponLoadouts &&
-        typeof weaponLoadouts === 'object') {
+        typeof weaponLoadouts === 'object'
+    ) {
         return weaponLoadouts;
     }
     return null;
 }
+
 function synchronizeActiveWeaponLoadout(loadout) {
     const scope = getGlobalScope();
     if (!scope) {
@@ -247,36 +263,40 @@ function synchronizeActiveWeaponLoadout(loadout) {
     scope.activeWeaponLoadout = null;
     return null;
 }
+
 function getActiveWeaponId(candidate) {
-    var _a, _b;
     if (typeof candidate === 'string' && candidate) {
         return candidate;
     }
     if (typeof activeWeaponId !== 'undefined' && typeof activeWeaponId === 'string' && activeWeaponId) {
         return activeWeaponId;
     }
-    const equippedWeapon = (_b = (_a = state === null || state === void 0 ? void 0 : state.cosmetics) === null || _a === void 0 ? void 0 : _a.equipped) === null || _b === void 0 ? void 0 : _b.weapon;
+    const equippedWeapon = state?.cosmetics?.equipped?.weapon;
     if (typeof equippedWeapon === 'string' && equippedWeapon) {
         return equippedWeapon;
     }
     return 'pulse';
 }
+
 function getActiveWeaponLoadout() {
-    var _a;
     const collection = getWeaponLoadoutCollection();
     if (!collection) {
         return synchronizeActiveWeaponLoadout(null);
     }
+
     const activeId = getActiveWeaponId();
     if (activeId && typeof collection[activeId] === 'object') {
         return synchronizeActiveWeaponLoadout(collection[activeId]);
     }
+
     if (typeof collection.pulse === 'object') {
         return synchronizeActiveWeaponLoadout(collection.pulse);
     }
-    const fallback = (_a = Object.values(collection).find((entry) => entry && typeof entry === 'object')) !== null && _a !== void 0 ? _a : null;
+
+    const fallback = Object.values(collection).find((entry) => entry && typeof entry === 'object') ?? null;
     return synchronizeActiveWeaponLoadout(fallback);
 }
+
 function getWeaponPatternState(weaponId = null, { createIfMissing = true } = {}) {
     const resolvedId = getActiveWeaponId(weaponId);
     if (!resolvedId) {
@@ -291,6 +311,7 @@ function getWeaponPatternState(weaponId = null, { createIfMissing = true } = {})
     const state = weaponPatternStates.get(resolvedId);
     return state && typeof state === 'object' ? state : null;
 }
+
 function resetWeaponPatternState(weaponId = null) {
     if (weaponId === null || weaponId === undefined) {
         weaponPatternStates.clear();
@@ -303,12 +324,14 @@ function resetWeaponPatternState(weaponId = null) {
     }
     weaponPatternStates.delete(resolvedId);
 }
+
 function getChallengeManager() {
-    const scope = typeof globalThis !== 'undefined'
-        ? globalThis
-        : typeof window !== 'undefined'
-            ? window
-            : null;
+    const scope =
+        typeof globalThis !== 'undefined'
+            ? globalThis
+            : typeof window !== 'undefined'
+              ? window
+              : null;
     if (!scope) {
         return null;
     }
@@ -318,6 +341,7 @@ function getChallengeManager() {
     }
     return null;
 }
+
 const DOUBLE_TEAM_POWER = 'doubleTeam';
 const HYPER_BEAM_POWER = 'hyperBeam';
 const SHIELD_POWER = 'radiantShield';
@@ -338,6 +362,7 @@ const gamepadCursorState = {
     pointerDownTarget: null,
     buttonHeld: false
 };
+
 function resetGamepadCursorState() {
     gamepadCursorState.x = 0;
     gamepadCursorState.y = 0;
@@ -349,58 +374,74 @@ function resetGamepadCursorState() {
     gamepadCursorState.pointerDownTarget = null;
     gamepadCursorState.buttonHeld = false;
 }
+
 const fontLoadCache = new Map();
+
 function loadCustomFont(fontFamily) {
     if (typeof fontFamily !== 'string') {
         return Promise.resolve();
     }
+
     const normalizedFont = fontFamily.trim();
     if (!normalizedFont) {
         return Promise.resolve();
     }
+
     if (fontLoadCache.has(normalizedFont)) {
         return fontLoadCache.get(normalizedFont);
     }
-    const supportsFontLoadingApi = typeof document !== 'undefined' && document.fonts && typeof document.fonts.load === 'function';
+
+    const supportsFontLoadingApi =
+        typeof document !== 'undefined' && document.fonts && typeof document.fonts.load === 'function';
+
     if (supportsFontLoadingApi && document.fonts.check(`1rem "${normalizedFont}"`)) {
         const alreadyLoaded = Promise.resolve();
         fontLoadCache.set(normalizedFont, alreadyLoaded);
         return alreadyLoaded;
     }
+
     const fontPromises = [];
+
     if (supportsFontLoadingApi) {
         const fontQueries = [`1rem "${normalizedFont}"`, `700 1rem "${normalizedFont}"`];
         for (const query of fontQueries) {
-            fontPromises.push(document.fonts
-                .load(query)
-                .catch(() => null));
+            fontPromises.push(
+                document.fonts
+                    .load(query)
+                    .catch(() => null)
+            );
         }
     }
+
     const fontAssetSources = {
         'Flight Time': 'assets/FlightTime.ttf'
     };
+
     const assetSource = fontAssetSources[normalizedFont];
     if (assetSource && typeof window !== 'undefined' && typeof window.FontFace === 'function') {
         const fontFace = new FontFace(normalizedFont, `url(${assetSource})`);
-        fontPromises.push(fontFace
-            .load()
-            .then((loadedFace) => {
-            var _a, _b;
-            (_b = (_a = document.fonts) === null || _a === void 0 ? void 0 : _a.add) === null || _b === void 0 ? void 0 : _b.call(_a, loadedFace);
-        })
-            .catch(() => null));
+        fontPromises.push(
+            fontFace
+                .load()
+                .then((loadedFace) => {
+                    document.fonts?.add?.(loadedFace);
+                })
+                .catch(() => null)
+        );
     }
+
     if (fontPromises.length === 0) {
         const resolved = Promise.resolve();
         fontLoadCache.set(normalizedFont, resolved);
         return resolved;
     }
+
     const loadPromise = Promise.all(fontPromises).then(() => undefined);
     fontLoadCache.set(normalizedFont, loadPromise);
     return loadPromise;
 }
+
 document.addEventListener('DOMContentLoaded', () => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32, _33, _34;
     const GAMEPAD_CURSOR_HALF_SIZE = 11;
     // Reset onboarding flags whenever the game reinitializes. This ensures that
     // subsequent reloads (such as during development hot-reloads) don't carry
@@ -408,9 +449,10 @@ document.addEventListener('DOMContentLoaded', () => {
     firstRunExperience = true;
     quickStartUsed = false;
     const canvas = document.getElementById('gameCanvas');
-    const ctx = (canvas === null || canvas === void 0 ? void 0 : canvas.getContext) ? canvas.getContext('2d') : null;
+    const ctx = canvas?.getContext ? canvas.getContext('2d') : null;
     const controllerCursorEl = document.getElementById('controllerCursor');
     resetGamepadCursorState();
+
     function postParentMessage(type, payload) {
         if (!type || typeof window === 'undefined') {
             return;
@@ -423,44 +465,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         try {
             window.parent.postMessage({ type, payload }, window.location.origin);
-        }
-        catch (error) {
+        } catch (error) {
             // Ignore cross-origin messaging failures.
         }
     }
-    const supportsResizeObserver = typeof window !== 'undefined' && typeof window.ResizeObserver === 'function';
-    const reducedMotionQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-        ? window.matchMedia('(prefers-reduced-motion: reduce)')
-        : null;
-    const systemPrefersReducedEffects = () => Boolean(reducedMotionQuery === null || reducedMotionQuery === void 0 ? void 0 : reducedMotionQuery.matches);
+
+    const supportsResizeObserver =
+        typeof window !== 'undefined' && typeof window.ResizeObserver === 'function';
+    const reducedMotionQuery =
+        typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+            ? window.matchMedia('(prefers-reduced-motion: reduce)')
+            : null;
+    const systemPrefersReducedEffects = () => Boolean(reducedMotionQuery?.matches);
+
     function enableHighQualitySmoothing(context) {
         if (!context) {
             return;
         }
+
         if (typeof context.imageSmoothingEnabled !== 'undefined') {
             context.imageSmoothingEnabled = true;
         }
+
         if (typeof context.imageSmoothingQuality !== 'undefined') {
             context.imageSmoothingQuality = 'high';
         }
     }
+
     enableHighQualitySmoothing(ctx);
+
     const mascotAnnouncer = createMascotAnnouncer();
     mascotAnnouncer.reset({ immediate: true });
+
     function createMascotAnnouncer() {
         const container = document.getElementById('mascotCallout');
-        const imageEl = container === null || container === void 0 ? void 0 : container.querySelector('[data-mascot-image]');
-        const textEl = container === null || container === void 0 ? void 0 : container.querySelector('[data-mascot-text]');
+        const imageEl = container?.querySelector('[data-mascot-image]');
+        const textEl = container?.querySelector('[data-mascot-text]');
         if (!container || !imageEl || !textEl) {
             return {
-                cheerForCombo() { },
-                celebrateVictory() { },
-                lamentSetback() { },
-                notifyPerformanceMode() { },
-                reset() { },
-                hide() { }
+                cheerForCombo() {},
+                celebrateVictory() {},
+                lamentSetback() {},
+                notifyPerformanceMode() {},
+                reset() {},
+                hide() {}
             };
         }
+
         const assetPaths = {
             happy: 'assets/character-happy.png',
             cheering: 'assets/character-cheering.png',
@@ -520,6 +571,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let lastShownAt = 0;
         let lastPerformanceMessageAt = 0;
         const PERFORMANCE_MESSAGE_COOLDOWN = 6000;
+
         const toLocaleOrString = (value) => {
             if (typeof value === 'number' && Number.isFinite(value)) {
                 return value.toLocaleString();
@@ -530,6 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return value != null ? String(value) : '0';
         };
+
         const randomFrom = (pool) => {
             if (!Array.isArray(pool) || pool.length === 0) {
                 return '';
@@ -537,18 +590,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const index = Math.floor(Math.random() * pool.length);
             return pool[index];
         };
+
         const formatTemplate = (template, context = {}) => {
             if (typeof template !== 'string' || !template.length) {
                 return '';
             }
-            return template.replace(/\{\{(\w+)\}\}/g, (_, key) => { var _a; return (_a = context[key]) !== null && _a !== void 0 ? _a : ''; });
+            return template.replace(/\{\{(\w+)\}\}/g, (_, key) => context[key] ?? '');
         };
+
         const nowTime = () => {
             if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
                 return performance.now();
             }
             return Date.now();
         };
+
         const canTrigger = (weight = 1, { force = false } = {}) => {
             if (force) {
                 return true;
@@ -562,6 +618,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return Math.random() < Math.min(1, weight);
         };
+
         const hide = ({ immediate = false } = {}) => {
             window.clearTimeout(hideTimeout);
             hideTimeout = null;
@@ -576,16 +633,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.setAttribute('aria-hidden', 'true');
             }, 360);
         };
+
         const setMood = (mood) => {
-            var _a, _b;
-            const asset = (_a = assetPaths[mood]) !== null && _a !== void 0 ? _a : assetPaths.happy;
+            const asset = assetPaths[mood] ?? assetPaths.happy;
             if (imageEl.getAttribute('src') !== asset) {
                 imageEl.setAttribute('src', asset);
             }
-            const alt = (_b = assetAlt[mood]) !== null && _b !== void 0 ? _b : assetAlt.happy;
+            const alt = assetAlt[mood] ?? assetAlt.happy;
             imageEl.setAttribute('alt', alt);
             imageEl.hidden = false;
         };
+
         const show = (mood, message) => {
             if (!message) {
                 return;
@@ -601,6 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 hide();
             }, DEFAULT_HIDE_DELAY);
         };
+
         const shouldCheerForStreak = (streak) => {
             if (streak <= lastComboCelebrated || streak < 3) {
                 return false;
@@ -612,6 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
             lastComboCelebrated = streak;
             return true;
         };
+
         const cheerForCombo = (streak) => {
             if (!shouldCheerForStreak(streak)) {
                 return;
@@ -623,15 +683,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const message = formatTemplate(randomFrom(pool), { streak: `x${streak}` });
             show(streak >= 8 ? 'cheering' : 'happy', message);
         };
+
         const celebrateVictory = (summary) => {
-            var _a, _b, _c, _d, _e;
             if (!summary) {
                 return;
             }
-            const scoreText = toLocaleOrString((_b = (_a = summary.score) !== null && _a !== void 0 ? _a : state.score) !== null && _b !== void 0 ? _b : 0);
-            const timeValue = (_d = (_c = summary.timeMs) !== null && _c !== void 0 ? _c : state.elapsedTime) !== null && _d !== void 0 ? _d : 0;
+            const scoreText = toLocaleOrString(summary.score ?? state.score ?? 0);
+            const timeValue = summary.timeMs ?? state.elapsedTime ?? 0;
             const timeText = formatTime(timeValue);
-            const bestStreak = Math.max(0, (_e = summary.bestStreak) !== null && _e !== void 0 ? _e : 0);
+            const bestStreak = Math.max(0, summary.bestStreak ?? 0);
             const streakText = bestStreak > 1 ? `x${bestStreak}` : '';
             lastComboCelebrated = Math.max(lastComboCelebrated, bestStreak);
             const message = formatTemplate(randomFrom(messagePools.victory), {
@@ -643,6 +703,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             show('cheering', message);
         };
+
         const lamentSetback = ({ force = false } = {}) => {
             const now = typeof performance !== 'undefined' && typeof performance.now === 'function'
                 ? performance.now()
@@ -657,6 +718,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const message = randomFrom(messagePools.setback);
             show('sad', message);
         };
+
         const announcePerformanceMode = (active) => {
             const now = nowTime();
             if (now - lastPerformanceMessageAt < PERFORMANCE_MESSAGE_COOLDOWN) {
@@ -670,6 +732,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             show(active ? 'happy' : 'cheering', message);
         };
+
         const reset = ({ immediate = false } = {}) => {
             lastComboCelebrated = 0;
             lastSetbackAt = 0;
@@ -677,6 +740,7 @@ document.addEventListener('DOMContentLoaded', () => {
             lastPerformanceMessageAt = 0;
             hide({ immediate });
         };
+
         return {
             cheerForCombo,
             celebrateVictory,
@@ -686,6 +750,7 @@ document.addEventListener('DOMContentLoaded', () => {
             hide
         };
     }
+
     const collectibleGradientCache = new Map();
     const powerUpGradientCache = new Map();
     const supportsPath2D = typeof Path2D === 'function';
@@ -732,6 +797,7 @@ document.addEventListener('DOMContentLoaded', () => {
         [SCORE_SURGE_POWER]: { r: 255, g: 228, b: 150 },
         [MAGNET_POWER]: { r: 156, g: 220, b: 255 }
     };
+
     const POWER_UP_RULES = {
         powerBomb: { weight: 0.65, cooldownMs: 14000 },
         bulletSpread: { weight: 0.85, cooldownMs: 11000 },
@@ -745,6 +811,7 @@ document.addEventListener('DOMContentLoaded', () => {
         [SCORE_SURGE_POWER]: { weight: 0.72, cooldownMs: 15000 },
         [MAGNET_POWER]: { weight: 0.82, cooldownMs: 12000 }
     };
+
     function createPowerUpSpawnDirector() {
         const HISTORY_LIMIT = 3;
         const history = [];
@@ -755,9 +822,11 @@ document.addEventListener('DOMContentLoaded', () => {
             blockWhileActive: false,
             repeatPenalty: 0.45
         };
-        const resolveRule = (type) => { var _a; return (Object.assign(Object.assign({}, defaultRule), ((_a = POWER_UP_RULES[type]) !== null && _a !== void 0 ? _a : {}))); };
+
+        const resolveRule = (type) => ({ ...defaultRule, ...(POWER_UP_RULES[type] ?? {}) });
+
         const countActiveBoosts = () => {
-            if (!(state === null || state === void 0 ? void 0 : state.powerUpTimers)) {
+            if (!state?.powerUpTimers) {
                 return 0;
             }
             let active = 0;
@@ -768,17 +837,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return active;
         };
+
         const isOnCooldown = (type, now) => {
-            var _a;
-            const readyAt = (_a = cooldowns.get(type)) !== null && _a !== void 0 ? _a : 0;
+            const readyAt = cooldowns.get(type) ?? 0;
             return now < readyAt;
         };
+
         const registerHistory = (type) => {
             history.push(type);
             if (history.length > HISTORY_LIMIT) {
                 history.shift();
             }
         };
+
         const getHistoryWeight = (type, baseWeight) => {
             if (!history.length) {
                 return baseWeight;
@@ -797,14 +868,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const adjusted = baseWeight * Math.max(0, Math.pow(Math.max(0, penalty), occurrences));
             return adjusted;
         };
-        const chooseType = (now) => {
-            var _a, _b;
-            if (now === void 0) { now = (_a = state === null || state === void 0 ? void 0 : state.elapsedTime) !== null && _a !== void 0 ? _a : 0; }
+
+        const chooseType = (now = state?.elapsedTime ?? 0) => {
             const candidates = [];
             let totalWeight = 0;
             for (const type of powerUpTypes) {
                 const rule = resolveRule(type);
-                if (rule.blockWhileActive && ((_b = state === null || state === void 0 ? void 0 : state.powerUpTimers) === null || _b === void 0 ? void 0 : _b[type]) > 0) {
+                if (rule.blockWhileActive && state?.powerUpTimers?.[type] > 0) {
                     continue;
                 }
                 if (isOnCooldown(type, now)) {
@@ -821,10 +891,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 candidates.push({ type, weight });
                 totalWeight += weight;
             }
+
             if (!candidates.length) {
                 cooldowns.clear();
                 return powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
             }
+
             let roll = Math.random() * totalWeight;
             for (const candidate of candidates) {
                 roll -= candidate.weight;
@@ -834,12 +906,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return candidates[candidates.length - 1].type;
         };
+
         const planNextInterval = (baseInterval) => {
             const safeBase = Number.isFinite(baseInterval) ? Math.max(4000, baseInterval) : 10000;
             const intensity = Number.isFinite(getSpawnIntensity('powerUp'))
                 ? clamp(getSpawnIntensity('powerUp'), 0.6, 1.4)
                 : 1;
-            const speed = Number.isFinite(state === null || state === void 0 ? void 0 : state.gameSpeed) ? clamp(state.gameSpeed, 0, 600) : 0;
+            const speed = Number.isFinite(state?.gameSpeed) ? clamp(state.gameSpeed, 0, 600) : 0;
             const activeBoosts = countActiveBoosts();
             const intensityFactor = intensity >= 1
                 ? lerp(1, 0.82, clamp(intensity - 1, 0, 0.8))
@@ -852,6 +925,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const maxInterval = Math.max(minInterval + 2500, safeBase * 1.4);
             return clamp(rawInterval, minInterval, maxInterval);
         };
+
         const recordSpawn = (type, now) => {
             const rule = resolveRule(type);
             registerHistory(type);
@@ -859,10 +933,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 cooldowns.set(type, now + rule.cooldownMs);
             }
         };
+
         const reset = () => {
             history.length = 0;
             cooldowns.clear();
         };
+
         return {
             chooseType,
             planNextInterval,
@@ -870,20 +946,21 @@ document.addEventListener('DOMContentLoaded', () => {
             reset
         };
     }
+
     const powerUpSpawnDirector = createPowerUpSpawnDirector();
     let nextPowerUpSpawnInterval = 10000;
+
     function reschedulePowerUps({ resetHistory = false, resetTimer = false, initialDelay = false } = {}) {
         if (resetHistory) {
             powerUpSpawnDirector.reset();
         }
-        const baseInterval = Number.isFinite(config === null || config === void 0 ? void 0 : config.powerUpSpawnInterval)
+        const baseInterval = Number.isFinite(config?.powerUpSpawnInterval)
             ? Math.max(5000, config.powerUpSpawnInterval)
             : 10000;
         const plannedInterval = powerUpSpawnDirector.planNextInterval(baseInterval);
         if (Number.isFinite(plannedInterval) && plannedInterval > 0) {
             nextPowerUpSpawnInterval = plannedInterval;
-        }
-        else {
+        } else {
             nextPowerUpSpawnInterval = baseInterval;
         }
         if (resetTimer) {
@@ -897,8 +974,8 @@ document.addEventListener('DOMContentLoaded', () => {
         linkPulse: 0
     };
     const activePlayerBuffer = [];
+
     const getParticleColorStyle = (color) => {
-        var _a, _b, _c, _d, _e, _f;
         if (!color) {
             return 'rgb(255, 255, 255)';
         }
@@ -907,12 +984,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cached) {
                 return cached;
             }
-            const style = `rgb(${(_a = color.r) !== null && _a !== void 0 ? _a : 255}, ${(_b = color.g) !== null && _b !== void 0 ? _b : 255}, ${(_c = color.b) !== null && _c !== void 0 ? _c : 255})`;
+            const style = `rgb(${color.r ?? 255}, ${color.g ?? 255}, ${color.b ?? 255})`;
             particleColorStyleCache.set(color, style);
             return style;
         }
-        return `rgb(${(_d = color.r) !== null && _d !== void 0 ? _d : 255}, ${(_e = color.g) !== null && _e !== void 0 ? _e : 255}, ${(_f = color.b) !== null && _f !== void 0 ? _f : 255})`;
+        return `rgb(${color.r ?? 255}, ${color.g ?? 255}, ${color.b ?? 255})`;
     };
+
     const getProjectilePath = (width, height) => {
         if (!projectilePathCache) {
             return null;
@@ -929,12 +1007,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return path;
     };
+
     function getCachedRadialGradient(cache, context, innerRadius, outerRadius, colorStops) {
         const normalize = (value) => (typeof value === 'number' ? value.toFixed(4) : String(value));
         const key = `${normalize(innerRadius)}|${normalize(outerRadius)}|${colorStops
             .map(([offset, color]) => `${normalize(offset)}:${color}`)
             .join('|')}`;
+
         let gradient = cache.get(key);
+
         if (!gradient) {
             gradient = context.createRadialGradient(0, 0, innerRadius, 0, 0, outerRadius);
             for (const [offset, color] of colorStops) {
@@ -942,27 +1023,31 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             cache.set(key, gradient);
         }
+
         return gradient;
     }
     const supportsPointerEvents = typeof window !== 'undefined' && 'PointerEvent' in window;
+
     const audioManager = (() => {
-        var _a, _b;
         const clamp01 = (value) => Math.max(0, Math.min(1, value));
+
         const audioCapabilityProbe = (() => {
             if (typeof window === 'undefined' || typeof document === 'undefined') {
                 return null;
             }
+
             if (typeof Audio !== 'function') {
                 return null;
             }
+
             try {
                 const element = document.createElement('audio');
-                return typeof (element === null || element === void 0 ? void 0 : element.canPlayType) === 'function' ? element : null;
-            }
-            catch (_a) {
+                return typeof element?.canPlayType === 'function' ? element : null;
+            } catch {
                 return null;
             }
         })();
+
         const supportedFormats = audioCapabilityProbe
             ? {
                 mp3: audioCapabilityProbe.canPlayType('audio/mpeg') !== '',
@@ -970,37 +1055,50 @@ document.addEventListener('DOMContentLoaded', () => {
                 wav: audioCapabilityProbe.canPlayType('audio/wav; codecs="1"') !== ''
             }
             : {};
-        const supportedExtensions = new Set(Object.entries(supportedFormats)
-            .filter(([, value]) => Boolean(value))
-            .map(([ext]) => ext));
+
+        const supportedExtensions = new Set(
+            Object.entries(supportedFormats)
+                .filter(([, value]) => Boolean(value))
+                .map(([ext]) => ext)
+        );
+
         const isSupported = Boolean(audioCapabilityProbe) && supportedExtensions.size > 0;
+
         const normalizeSources = (definition) => {
             if (!definition) {
                 return [];
             }
+
             if (Array.isArray(definition)) {
                 return definition;
             }
+
             if (typeof definition === 'string') {
                 return [definition];
             }
+
             if (Array.isArray(definition.sources)) {
                 return definition.sources;
             }
+
             if (typeof definition.src === 'string') {
                 return [definition.src];
             }
+
             return [];
         };
+
         const resolveAudioSource = (definition) => {
-            var _a;
             const sources = normalizeSources(definition);
+
             if (!sources.length) {
                 return '';
             }
+
             if (!audioCapabilityProbe) {
                 return sources[0];
             }
+
             const mimeForExtension = (ext) => {
                 switch (ext) {
                     case 'mp3':
@@ -1015,28 +1113,32 @@ document.addEventListener('DOMContentLoaded', () => {
                         return '';
                 }
             };
+
             for (const candidate of sources) {
-                const extension = (_a = candidate.split('?')[0].split('#')[0].split('.').pop()) === null || _a === void 0 ? void 0 : _a.toLowerCase();
+                const extension = candidate.split('?')[0].split('#')[0].split('.').pop()?.toLowerCase();
                 if (extension && supportedExtensions.size > 0 && !supportedExtensions.has(extension)) {
                     continue;
                 }
+
                 const mimeType = mimeForExtension(extension);
                 if (!mimeType || audioCapabilityProbe.canPlayType(mimeType) !== '') {
                     return candidate;
                 }
             }
+
             if (supportedExtensions.size > 0) {
                 const fallback = sources.find((candidate) => {
-                    var _a;
-                    const extension = (_a = candidate.split('?')[0].split('#')[0].split('.').pop()) === null || _a === void 0 ? void 0 : _a.toLowerCase();
+                    const extension = candidate.split('?')[0].split('#')[0].split('.').pop()?.toLowerCase();
                     return !extension || supportedExtensions.has(extension);
                 });
                 if (fallback) {
                     return fallback;
                 }
             }
+
             return sources[0];
         };
+
         const soundDefinitions = {
             projectile: {
                 standard: { sources: ['assets/audio/projectile-standard.mp3'], voices: 6, volume: 0.55 },
@@ -1057,6 +1159,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 generic: { sources: ['assets/audio/explosion-generic.mp3'], voices: 3, volume: 0.66 }
             }
         };
+
         const state = {
             masterVolume: 0.85,
             muted: false,
@@ -1064,6 +1167,7 @@ document.addEventListener('DOMContentLoaded', () => {
             musicEnabled: true,
             sfxEnabled: true
         };
+
         const pools = new Map();
         const musicDefinition = { sources: ['assets/audio/gameplay.mp3'], volume: 0.52 };
         const hyperBeamDefinition = { sources: ['assets/audio/hyperbeam.mp3'], volume: 0.62 };
@@ -1075,12 +1179,14 @@ document.addEventListener('DOMContentLoaded', () => {
         let resumeHyperAfterVisibility = false;
         const fadeControllers = new WeakMap();
         const stopTimers = new WeakMap();
+
         const scheduleAnimationFrame = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
             ? window.requestAnimationFrame.bind(window)
             : null;
         const cancelAnimationFrame = typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function'
             ? window.cancelAnimationFrame.bind(window)
             : null;
+
         const clearStopTimer = (audio) => {
             const timerId = stopTimers.get(audio);
             if (timerId != null) {
@@ -1088,6 +1194,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 stopTimers.delete(audio);
             }
         };
+
         const stopExistingFade = (audio) => {
             const cancel = fadeControllers.get(audio);
             if (typeof cancel === 'function') {
@@ -1095,59 +1202,64 @@ document.addEventListener('DOMContentLoaded', () => {
                 fadeControllers.delete(audio);
             }
         };
+
         const fadeAudio = (audio, targetVolume, duration = 220) => {
-            var _a;
             if (!audio) {
                 return;
             }
-            const resolvedTarget = clamp01(targetVolume !== null && targetVolume !== void 0 ? targetVolume : 0);
-            const currentVolume = clamp01((_a = audio.volume) !== null && _a !== void 0 ? _a : 0);
+
+            const resolvedTarget = clamp01(targetVolume ?? 0);
+            const currentVolume = clamp01(audio.volume ?? 0);
+
             if (Math.abs(currentVolume - resolvedTarget) < 0.001 || duration <= 0) {
                 stopExistingFade(audio);
                 audio.volume = resolvedTarget;
                 return;
             }
+
             stopExistingFade(audio);
+
             const startVolume = currentVolume;
             const startTime = performance.now();
             let rafId = null;
             let timeoutId = null;
             const useRaf = typeof scheduleAnimationFrame === 'function';
+
             const cancel = () => {
                 if (useRaf && rafId != null) {
-                    cancelAnimationFrame === null || cancelAnimationFrame === void 0 ? void 0 : cancelAnimationFrame(rafId);
-                }
-                else if (!useRaf && timeoutId != null) {
+                    cancelAnimationFrame?.(rafId);
+                } else if (!useRaf && timeoutId != null) {
                     window.clearTimeout(timeoutId);
                 }
             };
+
             const step = (now) => {
                 const progress = clamp01((now - startTime) / duration);
                 const nextVolume = startVolume + (resolvedTarget - startVolume) * progress;
                 audio.volume = clamp01(nextVolume);
+
                 if (progress < 1) {
                     if (useRaf) {
                         rafId = scheduleAnimationFrame(step);
-                    }
-                    else {
+                    } else {
                         timeoutId = window.setTimeout(() => step(performance.now()), 16);
                     }
-                }
-                else {
+                } else {
                     fadeControllers.delete(audio);
                 }
             };
+
             fadeControllers.set(audio, cancel);
+
             if (useRaf) {
                 rafId = scheduleAnimationFrame(step);
-            }
-            else {
+            } else {
                 timeoutId = window.setTimeout(() => step(performance.now()), 16);
             }
         };
+
         const getLoopTargetVolume = (definition, category = 'sfx') => {
-            var _a;
-            const base = clamp01(((_a = definition.volume) !== null && _a !== void 0 ? _a : 1) * state.masterVolume);
+            const base = clamp01((definition.volume ?? 1) * state.masterVolume);
             if (category === 'music' && !state.musicEnabled) {
                 return 0;
             }
@@ -1159,27 +1271,31 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return base;
         };
+
         const prepareLoopForPlayback = (audio, definition, category = 'sfx') => {
-            var _a;
             if (!audio) {
                 return;
             }
+
             clearStopTimer(audio);
             stopExistingFade(audio);
+
             const target = getLoopTargetVolume(definition, category);
             if (audio.paused) {
                 audio.volume = 0;
-            }
-            else {
-                audio.volume = Math.min((_a = audio.volume) !== null && _a !== void 0 ? _a : target, target);
+            } else {
+                audio.volume = Math.min(audio.volume ?? target, target);
             }
         };
+
         const fadeOutLoop = (audio, duration, { reset = true } = {}) => {
             if (!audio) {
                 return;
             }
+
             stopExistingFade(audio);
             clearStopTimer(audio);
+
             if (duration <= 0) {
                 audio.volume = 0;
                 if (!audio.paused) {
@@ -1188,13 +1304,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (reset) {
                     try {
                         audio.currentTime = 0;
-                    }
-                    catch (_a) {
+                    } catch {
                         // Ignore reset failures
                     }
                 }
                 return;
             }
+
             fadeAudio(audio, 0, duration);
             const stopDelay = duration + 32;
             const timerId = window.setTimeout(() => {
@@ -1207,13 +1323,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (reset) {
                         audio.currentTime = 0;
                     }
-                }
-                catch (_a) {
+                } catch {
                     // Ignore errors when pausing/resetting
                 }
             }, stopDelay);
             stopTimers.set(audio, timerId);
         };
+
         const attemptPlayLoop = (audio, definition, category = 'sfx') => {
             if (!audio || !state.unlocked || state.muted) {
                 return false;
@@ -1224,14 +1340,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (category === 'sfx' && !state.sfxEnabled) {
                 return false;
             }
+
             prepareLoopForPlayback(audio, definition, category);
             const playPromise = audio.play();
-            if (playPromise === null || playPromise === void 0 ? void 0 : playPromise.catch) {
+            if (playPromise?.catch) {
                 playPromise.catch(() => undefined);
             }
             fadeAudio(audio, getLoopTargetVolume(definition, category), 320);
             return true;
         };
+
         if (isSupported) {
             try {
                 const musicSrc = resolveAudioSource(musicDefinition);
@@ -1240,16 +1358,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     gameplayMusic.preload = 'auto';
                     gameplayMusic.crossOrigin = 'anonymous';
                     gameplayMusic.loop = true;
-                    gameplayMusic.volume = clamp01(((_a = musicDefinition.volume) !== null && _a !== void 0 ? _a : 1) * state.masterVolume);
+                    gameplayMusic.volume = clamp01((musicDefinition.volume ?? 1) * state.masterVolume);
                     gameplayMusic.addEventListener('error', () => {
                         gameplayMusic = null;
                         shouldResumeGameplayMusic = false;
                     });
                 }
-            }
-            catch (_c) {
+            } catch {
                 gameplayMusic = null;
             }
+
             try {
                 const hyperBeamSrc = resolveAudioSource(hyperBeamDefinition);
                 if (hyperBeamSrc) {
@@ -1257,31 +1375,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     hyperBeamAudio.preload = 'auto';
                     hyperBeamAudio.crossOrigin = 'anonymous';
                     hyperBeamAudio.loop = true;
-                    hyperBeamAudio.volume = clamp01(((_b = hyperBeamDefinition.volume) !== null && _b !== void 0 ? _b : 1) * state.masterVolume);
+                    hyperBeamAudio.volume = clamp01((hyperBeamDefinition.volume ?? 1) * state.masterVolume);
                     hyperBeamAudio.addEventListener('error', () => {
                         hyperBeamAudio = null;
                         shouldResumeHyperBeam = false;
                     });
                 }
-            }
-            catch (_d) {
+            } catch {
                 hyperBeamAudio = null;
                 shouldResumeHyperBeam = false;
             }
         }
+
         function createSoundPool(definition) {
-            var _a;
             const { voices = 4 } = definition;
             const src = resolveAudioSource(definition);
             const elements = [];
             let disabled = !src || !isSupported;
+
             if (!disabled) {
                 for (let i = 0; i < voices; i++) {
                     try {
                         const audio = new Audio(src);
                         audio.preload = 'auto';
                         audio.crossOrigin = 'anonymous';
-                        audio.volume = clamp01(((_a = definition.volume) !== null && _a !== void 0 ? _a : 1) * state.masterVolume);
+                        audio.volume = clamp01((definition.volume ?? 1) * state.masterVolume);
                         if (typeof audio.load === 'function') {
                             audio.load();
                         }
@@ -1289,112 +1407,116 @@ document.addEventListener('DOMContentLoaded', () => {
                             disabled = true;
                         });
                         elements.push(audio);
-                    }
-                    catch (_b) {
+                    } catch {
                         disabled = true;
                         break;
                     }
                 }
             }
+
             let index = 0;
+
             const applyVolume = () => {
-                var _a;
-                const base = clamp01(((_a = definition.volume) !== null && _a !== void 0 ? _a : 1) * state.masterVolume);
+                const base = clamp01((definition.volume ?? 1) * state.masterVolume);
                 const finalVolume = state.sfxEnabled && !state.muted ? base : 0;
                 for (const audio of elements) {
                     audio.volume = finalVolume;
                 }
             };
+
             applyVolume();
+
             return {
                 play() {
-                    var _a;
                     if (!isSupported || disabled || state.muted || !state.unlocked || !state.sfxEnabled) {
                         return;
                     }
+
                     const audio = elements[index];
                     index = (index + 1) % elements.length;
-                    if (!audio)
-                        return;
+                    if (!audio) return;
+
                     clearStopTimer(audio);
                     stopExistingFade(audio);
-                    audio.volume = clamp01(((_a = definition.volume) !== null && _a !== void 0 ? _a : 1) * state.masterVolume);
+                    audio.volume = clamp01((definition.volume ?? 1) * state.masterVolume);
                     try {
                         audio.currentTime = 0;
-                    }
-                    catch (_b) {
+                    } catch {
                         // Ignore if resetting currentTime fails
                     }
+
                     const playPromise = audio.play();
-                    if (playPromise === null || playPromise === void 0 ? void 0 : playPromise.catch) {
+                    if (playPromise?.catch) {
                         playPromise.catch(() => undefined);
                     }
                 },
                 updateVolume: applyVolume
             };
         }
+
         function updateAllPoolVolumes() {
             for (const pool of pools.values()) {
-                if (typeof (pool === null || pool === void 0 ? void 0 : pool.updateVolume) === 'function') {
+                if (typeof pool?.updateVolume === 'function') {
                     pool.updateVolume();
                 }
             }
         }
+
         function getPool(category, key) {
-            var _a;
-            const definition = (_a = soundDefinitions[category]) === null || _a === void 0 ? void 0 : _a[key];
+            const definition = soundDefinitions[category]?.[key];
             if (!definition) {
                 return null;
             }
+
             const mapKey = `${category}:${key}`;
             if (!pools.has(mapKey)) {
                 pools.set(mapKey, createSoundPool(definition));
             }
             return pools.get(mapKey);
         }
+
         function play(category, key, fallbackKey) {
-            var _a;
-            if (!isSupported || state.muted || !state.sfxEnabled)
-                return;
-            const pool = (_a = getPool(category, key)) !== null && _a !== void 0 ? _a : (fallbackKey ? getPool(category, fallbackKey) : null);
-            pool === null || pool === void 0 ? void 0 : pool.play();
+            if (!isSupported || state.muted || !state.sfxEnabled) return;
+            const pool = getPool(category, key) ?? (fallbackKey ? getPool(category, fallbackKey) : null);
+            pool?.play();
         }
+
         function updateGameplayMusicVolume({ immediate = false } = {}) {
-            if (!gameplayMusic)
-                return;
+            if (!gameplayMusic) return;
             const target = getLoopTargetVolume(musicDefinition, 'music');
             if (immediate) {
                 stopExistingFade(gameplayMusic);
                 clearStopTimer(gameplayMusic);
                 gameplayMusic.volume = target;
-            }
-            else {
+            } else {
                 fadeAudio(gameplayMusic, target, 200);
             }
         }
+
         function updateHyperBeamVolume({ immediate = false } = {}) {
-            if (!hyperBeamAudio)
-                return;
+            if (!hyperBeamAudio) return;
             const target = getLoopTargetVolume(hyperBeamDefinition, 'sfx');
             if (immediate) {
                 stopExistingFade(hyperBeamAudio);
                 clearStopTimer(hyperBeamAudio);
                 hyperBeamAudio.volume = target;
-            }
-            else {
+            } else {
                 fadeAudio(hyperBeamAudio, target, 200);
             }
         }
+
         function attemptPlayGameplayMusic() {
             if (!attemptPlayLoop(gameplayMusic, musicDefinition, 'music')) {
                 return;
             }
         }
+
         function attemptPlayHyperBeam() {
             if (!attemptPlayLoop(hyperBeamAudio, hyperBeamDefinition, 'sfx')) {
                 return;
             }
         }
+
         function playGameplayMusic() {
             if (!isSupported || !gameplayMusic || !state.musicEnabled) {
                 shouldResumeGameplayMusic = false;
@@ -1404,12 +1526,12 @@ document.addEventListener('DOMContentLoaded', () => {
             clearStopTimer(gameplayMusic);
             try {
                 gameplayMusic.currentTime = 0;
-            }
-            catch (_a) {
+            } catch {
                 // Ignore if resetting currentTime fails (e.g., not yet loaded)
             }
             attemptPlayGameplayMusic();
         }
+
         function stopGameplayMusic({ reset = true } = {}) {
             shouldResumeGameplayMusic = false;
             if (!gameplayMusic) {
@@ -1417,6 +1539,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             fadeOutLoop(gameplayMusic, 220, { reset });
         }
+
         function playHyperBeam() {
             if (!isSupported || !hyperBeamAudio || !state.sfxEnabled) {
                 shouldResumeHyperBeam = false;
@@ -1426,12 +1549,12 @@ document.addEventListener('DOMContentLoaded', () => {
             clearStopTimer(hyperBeamAudio);
             try {
                 hyperBeamAudio.currentTime = 0;
-            }
-            catch (_a) {
+            } catch {
                 // Ignore if resetting currentTime fails (e.g., not yet loaded)
             }
             attemptPlayHyperBeam();
         }
+
         function stopHyperBeam({ reset = true } = {}) {
             shouldResumeHyperBeam = false;
             if (!hyperBeamAudio) {
@@ -1439,12 +1562,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             fadeOutLoop(hyperBeamAudio, 200, { reset });
         }
+
         function suspendForVisibilityChange() {
             if (!isSupported) {
                 return;
             }
+
             resumeGameplayAfterVisibility = shouldResumeGameplayMusic && !!(gameplayMusic && !gameplayMusic.paused);
             resumeHyperAfterVisibility = shouldResumeHyperBeam && !!(hyperBeamAudio && !hyperBeamAudio.paused);
+
             if (resumeGameplayAfterVisibility) {
                 fadeOutLoop(gameplayMusic, 140, { reset: false });
             }
@@ -1452,10 +1578,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 fadeOutLoop(hyperBeamAudio, 140, { reset: false });
             }
         }
+
         function resumeAfterVisibilityChange() {
             if (!isSupported) {
                 return;
             }
+
             if (resumeGameplayAfterVisibility) {
                 attemptPlayGameplayMusic();
                 resumeGameplayAfterVisibility = false;
@@ -1465,9 +1593,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 resumeHyperAfterVisibility = false;
             }
         }
+
         function unlock() {
-            if (state.unlocked)
-                return;
+            if (state.unlocked) return;
             state.unlocked = true;
             if (shouldResumeGameplayMusic) {
                 attemptPlayGameplayMusic();
@@ -1476,6 +1604,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 attemptPlayHyperBeam();
             }
         }
+
         function setMasterVolume(volume) {
             const numeric = Number.parseFloat(volume);
             const clamped = Number.isFinite(numeric) ? clamp01(numeric) : state.masterVolume;
@@ -1488,6 +1617,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateAllPoolVolumes();
             return state.masterVolume;
         }
+
         function toggleMusic(forceValue) {
             const next = typeof forceValue === 'boolean' ? forceValue : !state.musicEnabled;
             if (state.musicEnabled === next) {
@@ -1498,8 +1628,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!state.musicEnabled) {
                 stopGameplayMusic({ reset: false });
                 updateGameplayMusicVolume({ immediate: true });
-            }
-            else {
+            } else {
                 shouldResumeGameplayMusic = true;
                 updateGameplayMusicVolume({ immediate: true });
                 if (state.unlocked) {
@@ -1508,6 +1637,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return state.musicEnabled;
         }
+
         function toggleSfx(forceValue) {
             const next = typeof forceValue === 'boolean' ? forceValue : !state.sfxEnabled;
             if (state.sfxEnabled === next) {
@@ -1520,8 +1650,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!state.sfxEnabled) {
                 stopHyperBeam({ reset: false });
                 updateHyperBeamVolume({ immediate: true });
-            }
-            else {
+            } else {
                 shouldResumeHyperBeam = wasHyperActive;
                 updateHyperBeamVolume({ immediate: true });
                 updateAllPoolVolumes();
@@ -1534,9 +1663,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return state.sfxEnabled;
         }
+
         const getMasterVolume = () => state.masterVolume;
         const isMusicEnabled = () => state.musicEnabled;
         const isSfxEnabled = () => state.sfxEnabled;
+
         return {
             playProjectile(type) {
                 play('projectile', type, 'standard');
@@ -1562,44 +1693,52 @@ document.addEventListener('DOMContentLoaded', () => {
             isSfxEnabled
         };
     })();
+
     window.addEventListener('pointerdown', audioManager.unlock, { once: true });
     window.addEventListener('keydown', audioManager.unlock, { once: true });
     if (typeof window !== 'undefined' && 'ontouchstart' in window) {
         window.addEventListener('touchstart', audioManager.unlock, { once: true });
     }
+
     const handleAudioSuspend = () => {
         audioManager.suspendForVisibilityChange();
     };
     const handleAudioResume = () => {
         audioManager.resumeAfterVisibilityChange();
     };
+
     window.addEventListener('blur', handleAudioSuspend);
     window.addEventListener('focus', handleAudioResume);
+
     if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 if (state.gameState === 'running') {
                     pauseGame({ reason: 'hidden' });
-                }
-                else {
+                } else {
                     handleAudioSuspend();
                 }
-            }
-            else {
+            } else {
                 handleAudioResume();
             }
         });
     }
-    const assetOverrides = typeof window !== 'undefined' && window.NYAN_ASSET_OVERRIDES && typeof window.NYAN_ASSET_OVERRIDES === 'object'
-        ? window.NYAN_ASSET_OVERRIDES
-        : {};
-    const gameplayOverrides = typeof window !== 'undefined' && window.NYAN_GAMEPLAY_OVERRIDES && typeof window.NYAN_GAMEPLAY_OVERRIDES === 'object'
-        ? window.NYAN_GAMEPLAY_OVERRIDES
-        : null;
-    const cosmeticOverrides = assetOverrides.cosmetics && typeof assetOverrides.cosmetics === 'object'
-        ? assetOverrides.cosmetics
-        : {};
+
+    const assetOverrides =
+        typeof window !== 'undefined' && window.NYAN_ASSET_OVERRIDES && typeof window.NYAN_ASSET_OVERRIDES === 'object'
+            ? window.NYAN_ASSET_OVERRIDES
+            : {};
+    const gameplayOverrides =
+        typeof window !== 'undefined' && window.NYAN_GAMEPLAY_OVERRIDES && typeof window.NYAN_GAMEPLAY_OVERRIDES === 'object'
+            ? window.NYAN_GAMEPLAY_OVERRIDES
+            : null;
+    const cosmeticOverrides =
+        assetOverrides.cosmetics && typeof assetOverrides.cosmetics === 'object'
+            ? assetOverrides.cosmetics
+            : {};
+
     const isPlainObject = (value) => Object.prototype.toString.call(value) === '[object Object]';
+
     const DEFAULT_TRAIL_STYLES = {
         rainbow: { id: 'rainbow', type: 'dynamic' },
         aurora: {
@@ -1628,31 +1767,33 @@ document.addEventListener('DOMContentLoaded', () => {
             colors: ['#a855f7', '#22d3ee', '#0ea5e9', '#9333ea']
         }
     };
+
     let activeTrailStyle = null;
+
     function sanitizeTrailStyle(id, styleDefinition, fallback = DEFAULT_TRAIL_STYLES[id]) {
-        const base = fallback ? Object.assign({}, fallback) : { id, type: 'dynamic' };
-        const result = Object.assign(Object.assign({}, base), { id });
+        const base = fallback ? { ...fallback } : { id, type: 'dynamic' };
+        const result = { ...base, id };
+
         const applyPaletteColors = (colors) => {
             const palette = Array.isArray(colors)
                 ? colors
-                    .map((color) => (typeof color === 'string' ? color.trim() : ''))
-                    .filter(Boolean)
+                      .map((color) => (typeof color === 'string' ? color.trim() : ''))
+                      .filter(Boolean)
                 : [];
             if (palette.length) {
                 result.type = 'palette';
                 result.colors = palette;
             }
         };
+
         if (Array.isArray(styleDefinition)) {
             applyPaletteColors(styleDefinition);
-        }
-        else if (isPlainObject(styleDefinition)) {
+        } else if (isPlainObject(styleDefinition)) {
             if (typeof styleDefinition.type === 'string') {
                 const normalizedType = styleDefinition.type.trim().toLowerCase();
                 if (normalizedType === 'palette') {
                     result.type = 'palette';
-                }
-                else {
+                } else {
                     result.type = 'dynamic';
                 }
             }
@@ -1660,22 +1801,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 applyPaletteColors(styleDefinition.colors);
             }
         }
+
         if (result.type === 'palette' && (!Array.isArray(result.colors) || result.colors.length === 0)) {
             if (Array.isArray(base.colors) && base.colors.length) {
                 result.colors = [...base.colors];
-            }
-            else {
+            } else {
                 result.type = 'dynamic';
                 delete result.colors;
             }
         }
+
         return result;
     }
+
     const trailStyles = (() => {
-        const overrides = isPlainObject(cosmeticOverrides === null || cosmeticOverrides === void 0 ? void 0 : cosmeticOverrides.trails) ? cosmeticOverrides.trails : {};
+        const overrides = isPlainObject(cosmeticOverrides?.trails) ? cosmeticOverrides.trails : {};
         const styles = {};
         const assignStyle = (styleId) => {
-            styles[styleId] = sanitizeTrailStyle(styleId, overrides === null || overrides === void 0 ? void 0 : overrides[styleId]);
+            styles[styleId] = sanitizeTrailStyle(styleId, overrides?.[styleId]);
         };
         for (const styleId of Object.keys(DEFAULT_TRAIL_STYLES)) {
             assignStyle(styleId);
@@ -1689,6 +1832,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return styles;
     })();
+
     function resolveTrailStyle(styleId) {
         const key = typeof styleId === 'string' && styleId ? styleId : 'rainbow';
         if (!trailStyles[key]) {
@@ -1696,13 +1840,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return trailStyles[key];
     }
+
     function setActiveTrailStyleById(styleId) {
         activeTrailStyle = resolveTrailStyle(styleId);
         return activeTrailStyle;
     }
+
     function getActiveTrailStyle() {
-        var _a, _b;
-        const equippedId = (((_b = (_a = state === null || state === void 0 ? void 0 : state.cosmetics) === null || _a === void 0 ? void 0 : _a.equipped) === null || _b === void 0 ? void 0 : _b.trail) && String(state.cosmetics.equipped.trail)) ||
+        const equippedId =
+            (state?.cosmetics?.equipped?.trail && String(state.cosmetics.equipped.trail)) ||
             null;
         if (equippedId && (!activeTrailStyle || activeTrailStyle.id !== equippedId)) {
             return setActiveTrailStyleById(equippedId);
@@ -1712,7 +1858,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return activeTrailStyle;
     }
+
     setActiveTrailStyleById('rainbow');
+
     function cloneConfig(value) {
         if (Array.isArray(value)) {
             return value.map((item) => cloneConfig(item));
@@ -1726,6 +1874,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return value;
     }
+
     function applyOverrides(base, overrides) {
         if (!isPlainObject(overrides)) {
             return base;
@@ -1754,15 +1903,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return base;
     }
+
     function resolveAssetConfig(override, defaultSrc) {
         if (override == null) {
             return defaultSrc;
         }
+
         if (typeof override === 'string') {
             return override.trim() || defaultSrc;
         }
+
         if (typeof override === 'object') {
-            const config = Object.assign({}, override);
+            const config = { ...override };
             if ((!config.src || typeof config.src !== 'string' || !config.src.trim()) && defaultSrc) {
                 config.src = defaultSrc;
             }
@@ -1780,8 +1932,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return config;
         }
+
         return defaultSrc;
     }
+
     const baseGameConfig = {
         baseGameSpeed: 165,
         speedGrowth: 5.4,
@@ -1935,6 +2089,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     };
+
     const SPRITE_SIZE_WEIGHTS = Object.freeze({
         basePlayerWidth: 96,
         player: 1,
@@ -1949,53 +2104,61 @@ document.addEventListener('DOMContentLoaded', () => {
             sequence: [2.3, 2.55, 2.8]
         }
     });
-    const BASE_COLLECTIBLE_PADDING_RATIO = baseGameConfig.collectible.verticalPadding / baseGameConfig.collectible.size;
+
+    const BASE_COLLECTIBLE_PADDING_RATIO =
+        baseGameConfig.collectible.verticalPadding / baseGameConfig.collectible.size;
     const BASE_POWER_UP_WOBBLE_RATIO = baseGameConfig.powerUp.wobbleAmplitude / baseGameConfig.powerUp.size;
+
     function createBalancedSpriteSizing(baseConfig, weights, options = {}) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
-        const basePlayer = (_a = baseConfig.player) !== null && _a !== void 0 ? _a : { width: 72, height: 54 };
-        const playerAspect = basePlayer.width > 0 ? basePlayer.height / basePlayer.width : (_b = options.playerAspect) !== null && _b !== void 0 ? _b : 0.75;
-        const referenceWidth = Math.round((_c = weights.basePlayerWidth) !== null && _c !== void 0 ? _c : basePlayer.width);
-        const playerWeight = (_d = weights.player) !== null && _d !== void 0 ? _d : 1;
+        const basePlayer = baseConfig.player ?? { width: 72, height: 54 };
+        const playerAspect =
+            basePlayer.width > 0 ? basePlayer.height / basePlayer.width : options.playerAspect ?? 0.75;
+        const referenceWidth = Math.round(weights.basePlayerWidth ?? basePlayer.width);
+        const playerWeight = weights.player ?? 1;
         const playerWidth = Math.round(referenceWidth * playerWeight);
-        const playerHeight = Math.round(playerWidth * ((_e = options.playerAspect) !== null && _e !== void 0 ? _e : playerAspect));
-        const collectibleWeight = (_f = weights.collectible) !== null && _f !== void 0 ? _f : 0.68;
+        const playerHeight = Math.round(playerWidth * (options.playerAspect ?? playerAspect));
+
+        const collectibleWeight = weights.collectible ?? 0.68;
         const collectibleSize = Math.round(referenceWidth * collectibleWeight);
         const collectiblePaddingRatio = Number.isFinite(options.collectiblePaddingRatio)
             ? options.collectiblePaddingRatio
             : BASE_COLLECTIBLE_PADDING_RATIO;
         const collectibleVerticalPadding = Math.round(collectibleSize * collectiblePaddingRatio);
-        const powerUpWeight = (_g = weights.powerUp) !== null && _g !== void 0 ? _g : 0.82;
+
+        const powerUpWeight = weights.powerUp ?? 0.82;
         const powerUpSize = Math.round(referenceWidth * powerUpWeight);
         const powerUpWobbleRatio = Number.isFinite(options.powerUpWobbleRatio)
             ? options.powerUpWobbleRatio
             : BASE_POWER_UP_WOBBLE_RATIO;
         const powerUpWobbleAmplitude = Math.round(powerUpSize * powerUpWobbleRatio);
+
         const villainDefaults = {
             small: { min: 1.2, max: 1.4 },
             medium: { min: 1.5, max: 1.8 },
             large: { min: 1.9, max: 2.2 }
         };
+
         const scaleRange = (range, fallback) => {
-            var _a, _b;
-            const source = range !== null && range !== void 0 ? range : fallback;
-            const minWeight = (_a = source === null || source === void 0 ? void 0 : source.min) !== null && _a !== void 0 ? _a : fallback.min;
-            const maxWeight = (_b = source === null || source === void 0 ? void 0 : source.max) !== null && _b !== void 0 ? _b : fallback.max;
+            const source = range ?? fallback;
+            const minWeight = source?.min ?? fallback.min;
+            const maxWeight = source?.max ?? fallback.max;
             return {
                 min: Math.round(referenceWidth * minWeight),
                 max: Math.round(referenceWidth * maxWeight)
             };
         };
-        const villainWeights = (_h = weights.villain) !== null && _h !== void 0 ? _h : {};
+
+        const villainWeights = weights.villain ?? {};
         const villains = {
             small: scaleRange(villainWeights.small, villainDefaults.small),
             medium: scaleRange(villainWeights.medium, villainDefaults.medium),
             large: scaleRange(villainWeights.large, villainDefaults.large)
         };
-        const bossWeights = Array.isArray((_j = weights.boss) === null || _j === void 0 ? void 0 : _j.sequence)
+
+        const bossWeights = Array.isArray(weights.boss?.sequence)
             ? weights.boss.sequence
             : [2.3, 2.55, 2.8];
-        const bossAspect = (_l = (_k = weights.boss) === null || _k === void 0 ? void 0 : _k.aspect) !== null && _l !== void 0 ? _l : 1;
+        const bossAspect = weights.boss?.aspect ?? 1;
         const bosses = bossWeights.map((weight) => {
             const width = Math.round(referenceWidth * weight);
             return {
@@ -2003,6 +2166,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 height: Math.round(width * bossAspect)
             };
         });
+
         return {
             player: { width: playerWidth, height: playerHeight },
             collectible: { size: collectibleSize, verticalPadding: collectibleVerticalPadding },
@@ -2012,15 +2176,18 @@ document.addEventListener('DOMContentLoaded', () => {
             referenceWidth
         };
     }
+
     const balancedSpriteSizing = createBalancedSpriteSizing(baseGameConfig, SPRITE_SIZE_WEIGHTS, {
         collectiblePaddingRatio: BASE_COLLECTIBLE_PADDING_RATIO,
         powerUpWobbleRatio: BASE_POWER_UP_WOBBLE_RATIO
     });
+
     Object.assign(baseGameConfig.player, balancedSpriteSizing.player);
     baseGameConfig.collectible.size = balancedSpriteSizing.collectible.size;
     baseGameConfig.collectible.verticalPadding = balancedSpriteSizing.collectible.verticalPadding;
     baseGameConfig.powerUp.size = balancedSpriteSizing.powerUp.size;
     baseGameConfig.powerUp.wobbleAmplitude = balancedSpriteSizing.powerUp.wobbleAmplitude;
+
     config = applyOverrides(cloneConfig(baseGameConfig), gameplayOverrides);
     basePlayerConfig = cloneConfig(baseGameConfig.player);
     baseDashConfig = cloneConfig(baseGameConfig.player.dash);
@@ -2028,6 +2195,7 @@ document.addEventListener('DOMContentLoaded', () => {
         speed: baseGameConfig.projectileSpeed,
         cooldown: baseGameConfig.projectileCooldown
     };
+
     const projectileArchetypes = Object.freeze({
         standard: {
             width: 24,
@@ -2097,6 +2265,7 @@ document.addEventListener('DOMContentLoaded', () => {
             shadowColor: 'rgba(248, 113, 113, 0.45)'
         }
     });
+
     const defaultBackgrounds = [
         'assets/background1.png',
         'assets/background2.png',
@@ -2112,12 +2281,13 @@ document.addEventListener('DOMContentLoaded', () => {
             'linear-gradient(160deg, #0b1120 0%, #1e1b4b 40%, #581c87 100%)'
         ].join(', ')
     ];
-    const backgroundOverrideEntries = Array.isArray(assetOverrides.backgrounds) && assetOverrides.backgrounds.length
-        ? assetOverrides.backgrounds
-        : defaultBackgrounds;
+    const backgroundOverrideEntries =
+        Array.isArray(assetOverrides.backgrounds) && assetOverrides.backgrounds.length
+            ? assetOverrides.backgrounds
+            : defaultBackgrounds;
     let backgroundImages = backgroundOverrideEntries
         .map((entry, index) => resolveAssetConfig(entry, defaultBackgrounds[index % defaultBackgrounds.length]))
-        .map((config) => (typeof config === 'string' ? config : config === null || config === void 0 ? void 0 : config.src))
+        .map((config) => (typeof config === 'string' ? config : config?.src))
         .filter((src) => typeof src === 'string' && src.length);
     if (backgroundImages.length === 0) {
         backgroundImages = [...defaultBackgrounds];
@@ -2129,6 +2299,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const backgroundChangeInterval = 60000;
     let currentBackgroundIndex = 0;
     let activeLayerIndex = 0;
+
     const scoreEl = document.getElementById('score');
     const nyanEl = document.getElementById('nyan');
     const streakEl = document.getElementById('streak');
@@ -2139,7 +2310,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const comboFillEl = document.getElementById('comboFill');
     const comboMeterEl = document.getElementById('comboMeter');
     const joystickZone = document.getElementById('joystickZone');
-    const joystickThumb = (_a = joystickZone === null || joystickZone === void 0 ? void 0 : joystickZone.querySelector('.joystick-thumb')) !== null && _a !== void 0 ? _a : null;
+    const joystickThumb = joystickZone?.querySelector('.joystick-thumb') ?? null;
     const fireButton = document.getElementById('fireButton');
     const touchControls = document.getElementById('touchControls');
     const debugOverlayEl = document.getElementById('debugOverlay');
@@ -2150,6 +2321,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ratio: debugOverlayEl.querySelector('[data-debug-line="ratio"]')
         }
         : {};
+
     const overlay = document.getElementById('overlay');
     const overlayMessage = document.getElementById('overlayMessage');
     const flyNowButton = document.getElementById('flyNowButton');
@@ -2162,9 +2334,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const preflightPrompt = document.getElementById('preflightPrompt');
     const mobilePreflightButton = document.getElementById('mobilePreflightButton');
     const comicIntro = document.getElementById('comicIntro');
-    const overlayTitle = (_b = overlay === null || overlay === void 0 ? void 0 : overlay.querySelector('h1')) !== null && _b !== void 0 ? _b : null;
-    const overlayDefaultTitle = (_c = overlayTitle === null || overlayTitle === void 0 ? void 0 : overlayTitle.textContent) !== null && _c !== void 0 ? _c : '';
-    const overlayDefaultMessage = (_d = overlayMessage === null || overlayMessage === void 0 ? void 0 : overlayMessage.textContent) !== null && _d !== void 0 ? _d : '';
+    const overlayTitle = overlay?.querySelector('h1') ?? null;
+    const overlayDefaultTitle = overlayTitle?.textContent ?? '';
+    const overlayDefaultMessage = overlayMessage?.textContent ?? '';
     const characterSelectModal = document.getElementById('characterSelectModal');
     const characterSelectConfirm = document.getElementById('characterSelectConfirm');
     const characterSelectCancel = document.getElementById('characterSelectCancel');
@@ -2178,9 +2350,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const preflightWeaponName = document.getElementById('preflightWeaponName');
     const preflightWeaponHighlight = document.getElementById('preflightWeaponHighlight');
     const characterSelectSummary = document.getElementById('characterSelectSummary');
-    const characterSelectSummaryDescription = characterSelectSummary === null || characterSelectSummary === void 0 ? void 0 : characterSelectSummary.querySelector('[data-character-summary-description]');
-    const characterSelectSummaryOngoing = characterSelectSummary === null || characterSelectSummary === void 0 ? void 0 : characterSelectSummary.querySelector('[data-character-summary-ongoing]');
-    const characterSelectGrid = (_f = (_e = characterSelectModal === null || characterSelectModal === void 0 ? void 0 : characterSelectModal.querySelector('[data-character-grid]')) !== null && _e !== void 0 ? _e : characterSelectModal === null || characterSelectModal === void 0 ? void 0 : characterSelectModal.querySelector('.character-grid')) !== null && _f !== void 0 ? _f : null;
+    const characterSelectSummaryDescription = characterSelectSummary?.querySelector(
+        '[data-character-summary-description]'
+    );
+    const characterSelectSummaryOngoing = characterSelectSummary?.querySelector(
+        '[data-character-summary-ongoing]'
+    );
+    const characterSelectGrid =
+        characterSelectModal?.querySelector('[data-character-grid]') ??
+        characterSelectModal?.querySelector('.character-grid') ??
+        null;
     let characterCards = [];
     const weaponSelectModal = document.getElementById('weaponSelectModal');
     const weaponSelectConfirm = document.getElementById('weaponSelectConfirm');
@@ -2189,17 +2368,24 @@ document.addEventListener('DOMContentLoaded', () => {
     preflightSwapWeaponButton = document.getElementById('preflightSwapWeaponButton');
     openWeaponSelectButton = document.getElementById('openWeaponSelectButton');
     const weaponSelectSummary = document.getElementById('weaponSelectSummary');
-    const weaponSelectSummaryDescription = weaponSelectSummary === null || weaponSelectSummary === void 0 ? void 0 : weaponSelectSummary.querySelector('[data-weapon-summary-description]');
-    const weaponSelectGrid = (_h = (_g = weaponSelectModal === null || weaponSelectModal === void 0 ? void 0 : weaponSelectModal.querySelector('[data-weapon-grid]')) !== null && _g !== void 0 ? _g : weaponSelectModal === null || weaponSelectModal === void 0 ? void 0 : weaponSelectModal.querySelector('.character-grid')) !== null && _h !== void 0 ? _h : null;
+    const weaponSelectSummaryDescription = weaponSelectSummary?.querySelector(
+        '[data-weapon-summary-description]'
+    );
+    const weaponSelectGrid =
+        weaponSelectModal?.querySelector('[data-weapon-grid]') ??
+        weaponSelectModal?.querySelector('.character-grid') ??
+        null;
     let weaponCards = [];
     const loadingScreen = document.getElementById('loadingScreen');
     const loadingStatus = document.getElementById('loadingStatus');
     const loadingImageEl = document.getElementById('loadingImage');
     const modalFocusMemory = new WeakMap();
     const loadingSequenceTimers = new Set();
+
     function isModalOpen(modal) {
         return Boolean(modal && !modal.hidden && modal.getAttribute('aria-hidden') !== 'true');
     }
+
     function focusElement(element) {
         if (!(element instanceof HTMLElement)) {
             return;
@@ -2211,25 +2397,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const focusFn = () => {
             try {
                 element.focus({ preventScroll: true });
-            }
-            catch (_a) {
+            } catch {
                 element.focus();
             }
             if (needsTemporaryTabIndex) {
-                element.addEventListener('blur', () => {
-                    element.removeAttribute('tabindex');
-                }, { once: true });
+                element.addEventListener(
+                    'blur',
+                    () => {
+                        element.removeAttribute('tabindex');
+                    },
+                    { once: true }
+                );
             }
         };
         if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
             window.requestAnimationFrame(focusFn);
-        }
-        else {
+        } else {
             focusFn();
         }
     }
+
     function openModal(modal, { bodyClass, initialFocus } = {}) {
-        var _a, _b;
         if (!modal || isModalOpen(modal)) {
             return;
         }
@@ -2240,11 +2428,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (bodyClass && bodyElement) {
             bodyElement.classList.add(bodyClass);
         }
-        const resolvedInitialFocus = typeof initialFocus === 'function'
-            ? initialFocus()
-            : (_b = (_a = initialFocus !== null && initialFocus !== void 0 ? initialFocus : modal.querySelector('[data-initial-focus]')) !== null && _a !== void 0 ? _a : modal.querySelector('[autofocus]')) !== null && _b !== void 0 ? _b : modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        const resolvedInitialFocus =
+            typeof initialFocus === 'function'
+                ? initialFocus()
+                : initialFocus ??
+                  modal.querySelector('[data-initial-focus]') ??
+                  modal.querySelector('[autofocus]') ??
+                  modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
         focusElement(resolvedInitialFocus instanceof HTMLElement ? resolvedInitialFocus : modal);
     }
+
     function closeModal(modal, { bodyClass, restoreFocus = true } = {}) {
         if (!modal || !isModalOpen(modal)) {
             return;
@@ -2260,6 +2453,7 @@ document.addEventListener('DOMContentLoaded', () => {
             focusElement(previousFocus);
         }
     }
+
     function clearLoadingSequenceTimers() {
         if (typeof window === 'undefined' || typeof window.clearTimeout !== 'function') {
             loadingSequenceTimers.clear();
@@ -2270,14 +2464,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         loadingSequenceTimers.clear();
     }
+
     function runCyborgLoadingSequence() {
         clearLoadingSequenceTimers();
         if (!loadingScreen || !loadingStatus) {
             return;
         }
+
         loadingScreen.classList.remove('hidden');
+
         const prefixEl = loadingStatus.querySelector('.loading-prefix');
         const lineEl = loadingStatus.querySelector('.loading-line');
+
         const steps = [
             { prefix: '[SYS-BOOT:01]', message: 'Spooling quantum cores', percent: 8, delay: 450 },
             { prefix: '[SYS-BOOT:02]', message: 'Aligning gravitic fins', percent: 22, delay: 550 },
@@ -2288,6 +2486,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { prefix: '[SYS-BOOT:07]', message: 'Finalizing launch window', percent: 94, delay: 600 },
             { prefix: '[SYS-BOOT:08]', message: 'All systems nominal', percent: 100, delay: 700 }
         ];
+
         const updateLoadingLine = (message, percent) => {
             if (!lineEl) {
                 return;
@@ -2299,8 +2498,8 @@ document.addEventListener('DOMContentLoaded', () => {
             percentSpan.textContent = formattedPercent;
             lineEl.appendChild(percentSpan);
         };
+
         const runStep = (index) => {
-            var _a;
             if (index >= steps.length) {
                 if (loadingImageEl) {
                     loadingImageEl.classList.add('loaded');
@@ -2312,101 +2511,107 @@ document.addEventListener('DOMContentLoaded', () => {
                         loadingScreen.classList.add('hidden');
                     }, 450);
                     loadingSequenceTimers.add(timerId);
-                }
-                else {
+                } else {
                     loadingScreen.classList.add('hidden');
                 }
                 return;
             }
+
             const step = steps[index];
             if (prefixEl) {
                 prefixEl.textContent = step.prefix;
             }
             updateLoadingLine(step.message, step.percent);
+
             const timeoutFn = typeof window !== 'undefined' ? window.setTimeout : null;
             if (timeoutFn) {
                 const timerId = timeoutFn(() => {
                     loadingSequenceTimers.delete(timerId);
                     runStep(index + 1);
-                }, Math.max(0, (_a = step.delay) !== null && _a !== void 0 ? _a : 600));
+                }, Math.max(0, step.delay ?? 600));
                 loadingSequenceTimers.add(timerId);
-            }
-            else {
+            } else {
                 runStep(index + 1);
             }
         };
+
         runStep(0);
     }
+
     function isCharacterSelectOpen() {
         return isModalOpen(characterSelectModal);
     }
+
     function openCharacterSelect(reason = '') {
         if (!characterSelectModal) {
             return;
         }
         if (reason) {
             characterSelectModal.dataset.openReason = reason;
-        }
-        else {
+        } else {
             delete characterSelectModal.dataset.openReason;
         }
         pendingPilotId = activePilotId;
         updatePilotSelectionState();
         openModal(characterSelectModal, {
             bodyClass: 'character-select-open',
-            initialFocus: () => {
-                var _a;
-                return (_a = (characterSelectConfirm && !characterSelectConfirm.disabled
+            initialFocus: () =>
+                (characterSelectConfirm && !characterSelectConfirm.disabled
                     ? characterSelectConfirm
-                    : characterSelectModal.querySelector('[data-character-grid] button:not([disabled])'))) !== null && _a !== void 0 ? _a : characterSelectModal.querySelector('.character-select-content');
-            }
+                    : characterSelectModal.querySelector('[data-character-grid] button:not([disabled])')) ??
+                characterSelectModal.querySelector('.character-select-content')
         });
     }
+
     function closeCharacterSelect(options = {}) {
         closeModal(characterSelectModal, {
             bodyClass: 'character-select-open',
             restoreFocus: options.restoreFocus !== false
         });
     }
+
     function isWeaponSelectOpen() {
         return isModalOpen(weaponSelectModal);
     }
+
     function openWeaponSelect(reason = '') {
         if (!weaponSelectModal) {
             return;
         }
         if (reason) {
             weaponSelectModal.dataset.openReason = reason;
-        }
-        else {
+        } else {
             delete weaponSelectModal.dataset.openReason;
         }
         pendingWeaponId = activeWeaponId;
         updateWeaponSelectionState();
         openModal(weaponSelectModal, {
             bodyClass: 'weapon-select-open',
-            initialFocus: () => {
-                var _a;
-                return (_a = (weaponSelectConfirm && !weaponSelectConfirm.disabled
+            initialFocus: () =>
+                (weaponSelectConfirm && !weaponSelectConfirm.disabled
                     ? weaponSelectConfirm
-                    : weaponSelectModal.querySelector('[data-weapon-grid] button:not([disabled])'))) !== null && _a !== void 0 ? _a : weaponSelectModal.querySelector('.character-select-content');
-            }
+                    : weaponSelectModal.querySelector('[data-weapon-grid] button:not([disabled])')) ??
+                weaponSelectModal.querySelector('.character-select-content')
         });
     }
+
     function closeWeaponSelect(options = {}) {
         closeModal(weaponSelectModal, {
             bodyClass: 'weapon-select-open',
             restoreFocus: options.restoreFocus !== false
         });
     }
-    const characterSelectBackdrop = (_j = characterSelectModal === null || characterSelectModal === void 0 ? void 0 : characterSelectModal.querySelector('.character-select-backdrop')) !== null && _j !== void 0 ? _j : null;
+
+    const characterSelectBackdrop =
+        characterSelectModal?.querySelector('.character-select-backdrop') ?? null;
     if (characterSelectBackdrop) {
         characterSelectBackdrop.addEventListener('click', () => closeCharacterSelect());
     }
-    const weaponSelectBackdrop = (_k = weaponSelectModal === null || weaponSelectModal === void 0 ? void 0 : weaponSelectModal.querySelector('.character-select-backdrop')) !== null && _k !== void 0 ? _k : null;
+    const weaponSelectBackdrop = weaponSelectModal?.querySelector('.character-select-backdrop') ?? null;
     if (weaponSelectBackdrop) {
         weaponSelectBackdrop.addEventListener('click', () => closeWeaponSelect());
     }
+
     if (characterSelectCancel) {
         characterSelectCancel.addEventListener('click', () => closeCharacterSelect());
     }
@@ -2433,18 +2638,21 @@ document.addEventListener('DOMContentLoaded', () => {
             closeWeaponSelect();
         });
     }
+
     const characterSelectOpenButtons = [swapPilotButton, preflightSwapPilotButton];
     for (const button of characterSelectOpenButtons) {
         if (button) {
-            button.addEventListener('click', () => { var _a; return openCharacterSelect((_a = button.id) !== null && _a !== void 0 ? _a : 'button'); });
+            button.addEventListener('click', () => openCharacterSelect(button.id ?? 'button'));
         }
     }
+
     const weaponSelectOpenButtons = [swapWeaponButton, preflightSwapWeaponButton, openWeaponSelectButton];
     for (const button of weaponSelectOpenButtons) {
         if (button) {
-            button.addEventListener('click', () => { var _a; return openWeaponSelect((_a = button.id) !== null && _a !== void 0 ? _a : 'button'); });
+            button.addEventListener('click', () => openWeaponSelect(button.id ?? 'button'));
         }
     }
+
     function setButtonDisabledState(button, disabled) {
         if (!button) {
             return;
@@ -2452,29 +2660,35 @@ document.addEventListener('DOMContentLoaded', () => {
         button.disabled = disabled;
         button.setAttribute('aria-disabled', disabled ? 'true' : 'false');
     }
+
     function shouldDisablePreflightControls(modalAvailable) {
         if (!modalAvailable) {
             return true;
         }
-        const gameState = state === null || state === void 0 ? void 0 : state.gameState;
+        const gameState = state?.gameState;
         return gameState === 'running' || gameState === 'paused';
     }
+
     function updateSwapPilotButton() {
         const shouldDisable = shouldDisablePreflightControls(Boolean(characterSelectModal));
         setButtonDisabledState(swapPilotButton, shouldDisable);
         setButtonDisabledState(preflightSwapPilotButton, shouldDisable);
     }
+
     function updateSwapWeaponButtons() {
         const shouldDisable = shouldDisablePreflightControls(Boolean(weaponSelectModal));
         setButtonDisabledState(swapWeaponButton, shouldDisable);
         setButtonDisabledState(preflightSwapWeaponButton, shouldDisable);
         setButtonDisabledState(openWeaponSelectButton, shouldDisable);
     }
+
     updateSwapPilotButton();
     updateSwapWeaponButtons();
+
     if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
         window.addEventListener('beforeunload', clearLoadingSequenceTimers);
     }
+
     const timerValueEl = document.getElementById('timerValue');
     const survivalTimerEl = document.getElementById('survivalTimer');
     const pauseOverlay = document.getElementById('pauseOverlay');
@@ -2487,7 +2701,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const leaderboardTitleEl = document.getElementById('leaderboardTitle');
     const leaderboardListEl = document.getElementById('leaderboardList');
     const leaderboardStatusEl = document.getElementById('leaderboardStatus');
-    const leaderboardTabButtons = Array.from(document.querySelectorAll('[data-leaderboard-scope]'));
+    const leaderboardTabButtons = Array.from(
+        document.querySelectorAll('[data-leaderboard-scope]')
+    );
     const summaryCard = document.getElementById('summaryCard');
     const summaryTabButtons = Array.from(document.querySelectorAll('[data-summary-tab]'));
     const summarySections = new Map();
@@ -2507,6 +2723,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const runSummaryNyanEl = document.getElementById('runSummaryNyan');
     const runSummaryPlacementEl = document.getElementById('runSummaryPlacement');
     const runSummaryStatusState = { message: '', type: 'info' };
+
     let lastPauseReason = 'manual';
     const runSummaryRunsEl = document.getElementById('runSummaryRuns');
     let shareButtonClickHandler = null;
@@ -2515,9 +2732,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const weaponSummaryImage = document.getElementById('weaponSummaryImage');
     const pilotPreviewGrid = document.getElementById('pilotPreviewGrid');
     const pilotPreviewDescription = document.getElementById('pilotPreviewDescription');
-    const defaultPilotPreviewDescription = ((_l = pilotPreviewDescription === null || pilotPreviewDescription === void 0 ? void 0 : pilotPreviewDescription.textContent) !== null && _l !== void 0 ? _l : '').trim() ||
+    const defaultPilotPreviewDescription =
+        (pilotPreviewDescription?.textContent ?? '').trim() ||
         'Presets sync from the Astrocat Lobby. Launch once you are happy with the lobby selection.';
-    const loadoutCreationPromptText = 'Loadouts are managed in the Astrocat Lobby. Equip a preset there before launch.';
+    const loadoutCreationPromptText =
+        'Loadouts are managed in the Astrocat Lobby. Equip a preset there before launch.';
     const shareButton = document.getElementById('shareButton');
     const shareStatusEl = document.getElementById('shareStatus');
     const rewardCatalogueListEl = document.getElementById('rewardCatalogueList');
@@ -2525,6 +2744,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const seasonPassSummaryEl = document.getElementById('seasonPassSummary');
     const seasonPassProgressFill = document.getElementById('seasonPassProgressFill');
     const seasonPassTierListEl = document.getElementById('seasonPassTierList');
+
     function disableSeasonPassUI() {
         if (seasonPassPanel) {
             seasonPassPanel.hidden = true;
@@ -2548,21 +2768,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const challengeListEl = document.getElementById('challengeList');
     const skinOptionsEl = document.getElementById('skinOptions');
     const trailOptionsEl = document.getElementById('trailOptions');
-    const customLoadoutGrid = (_o = (_m = document.getElementById('customLoadoutSection')) === null || _m === void 0 ? void 0 : _m.querySelector('[data-loadout-grid]')) !== null && _o !== void 0 ? _o : null;
+    const customLoadoutGrid =
+        document.getElementById('customLoadoutSection')?.querySelector('[data-loadout-grid]') ?? null;
     const loadoutEditorModal = document.getElementById('loadoutEditorModal');
-    const loadoutEditorContent = (_p = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('.loadout-editor-content')) !== null && _p !== void 0 ? _p : null;
-    const loadoutEditorBackdrop = (_q = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-dismiss="backdrop"]')) !== null && _q !== void 0 ? _q : null;
+    const loadoutEditorContent =
+        loadoutEditorModal?.querySelector('.loadout-editor-content') ?? null;
+    const loadoutEditorBackdrop =
+        loadoutEditorModal?.querySelector('[data-loadout-editor-dismiss="backdrop"]') ?? null;
     const loadoutEditorTitle = document.getElementById('loadoutEditorTitle');
     const loadoutEditorSubtitle = document.getElementById('loadoutEditorSubtitle');
-    const loadoutEditorPilotGrid = (_r = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-pilots]')) !== null && _r !== void 0 ? _r : null;
-    const loadoutEditorWeaponGrid = (_s = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-weapons]')) !== null && _s !== void 0 ? _s : null;
-    const loadoutEditorSkinGrid = (_t = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-skins]')) !== null && _t !== void 0 ? _t : null;
-    const loadoutEditorTrailGrid = (_u = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-trails]')) !== null && _u !== void 0 ? _u : null;
+    const loadoutEditorPilotGrid =
+        loadoutEditorModal?.querySelector('[data-loadout-editor-pilots]') ?? null;
+    const loadoutEditorWeaponGrid =
+        loadoutEditorModal?.querySelector('[data-loadout-editor-weapons]') ?? null;
+    const loadoutEditorSkinGrid =
+        loadoutEditorModal?.querySelector('[data-loadout-editor-skins]') ?? null;
+    const loadoutEditorTrailGrid =
+        loadoutEditorModal?.querySelector('[data-loadout-editor-trails]') ?? null;
     const loadoutEditorSummaryValues = {
-        pilot: (_v = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-summary="pilot"]')) !== null && _v !== void 0 ? _v : null,
-        weapon: (_w = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-summary="weapon"]')) !== null && _w !== void 0 ? _w : null,
-        skin: (_x = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-summary="skin"]')) !== null && _x !== void 0 ? _x : null,
-        trail: (_y = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-summary="trail"]')) !== null && _y !== void 0 ? _y : null
+        pilot: loadoutEditorModal?.querySelector('[data-loadout-editor-summary="pilot"]') ?? null,
+        weapon: loadoutEditorModal?.querySelector('[data-loadout-editor-summary="weapon"]') ?? null,
+        skin: loadoutEditorModal?.querySelector('[data-loadout-editor-summary="skin"]') ?? null,
+        trail: loadoutEditorModal?.querySelector('[data-loadout-editor-summary="trail"]') ?? null
     };
     const loadoutEditorSaveButton = document.getElementById('loadoutEditorSave');
     const loadoutEditorCancelButton = document.getElementById('loadoutEditorCancel');
@@ -2636,17 +2863,22 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     let reducedMotionListenerCleanup = null;
     const instructionButtons = instructionButtonBar
-        ? Array.from(instructionButtonBar.querySelectorAll('button[data-panel-target]')).filter((button) => button instanceof HTMLElement)
+        ? Array.from(
+              instructionButtonBar.querySelectorAll('button[data-panel-target]')
+          ).filter((button) => button instanceof HTMLElement)
         : [];
-    const coarsePointerQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-        ? window.matchMedia('(pointer: coarse)')
-        : null;
-    let isTouchInterface = (_z = coarsePointerQuery === null || coarsePointerQuery === void 0 ? void 0 : coarsePointerQuery.matches) !== null && _z !== void 0 ? _z : ('ontouchstart' in window);
+    const coarsePointerQuery =
+        typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+            ? window.matchMedia('(pointer: coarse)')
+            : null;
+    let isTouchInterface = coarsePointerQuery?.matches ?? ('ontouchstart' in window);
+
     function getPauseOverlayContent(reason = lastPauseReason) {
         const touchResume = isTouchInterface ? 'Tap Resume' : 'Press Resume or P';
         const controllerResume = isTouchInterface
             ? 'Tap Resume or press Start on your controller'
             : 'Press Resume or the Start/Options button on your controller';
+
         switch (reason) {
             case 'gamepad':
                 return {
@@ -2675,6 +2907,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
         }
     }
+
     function updatePauseOverlayContent(reason = lastPauseReason) {
         if (!pauseOverlay) {
             return;
@@ -2688,14 +2921,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 pauseHintEl.textContent = hint;
                 pauseHintEl.hidden = false;
                 pauseHintEl.setAttribute('aria-hidden', 'false');
-            }
-            else {
+            } else {
                 pauseHintEl.textContent = '';
                 pauseHintEl.hidden = true;
                 pauseHintEl.setAttribute('aria-hidden', 'true');
             }
         }
     }
+
     function showPauseOverlay(reason = lastPauseReason) {
         if (!pauseOverlay) {
             return;
@@ -2709,12 +2942,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             try {
                 resumeButton.focus({ preventScroll: true });
-            }
-            catch (_a) {
+            } catch {
                 resumeButton.focus();
             }
         });
     }
+
     function hidePauseOverlay() {
         if (!pauseOverlay) {
             return;
@@ -2735,7 +2968,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const MOTION_MAX_TILT = 45;
     const MOTION_DEADZONE = 0.1;
     const MOTION_IDLE_TIMEOUT = 750;
-    const hasDeviceOrientationSupport = typeof window !== 'undefined' && typeof window.DeviceOrientationEvent === 'function';
+    const hasDeviceOrientationSupport =
+        typeof window !== 'undefined' && typeof window.DeviceOrientationEvent === 'function';
     const motionInput = {
         enabled: false,
         permissionState: 'unknown',
@@ -2746,9 +2980,10 @@ document.addEventListener('DOMContentLoaded', () => {
         smoothedY: 0,
         lastUpdate: 0
     };
-    const getTimestamp = () => typeof performance !== 'undefined' && typeof performance.now === 'function'
-        ? performance.now()
-        : Date.now();
+    const getTimestamp = () =>
+        typeof performance !== 'undefined' && typeof performance.now === 'function'
+            ? performance.now()
+            : Date.now();
     const DEBUG_OVERLAY_STORAGE_KEY = 'nyanEscape.debugOverlay';
     const TARGET_ASPECT_RATIO = 16 / 9;
     const gameShell = document.getElementById('gameShell');
@@ -2762,45 +2997,67 @@ document.addEventListener('DOMContentLoaded', () => {
         physicalHeight: 720,
         dpr: window.devicePixelRatio || 1
     };
+
     let debugOverlayEnabled = false;
     let player = null;
     const stars = [];
     const asteroids = [];
     try {
         debugOverlayEnabled = window.localStorage.getItem(DEBUG_OVERLAY_STORAGE_KEY) === '1';
-    }
-    catch (_35) {
+    } catch {
         debugOverlayEnabled = false;
     }
+
     let pendingResizeFrame = null;
     let devicePixelRatioQuery = null;
     let resizeObserver = null;
     let backgroundGradient = null;
     let backgroundGradientHeight = 0;
+
     function parsePixelValue(value, fallback = 0) {
         const numeric = Number.parseFloat(value);
         return Number.isFinite(numeric) ? numeric : fallback;
     }
+
     function updateShellScale() {
         if (!gameShell || !bodyElement) {
             shellScale = 1;
-            rootElement === null || rootElement === void 0 ? void 0 : rootElement.style.setProperty('--shell-scale', '1');
+            rootElement?.style.setProperty('--shell-scale', '1');
             return;
         }
+
         const rootStyles = rootElement ? getComputedStyle(rootElement) : null;
         const bodyStyles = getComputedStyle(bodyElement);
-        const designWidth = parsePixelValue(rootStyles === null || rootStyles === void 0 ? void 0 : rootStyles.getPropertyValue('--shell-width'), gameShell.offsetWidth || viewport.width);
-        const designHeight = parsePixelValue(rootStyles === null || rootStyles === void 0 ? void 0 : rootStyles.getPropertyValue('--shell-height'), gameShell.offsetHeight || viewport.height);
-        const horizontalPadding = parsePixelValue(bodyStyles.paddingLeft) + parsePixelValue(bodyStyles.paddingRight);
-        const verticalPadding = parsePixelValue(bodyStyles.paddingTop) + parsePixelValue(bodyStyles.paddingBottom);
-        const availableWidth = Math.max(0, (window.innerWidth || designWidth) - horizontalPadding);
-        const availableHeight = Math.max(0, (window.innerHeight || designHeight) - verticalPadding);
+        const designWidth = parsePixelValue(
+            rootStyles?.getPropertyValue('--shell-width'),
+            gameShell.offsetWidth || viewport.width
+        );
+        const designHeight = parsePixelValue(
+            rootStyles?.getPropertyValue('--shell-height'),
+            gameShell.offsetHeight || viewport.height
+        );
+
+        const horizontalPadding =
+            parsePixelValue(bodyStyles.paddingLeft) + parsePixelValue(bodyStyles.paddingRight);
+        const verticalPadding =
+            parsePixelValue(bodyStyles.paddingTop) + parsePixelValue(bodyStyles.paddingBottom);
+
+        const availableWidth = Math.max(
+            0,
+            (window.innerWidth || designWidth) - horizontalPadding
+        );
+        const availableHeight = Math.max(
+            0,
+            (window.innerHeight || designHeight) - verticalPadding
+        );
+
         const widthScale = designWidth > 0 ? availableWidth / designWidth : 1;
         const heightScale = designHeight > 0 ? availableHeight / designHeight : 1;
         const scale = Math.min(widthScale, heightScale);
         shellScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
-        rootElement === null || rootElement === void 0 ? void 0 : rootElement.style.setProperty('--shell-scale', shellScale.toString());
+        rootElement?.style.setProperty('--shell-scale', shellScale.toString());
     }
+
     function measureElementSize(element) {
         if (!element) {
             return { width: 0, height: 0 };
@@ -2814,28 +3071,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const height = parseFloat(computed.height) || element.offsetHeight || 0;
         return { width, height };
     }
+
     function updateTouchControlsLayout() {
-        var _a, _b, _c, _d, _e;
         if (!touchControls || !canvas) {
             return;
         }
+
         if (motionInput.enabled) {
             return;
         }
-        const viewportHeight = (_c = (_b = (_a = window.visualViewport) === null || _a === void 0 ? void 0 : _a.height) !== null && _b !== void 0 ? _b : window.innerHeight) !== null && _c !== void 0 ? _c : 0;
-        const viewportOffsetTop = (_e = (_d = window.visualViewport) === null || _d === void 0 ? void 0 : _d.offsetTop) !== null && _e !== void 0 ? _e : 0;
+
+        const viewportHeight = window.visualViewport?.height ?? window.innerHeight ?? 0;
+        const viewportOffsetTop = window.visualViewport?.offsetTop ?? 0;
         const canvasRect = canvas.getBoundingClientRect();
         const bottomInset = Math.max(16, viewportHeight + viewportOffsetTop - canvasRect.bottom + 16);
         touchControls.style.setProperty('--touch-bottom', `${Math.round(bottomInset)}px`);
+
         const spacing = Math.max(16, Math.min(canvasRect.width * 0.08, 48));
+
         if (joystickZone) {
             const { width: joystickWidth } = measureElementSize(joystickZone);
             const availableLeft = canvasRect.left;
             let joystickLeft;
             if (availableLeft >= joystickWidth + spacing + 16) {
                 joystickLeft = availableLeft - joystickWidth - spacing;
-            }
-            else {
+            } else {
                 joystickLeft = canvasRect.left + spacing;
                 if (joystickLeft + joystickWidth > window.innerWidth - 16) {
                     joystickLeft = Math.max(16, window.innerWidth * 0.5 - joystickWidth * 0.5);
@@ -2843,6 +3103,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             touchControls.style.setProperty('--joystick-left', `${Math.round(joystickLeft)}px`);
         }
+
         if (fireButton) {
             const { width: fireWidth } = measureElementSize(fireButton);
             const availableRight = Math.max(0, window.innerWidth - canvasRect.right);
@@ -2850,8 +3111,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const fireRight = Math.max(16, availableRight - spacing);
                 touchControls.style.setProperty('--fire-right', `${Math.round(fireRight)}px`);
                 touchControls.style.setProperty('--fire-left', 'auto');
-            }
-            else {
+            } else {
                 let fireLeft = canvasRect.right - fireWidth - spacing;
                 if (fireLeft < 16) {
                     fireLeft = Math.max(16, canvasRect.left + canvasRect.width - fireWidth - spacing);
@@ -2864,17 +3124,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
     function updateDebugOverlay() {
         if (!debugOverlayEl) {
             return;
         }
+
         if (!debugOverlayEnabled) {
             debugOverlayEl.classList.add('hidden');
             debugOverlayEl.setAttribute('hidden', '');
             return;
         }
+
         debugOverlayEl.classList.remove('hidden');
         debugOverlayEl.removeAttribute('hidden');
+
         if (debugOverlayLines.logical) {
             debugOverlayLines.logical.textContent = `Logical: ${Math.round(viewport.width)} × ${Math.round(viewport.height)}`;
         }
@@ -2885,30 +3149,30 @@ document.addEventListener('DOMContentLoaded', () => {
             debugOverlayLines.ratio.textContent = `devicePixelRatio: ${viewport.dpr.toFixed(2)} (CSS: ${Math.round(viewport.cssWidth)} × ${Math.round(viewport.cssHeight)})`;
         }
     }
+
     function setDebugOverlayEnabled(enabled) {
         debugOverlayEnabled = Boolean(enabled);
         try {
             if (debugOverlayEnabled) {
                 window.localStorage.setItem(DEBUG_OVERLAY_STORAGE_KEY, '1');
-            }
-            else {
+            } else {
                 window.localStorage.removeItem(DEBUG_OVERLAY_STORAGE_KEY);
             }
-        }
-        catch (_a) {
+        } catch {
             // Ignore storage errors
         }
         updateDebugOverlay();
     }
+
     function toggleDebugOverlay() {
         setDebugOverlayEnabled(!debugOverlayEnabled);
     }
+
     function measureAvailableCanvasSize() {
-        var _a;
-        const parent = (_a = canvas === null || canvas === void 0 ? void 0 : canvas.parentElement) !== null && _a !== void 0 ? _a : null;
-        const parentRect = parent === null || parent === void 0 ? void 0 : parent.getBoundingClientRect();
-        const measuredWidth = Number.isFinite(parentRect === null || parentRect === void 0 ? void 0 : parentRect.width) ? parentRect.width : viewport.width;
-        const measuredHeight = Number.isFinite(parentRect === null || parentRect === void 0 ? void 0 : parentRect.height) ? parentRect.height : viewport.height;
+        const parent = canvas?.parentElement ?? null;
+        const parentRect = parent?.getBoundingClientRect();
+        const measuredWidth = Number.isFinite(parentRect?.width) ? parentRect.width : viewport.width;
+        const measuredHeight = Number.isFinite(parentRect?.height) ? parentRect.height : viewport.height;
         const availableWidth = Math.max(240, Math.floor(measuredWidth));
         let availableHeight = Math.floor(measuredHeight);
         if (!Number.isFinite(availableHeight) || availableHeight <= 0) {
@@ -2917,65 +3181,85 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return { width: availableWidth, height: Math.max(240, availableHeight) };
     }
+
     function getVerticalBleedForHeight(height) {
-        var _a, _b, _c, _d;
-        const bleedRatio = (_b = (_a = config === null || config === void 0 ? void 0 : config.player) === null || _a === void 0 ? void 0 : _a.verticalBleed) !== null && _b !== void 0 ? _b : 0;
-        const referenceHeight = Number.isFinite(height) && height > 0 ? height : (_d = (_c = config === null || config === void 0 ? void 0 : config.player) === null || _c === void 0 ? void 0 : _c.height) !== null && _d !== void 0 ? _d : 0;
+        const bleedRatio = config?.player?.verticalBleed ?? 0;
+        const referenceHeight = Number.isFinite(height) && height > 0 ? height : config?.player?.height ?? 0;
         if (!Number.isFinite(referenceHeight) || referenceHeight <= 0 || bleedRatio <= 0) {
             return 0;
         }
         return referenceHeight * bleedRatio;
     }
+
     function rescaleWorld(previousWidth, previousHeight, nextWidth, nextHeight) {
-        var _a, _b;
         if (!previousWidth || !previousHeight || previousWidth === nextWidth || previousHeight === nextHeight) {
             return;
         }
         const scaleX = nextWidth / previousWidth;
         const scaleY = nextHeight / previousHeight;
+
         if (Number.isFinite(scaleX) && Number.isFinite(scaleY)) {
             if (player) {
                 player.x *= scaleX;
                 player.y *= scaleY;
                 const verticalBleed = getVerticalBleedForHeight(player.height);
                 player.x = clamp(player.x, 0, Math.max(0, nextWidth - player.width));
-                player.y = clamp(player.y, -verticalBleed, Math.max(0, nextHeight - player.height + verticalBleed));
+                player.y = clamp(
+                    player.y,
+                    -verticalBleed,
+                    Math.max(0, nextHeight - player.height + verticalBleed)
+                );
             }
+
             if (doubleTeamState.clone) {
                 doubleTeamState.clone.x *= scaleX;
                 doubleTeamState.clone.y *= scaleY;
-                doubleTeamState.clone.x = clamp(doubleTeamState.clone.x, 0, Math.max(0, nextWidth - doubleTeamState.clone.width));
+                doubleTeamState.clone.x = clamp(
+                    doubleTeamState.clone.x,
+                    0,
+                    Math.max(0, nextWidth - doubleTeamState.clone.width)
+                );
                 const verticalBleed = getVerticalBleedForHeight(doubleTeamState.clone.height);
-                doubleTeamState.clone.y = clamp(doubleTeamState.clone.y, -verticalBleed, Math.max(0, nextHeight - doubleTeamState.clone.height + verticalBleed));
+                doubleTeamState.clone.y = clamp(
+                    doubleTeamState.clone.y,
+                    -verticalBleed,
+                    Math.max(0, nextHeight - doubleTeamState.clone.height + verticalBleed)
+                );
             }
+
             if (doubleTeamState.trail.length) {
                 for (const point of doubleTeamState.trail) {
                     point.x *= scaleX;
                     point.y *= scaleY;
                 }
             }
+
             for (const star of stars) {
                 star.x *= scaleX;
                 star.y *= scaleY;
                 star.x = Math.max(-star.size, Math.min(nextWidth + star.size, star.x));
                 star.y = Math.max(0, Math.min(nextHeight, star.y));
             }
+
             for (const asteroid of asteroids) {
                 asteroid.x *= scaleX;
                 asteroid.y = clamp(asteroid.y * scaleY, asteroid.radius, nextHeight - asteroid.radius);
-                const maxX = nextWidth + ((_b = (_a = config === null || config === void 0 ? void 0 : config.asteroid) === null || _a === void 0 ? void 0 : _a.clusterRadius) !== null && _b !== void 0 ? _b : 160);
+                const maxX = nextWidth + (config?.asteroid?.clusterRadius ?? 160);
                 asteroid.x = Math.min(asteroid.x, maxX);
             }
         }
     }
+
     function updateViewportMetrics({ preserveEntities = true } = {}) {
         if (!canvas || !ctx) {
             return;
         }
+
         const previousWidth = viewport.width;
         const previousHeight = viewport.height;
         updateShellScale();
         const available = measureAvailableCanvasSize();
+
         let cssWidth = Math.min(available.width, available.height * TARGET_ASPECT_RATIO);
         if (!Number.isFinite(cssWidth) || cssWidth <= 0) {
             cssWidth = viewport.width;
@@ -2988,19 +3272,23 @@ document.addEventListener('DOMContentLoaded', () => {
             cssHeight = available.height;
             cssWidth = cssHeight * TARGET_ASPECT_RATIO;
         }
+
         const displayWidth = Math.max(1, Math.round(cssWidth));
         const displayHeight = Math.max(1, Math.round(cssHeight));
         const dpr = Math.max(1, Math.min(4, window.devicePixelRatio || 1));
         const physicalWidth = Math.max(1, Math.round(displayWidth * dpr));
         const physicalHeight = Math.max(1, Math.round(displayHeight * dpr));
+
         canvas.style.width = `${displayWidth}px`;
         canvas.style.height = `${displayHeight}px`;
+
         if (canvas.width !== physicalWidth) {
             canvas.width = physicalWidth;
         }
         if (canvas.height !== physicalHeight) {
             canvas.height = physicalHeight;
         }
+
         viewport.width = displayWidth;
         viewport.height = displayHeight;
         if (previousHeight !== displayHeight) {
@@ -3012,15 +3300,19 @@ document.addEventListener('DOMContentLoaded', () => {
         viewport.physicalWidth = physicalWidth;
         viewport.physicalHeight = physicalHeight;
         viewport.dpr = dpr;
+
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         enableHighQualitySmoothing(ctx);
+
         if (preserveEntities) {
             rescaleWorld(previousWidth, previousHeight, displayWidth, displayHeight);
         }
+
         updateTouchControlsLayout();
         updateDebugOverlay();
         refreshGamepadCursorBounds();
     }
+
     function requestViewportUpdate() {
         updateShellScale();
         if (pendingResizeFrame !== null) {
@@ -3031,35 +3323,39 @@ document.addEventListener('DOMContentLoaded', () => {
             updateViewportMetrics();
         });
     }
+
     function cleanupDevicePixelRatioWatcher() {
         if (!devicePixelRatioQuery) {
             return;
         }
         if (typeof devicePixelRatioQuery.removeEventListener === 'function') {
             devicePixelRatioQuery.removeEventListener('change', handleDevicePixelRatioChange);
-        }
-        else if (typeof devicePixelRatioQuery.removeListener === 'function') {
+        } else if (typeof devicePixelRatioQuery.removeListener === 'function') {
             devicePixelRatioQuery.removeListener(handleDevicePixelRatioChange);
         }
         devicePixelRatioQuery = null;
     }
+
     function cleanupResizeObserver() {
         if (resizeObserver) {
             resizeObserver.disconnect();
             resizeObserver = null;
         }
     }
+
     function cleanupReducedMotionPreferenceWatcher() {
         if (typeof reducedMotionListenerCleanup === 'function') {
             reducedMotionListenerCleanup();
             reducedMotionListenerCleanup = null;
         }
     }
+
     function handleDevicePixelRatioChange() {
         cleanupDevicePixelRatioWatcher();
         requestViewportUpdate();
         watchDevicePixelRatio();
     }
+
     function watchDevicePixelRatio() {
         if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
             return;
@@ -3069,43 +3365,49 @@ document.addEventListener('DOMContentLoaded', () => {
         const query = window.matchMedia(`(resolution: ${dpr}dppx)`);
         if (typeof query.addEventListener === 'function') {
             query.addEventListener('change', handleDevicePixelRatioChange, { once: true });
-        }
-        else if (typeof query.addListener === 'function') {
+        } else if (typeof query.addListener === 'function') {
             query.addListener(handleDevicePixelRatioChange);
         }
         devicePixelRatioQuery = query;
     }
+
     updateShellScale();
     updateViewportMetrics({ preserveEntities: false });
     refreshGamepadCursorBounds({ recenter: true });
     watchDevicePixelRatio();
     updateDebugOverlay();
+
     window.addEventListener('resize', requestViewportUpdate);
     window.addEventListener('orientationchange', requestViewportUpdate);
     if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', requestViewportUpdate);
         window.visualViewport.addEventListener('scroll', requestViewportUpdate);
     }
-    if (supportsResizeObserver && (canvas === null || canvas === void 0 ? void 0 : canvas.parentElement)) {
+
+    if (supportsResizeObserver && canvas?.parentElement) {
         resizeObserver = new ResizeObserver(() => {
             requestViewportUpdate();
         });
         resizeObserver.observe(canvas.parentElement);
     }
+
     const teardownViewportWatchers = () => {
         cleanupResizeObserver();
         cleanupDevicePixelRatioWatcher();
         cleanupReducedMotionPreferenceWatcher();
     };
+
     window.addEventListener('beforeunload', teardownViewportWatchers);
     window.addEventListener('pagehide', (event) => {
-        if (event === null || event === void 0 ? void 0 : event.persisted) {
+        if (event?.persisted) {
             return;
         }
         teardownViewportWatchers();
     });
+
     const getLaunchControlText = () => (isTouchInterface ? 'Tap Start' : 'Press Start (Enter)');
     const getRetryControlText = () => (isTouchInterface ? 'Tap Start Again' : 'Press Start (Enter) Again');
+
     function refreshInteractionHints() {
         if (bodyElement) {
             bodyElement.classList.toggle('touch-enabled', isTouchInterface);
@@ -3128,7 +3430,9 @@ document.addEventListener('DOMContentLoaded', () => {
         updateTouchControlsLayout();
         updateMotionBodyClasses();
     }
+
     refreshInteractionHints();
+
     if (coarsePointerQuery) {
         const handleCoarsePointerChange = (event) => {
             if (isTouchInterface !== event.matches) {
@@ -3138,21 +3442,24 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         if (typeof coarsePointerQuery.addEventListener === 'function') {
             coarsePointerQuery.addEventListener('change', handleCoarsePointerChange);
-        }
-        else if (typeof coarsePointerQuery.addListener === 'function') {
+        } else if (typeof coarsePointerQuery.addListener === 'function') {
             coarsePointerQuery.addListener(handleCoarsePointerChange);
         }
-    }
-    else if (typeof window !== 'undefined') {
-        window.addEventListener('touchstart', () => {
-            if (!isTouchInterface) {
-                isTouchInterface = true;
-                refreshInteractionHints();
-            }
-        }, { once: true, passive: true });
+    } else if (typeof window !== 'undefined') {
+        window.addEventListener(
+            'touchstart',
+            () => {
+                if (!isTouchInterface) {
+                    isTouchInterface = true;
+                    refreshInteractionHints();
+                }
+            },
+            { once: true, passive: true }
+        );
     }
     let activeInstructionPanelId = null;
     let lastInstructionTrigger = null;
+
     const getInstructionPanelElement = (panelId) => {
         if (typeof panelId !== 'string' || !panelId.length) {
             return null;
@@ -3160,34 +3467,42 @@ document.addEventListener('DOMContentLoaded', () => {
         const panel = document.getElementById(panelId);
         return panel instanceof HTMLElement ? panel : null;
     };
+
     const setInstructionButtonState = (panelId) => {
         instructionButtons.forEach((button) => {
-            var _a;
-            const targetId = (_a = button.dataset.panelTarget) !== null && _a !== void 0 ? _a : '';
+            const targetId = button.dataset.panelTarget ?? '';
             const isActive = Boolean(panelId) && targetId === panelId;
             button.classList.toggle('active', isActive);
             button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
         });
     };
+
     const detachActiveInstructionPanel = () => {
         if (!activeInstructionPanelId || !instructionPanelsEl) {
             return;
         }
         const activePanel = getInstructionPanelElement(activeInstructionPanelId);
-        if (activePanel && (infoModalBody === null || infoModalBody === void 0 ? void 0 : infoModalBody.contains(activePanel))) {
+        if (activePanel && infoModalBody?.contains(activePanel)) {
             activePanel.setAttribute('hidden', '');
             instructionPanelsEl.appendChild(activePanel);
         }
     };
+
     const getModalFocusableElements = () => {
         if (!infoModal) {
             return [];
         }
-        const nodes = infoModal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-        return Array.from(nodes).filter((node) => node instanceof HTMLElement &&
-            !node.hasAttribute('disabled') &&
-            node.getAttribute('aria-hidden') !== 'true');
+        const nodes = infoModal.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        return Array.from(nodes).filter(
+            (node) =>
+                node instanceof HTMLElement &&
+                !node.hasAttribute('disabled') &&
+                node.getAttribute('aria-hidden') !== 'true'
+        );
     };
+
     const closeInstructionModal = () => {
         if (!infoModal || !instructionPanelsEl || !infoModalBody) {
             return;
@@ -3196,7 +3511,7 @@ document.addEventListener('DOMContentLoaded', () => {
         activeInstructionPanelId = null;
         infoModal.setAttribute('hidden', '');
         infoModal.removeAttribute('data-active-panel');
-        instructionsEl === null || instructionsEl === void 0 ? void 0 : instructionsEl.removeAttribute('data-active-panel');
+        instructionsEl?.removeAttribute('data-active-panel');
         bodyElement.classList.remove('info-modal-open');
         setInstructionButtonState(null);
         if (lastInstructionTrigger instanceof HTMLElement) {
@@ -3204,8 +3519,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         lastInstructionTrigger = null;
     };
+
     const openInstructionModal = (panelId, triggerButton) => {
-        var _a, _b;
         if (!infoModal || !infoModalBody || !instructionPanelsEl) {
             return;
         }
@@ -3213,9 +3528,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!panel) {
             return;
         }
+
         if (triggerButton instanceof HTMLElement) {
             lastInstructionTrigger = triggerButton;
         }
+
         detachActiveInstructionPanel();
         infoModalBody.appendChild(panel);
         panel.removeAttribute('hidden');
@@ -3223,19 +3540,23 @@ document.addEventListener('DOMContentLoaded', () => {
         activeInstructionPanelId = panelId;
         infoModal.removeAttribute('hidden');
         infoModal.setAttribute('data-active-panel', panelId);
-        instructionsEl === null || instructionsEl === void 0 ? void 0 : instructionsEl.setAttribute('data-active-panel', panelId);
+        instructionsEl?.setAttribute('data-active-panel', panelId);
         bodyElement.classList.add('info-modal-open');
         setInstructionButtonState(panelId);
+
         const panelHeading = panel.querySelector('.card-title') || panel.querySelector('h2');
-        const buttonLabel = (_b = (_a = triggerButton === null || triggerButton === void 0 ? void 0 : triggerButton.textContent) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : '';
-        const resolvedTitle = ((panelHeading === null || panelHeading === void 0 ? void 0 : panelHeading.textContent) || buttonLabel || 'Panel').trim();
+        const buttonLabel = triggerButton?.textContent?.trim() ?? '';
+        const resolvedTitle = (panelHeading?.textContent || buttonLabel || 'Panel').trim();
         if (infoModalTitle) {
             infoModalTitle.textContent = resolvedTitle;
         }
         infoModal.setAttribute('aria-label', resolvedTitle);
-        const focusTarget = infoModalCloseButton instanceof HTMLElement ? infoModalCloseButton : infoModal;
+
+        const focusTarget =
+            infoModalCloseButton instanceof HTMLElement ? infoModalCloseButton : infoModal;
         focusTarget.focus();
     };
+
     if (instructionButtons.length && instructionPanelsEl && infoModal && infoModalBody) {
         instructionButtons.forEach((button) => {
             button.setAttribute('aria-pressed', 'false');
@@ -3246,20 +3567,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (activeInstructionPanelId === targetId) {
                     closeInstructionModal();
-                }
-                else {
+                } else {
                     openInstructionModal(targetId, button);
                 }
             });
         });
-        infoModalCloseButton === null || infoModalCloseButton === void 0 ? void 0 : infoModalCloseButton.addEventListener('click', () => {
+
+        infoModalCloseButton?.addEventListener('click', () => {
             closeInstructionModal();
         });
+
         infoModal.addEventListener('click', (event) => {
             if (event.target === infoModal) {
                 closeInstructionModal();
             }
         });
+
         infoModal.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 event.preventDefault();
@@ -3280,13 +3603,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         event.preventDefault();
                         last.focus();
                     }
-                }
-                else if (activeElement === last) {
+                } else if (activeElement === last) {
                     event.preventDefault();
                     first.focus();
                 }
             }
         });
+
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && activeInstructionPanelId && !event.defaultPrevented) {
                 event.preventDefault();
@@ -3294,6 +3617,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
     if (controlsToggleButton && flightControlsSection) {
         const setFlightControlsVisibility = (visible) => {
             const shouldShow = Boolean(visible);
@@ -3301,14 +3625,19 @@ document.addEventListener('DOMContentLoaded', () => {
             controlsToggleButton.setAttribute('aria-expanded', shouldShow ? 'true' : 'false');
             controlsToggleButton.textContent = shouldShow ? 'Hide Controls' : 'Show Controls';
         };
+
         setFlightControlsVisibility(false);
+
         controlsToggleButton.addEventListener('click', () => {
             const isExpanded = controlsToggleButton.getAttribute('aria-expanded') === 'true';
             setFlightControlsVisibility(!isExpanded);
         });
     }
-    function updateSocialFeedPanel() { }
-    function addSocialMoment() { }
+
+    function updateSocialFeedPanel() {}
+
+    function addSocialMoment() {}
+
     const broadcastMetaMessage = (text, meta = {}) => {
         if (typeof text !== 'string' || text.length === 0) {
             return;
@@ -3317,54 +3646,63 @@ document.addEventListener('DOMContentLoaded', () => {
         addSocialMoment(text, normalizedMeta);
         postParentMessage('astrocat:minigame-transmission', { text, meta: normalizedMeta });
     };
+
     const intelLoreEntries = [
         {
             id: 'mission',
             unlockMs: 0,
             title: 'Mission Uplink',
-            text: 'Station Echo routed all evac beacons through your hull. Keep combos alive to project a safe corridor.',
+            text:
+                'Station Echo routed all evac beacons through your hull. Keep combos alive to project a safe corridor.',
             lockedHint: ''
         },
         {
             id: 'allySignal',
             unlockMs: 20000,
             title: 'Ally Ping',
-            text: 'Pixel spotted supply pods shadowing the convoy. Collect Points fast and the pods will spill power cores.',
+            text:
+                'Pixel spotted supply pods shadowing the convoy. Collect Points fast and the pods will spill power cores.',
             lockedHint: 'Survive 00:20 to decode Aurora’s priority feed.'
         },
         {
             id: 'syndicateIntel',
             unlockMs: 40000,
             title: 'Syndicate Patterns',
-            text: 'Gravity Syndicate wings stagger volleys—dash diagonally after each shot to bait their aim wide.',
+            text:
+                'Gravity Syndicate wings stagger volleys—dash diagonally after each shot to bait their aim wide.',
             lockedHint: 'Last 00:40 to crack the Syndicate firing matrix.'
         },
         {
             id: 'reclaimerBrief',
             unlockMs: 70000,
             title: 'Void Reclaimer Brief',
-            text: 'Void Reclaimers absorb stray bolts until Hyper Beam charge hits 60%. Ride power cores and dump the beam point-blank.',
+            text:
+                'Void Reclaimers absorb stray bolts until Hyper Beam charge hits 60%. Ride power cores and dump the beam point-blank.',
             lockedHint: 'Endure 01:10 and Aurora will transmit Reclaimer weak points.'
         },
         {
             id: 'convoyHope',
             unlockMs: 100000,
             title: 'Convoy Hope',
-            text: 'Colonists have begun their burn toward daylight. Every extra second you survive widens their escape corridor.',
+            text:
+                'Colonists have begun their burn toward daylight. Every extra second you survive widens their escape corridor.',
             lockedHint: 'Hold for 01:40 to hear the convoy break radio silence.'
         }
     ];
+
     function formatLoreUnlock(ms) {
         const totalSeconds = Math.max(0, Math.round(ms / 1000));
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
         return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     }
+
     intelLoreEntries.forEach((entry) => {
         if (entry.unlockMs === 0) {
             entry.unlocked = true;
         }
     });
+
     function renderIntelLog() {
         if (!intelLogEl) {
             return;
@@ -3381,8 +3719,7 @@ document.addEventListener('DOMContentLoaded', () => {
             body.className = 'intel-text';
             if (unlocked) {
                 body.textContent = entry.text;
-            }
-            else {
+            } else {
                 const hint = entry.lockedHint || `Survive ${formatLoreUnlock(entry.unlockMs)} to decode.`;
                 body.textContent = hint;
             }
@@ -3391,12 +3728,14 @@ document.addEventListener('DOMContentLoaded', () => {
             intelLogEl.appendChild(item);
         }
     }
+
     let storedLoreProgressMs = 0;
+
     function updateIntelLore(currentTimeMs) {
         if (!intelLoreEntries.length) {
             return;
         }
-        const effectiveTime = Math.max(currentTimeMs !== null && currentTimeMs !== void 0 ? currentTimeMs : 0, storedLoreProgressMs !== null && storedLoreProgressMs !== void 0 ? storedLoreProgressMs : 0);
+        const effectiveTime = Math.max(currentTimeMs ?? 0, storedLoreProgressMs ?? 0);
         let updated = false;
         for (const entry of intelLoreEntries) {
             if (!entry.unlocked && effectiveTime >= entry.unlockMs) {
@@ -3412,7 +3751,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
     renderIntelLog();
+
     const hudCache = {
         score: '',
         nyan: '',
@@ -3424,10 +3765,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     let lastComboPercent = -1;
     let lastFormattedTimer = '';
-    const isCanvasElement = typeof HTMLCanvasElement !== 'undefined' && canvas instanceof HTMLCanvasElement;
+
+    const isCanvasElement =
+        typeof HTMLCanvasElement !== 'undefined' && canvas instanceof HTMLCanvasElement;
+
     if (!isCanvasElement || !ctx) {
         console.error('Unable to initialize the Nyan Escape flight deck: canvas support is unavailable.');
-        loadingScreen === null || loadingScreen === void 0 ? void 0 : loadingScreen.classList.add('hidden');
+
+        loadingScreen?.classList.add('hidden');
         if (overlay) {
             overlay.classList.add('unsupported');
         }
@@ -3437,7 +3782,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (overlayMessage) {
             overlayMessage.textContent =
                 'Your current browser is missing HTML canvas support, so Nyan Escape cannot launch. ' +
-                    'Try again with a modern browser to enter the cosmic corridor.';
+                'Try again with a modern browser to enter the cosmic corridor.';
         }
         if (overlayButton) {
             overlayButton.textContent = 'Unavailable';
@@ -3462,19 +3807,19 @@ document.addEventListener('DOMContentLoaded', () => {
             item.appendChild(body);
             intelLogEl.appendChild(item);
         }
+
         return;
     }
+
     if (loadingImageEl) {
         const defaultLogo = loadingImageEl.getAttribute('src') || 'assets/logo.png';
         const loadingLogoConfig = resolveAssetConfig(assetOverrides.loadingLogo, defaultLogo);
         if (typeof loadingLogoConfig === 'string') {
             loadingImageEl.src = loadingLogoConfig;
-        }
-        else if (loadingLogoConfig && typeof loadingLogoConfig === 'object') {
+        } else if (loadingLogoConfig && typeof loadingLogoConfig === 'object') {
             if (loadingLogoConfig.crossOrigin === true) {
                 loadingImageEl.crossOrigin = 'anonymous';
-            }
-            else if (typeof loadingLogoConfig.crossOrigin === 'string' && loadingLogoConfig.crossOrigin) {
+            } else if (typeof loadingLogoConfig.crossOrigin === 'string' && loadingLogoConfig.crossOrigin) {
                 loadingImageEl.crossOrigin = loadingLogoConfig.crossOrigin;
             }
             if (typeof loadingLogoConfig.src === 'string' && loadingLogoConfig.src) {
@@ -3482,6 +3827,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
     function createCanvasTexture(width, height, draw) {
         const canvas = document.createElement('canvas');
         canvas.width = width;
@@ -3494,40 +3840,44 @@ document.addEventListener('DOMContentLoaded', () => {
         draw(context, width, height);
         return canvas.toDataURL('image/png');
     }
+
     function loadImageWithFallback(config, fallbackFactory) {
-        var _a;
         const image = new Image();
         image.decoding = 'async';
+
         let src = null;
         let fallbackSrc = null;
+
         if (typeof config === 'string') {
             src = config;
-        }
-        else if (config && typeof config === 'object') {
+        } else if (config && typeof config === 'object') {
             if (config.crossOrigin === true) {
                 image.crossOrigin = 'anonymous';
-            }
-            else if (typeof config.crossOrigin === 'string' && config.crossOrigin) {
+            } else if (typeof config.crossOrigin === 'string' && config.crossOrigin) {
                 image.crossOrigin = config.crossOrigin;
             }
+
             if (typeof config.src === 'string' && config.src) {
                 src = config.src;
             }
+
             if (typeof config.fallback === 'string' && config.fallback) {
                 fallbackSrc = config.fallback;
             }
         }
+
         if (!fallbackSrc && typeof fallbackFactory === 'function') {
-            fallbackSrc = (_a = fallbackFactory()) !== null && _a !== void 0 ? _a : null;
+            fallbackSrc = fallbackFactory() ?? null;
         }
+
         const assignFallback = () => {
             if (fallbackSrc) {
                 image.src = fallbackSrc;
-            }
-            else if (!src) {
+            } else if (!src) {
                 image.removeAttribute('src');
             }
         };
+
         if (fallbackSrc && src && src !== fallbackSrc) {
             const handleError = () => {
                 image.removeEventListener('error', handleError);
@@ -3535,44 +3885,54 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             image.addEventListener('error', handleError, { once: true });
         }
+
         if (src) {
             image.src = src;
-        }
-        else {
+        } else {
             assignFallback();
         }
+
         return image;
     }
+
     function createCollectibleFallbackDataUrl(tier) {
-        var _a;
         const size = 128;
         const font = '700 28px "Segoe UI", Tahoma, sans-serif';
-        return ((_a = createCanvasTexture(size, size, (context, width, height) => {
-            var _a, _b, _c, _d;
-            context.clearRect(0, 0, width, height);
-            const center = width / 2;
-            const radius = width * 0.42;
-            const glow = (_a = tier === null || tier === void 0 ? void 0 : tier.glow) !== null && _a !== void 0 ? _a : {};
-            const innerGlow = (_b = glow.inner) !== null && _b !== void 0 ? _b : 'rgba(255, 255, 255, 0.95)';
-            const outerGlow = (_c = glow.outer) !== null && _c !== void 0 ? _c : 'rgba(255, 215, 0, 0.28)';
-            const gradient = context.createRadialGradient(center, center, radius * 0.2, center, center, radius);
-            gradient.addColorStop(0, innerGlow);
-            gradient.addColorStop(1, outerGlow);
-            context.fillStyle = gradient;
-            context.beginPath();
-            context.arc(center, center, radius, 0, Math.PI * 2);
-            context.fill();
-            context.lineWidth = 4;
-            context.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-            context.stroke();
-            const label = (_d = tier === null || tier === void 0 ? void 0 : tier.label) !== null && _d !== void 0 ? _d : 'POINT';
-            context.font = font;
-            context.textAlign = 'center';
-            context.textBaseline = 'middle';
-            context.fillStyle = 'rgba(15, 23, 42, 0.82)';
-            context.fillText(label, center, center);
-        })) !== null && _a !== void 0 ? _a : tier === null || tier === void 0 ? void 0 : tier.src);
+        return (
+            createCanvasTexture(size, size, (context, width, height) => {
+                context.clearRect(0, 0, width, height);
+                const center = width / 2;
+                const radius = width * 0.42;
+                const glow = tier?.glow ?? {};
+                const innerGlow = glow.inner ?? 'rgba(255, 255, 255, 0.95)';
+                const outerGlow = glow.outer ?? 'rgba(255, 215, 0, 0.28)';
+                const gradient = context.createRadialGradient(
+                    center,
+                    center,
+                    radius * 0.2,
+                    center,
+                    center,
+                    radius
+                );
+                gradient.addColorStop(0, innerGlow);
+                gradient.addColorStop(1, outerGlow);
+                context.fillStyle = gradient;
+                context.beginPath();
+                context.arc(center, center, radius, 0, Math.PI * 2);
+                context.fill();
+                context.lineWidth = 4;
+                context.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+                context.stroke();
+                const label = tier?.label ?? 'POINT';
+                context.font = font;
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+                context.fillStyle = 'rgba(15, 23, 42, 0.82)';
+                context.fillText(label, center, center);
+            }) ?? tier?.src
+        );
     }
+
     function createAsteroidFallbackDataUrl(seed = 0) {
         const size = 196;
         return createCanvasTexture(size, size, (context, width, height) => {
@@ -3590,8 +3950,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const y = Math.sin(angle) * r;
                 if (i === 0) {
                     context.moveTo(x, y);
-                }
-                else {
+                } else {
                     context.lineTo(x, y);
                 }
             }
@@ -3605,6 +3964,7 @@ document.addEventListener('DOMContentLoaded', () => {
             context.lineWidth = 6;
             context.strokeStyle = 'rgba(15, 23, 42, 0.45)';
             context.stroke();
+
             const craterCount = 3 + (seed % 3);
             for (let i = 0; i < craterCount; i++) {
                 const angle = (i / craterCount) * Math.PI * 2;
@@ -3612,7 +3972,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const cx = Math.cos(angle + seed) * distance * 0.55;
                 const cy = Math.sin(angle * 1.2 + seed) * distance * 0.55;
                 const craterRadius = radius * (0.12 + (i / (craterCount + 2)) * 0.12);
-                const craterGradient = context.createRadialGradient(cx, cy, craterRadius * 0.15, cx, cy, craterRadius);
+                const craterGradient = context.createRadialGradient(
+                    cx,
+                    cy,
+                    craterRadius * 0.15,
+                    cx,
+                    cy,
+                    craterRadius
+                );
                 craterGradient.addColorStop(0, 'rgba(226, 232, 240, 0.7)');
                 craterGradient.addColorStop(1, 'rgba(15, 23, 42, 0.7)');
                 context.fillStyle = craterGradient;
@@ -3623,6 +3990,7 @@ document.addEventListener('DOMContentLoaded', () => {
             context.restore();
         });
     }
+
     function createPlayerFallbackDataUrl() {
         const width = 160;
         const height = 120;
@@ -3632,6 +4000,7 @@ document.addEventListener('DOMContentLoaded', () => {
             gradient.addColorStop(1, '#6366f1');
             context.fillStyle = gradient;
             context.fillRect(0, 0, width, height);
+
             context.fillStyle = 'rgba(15, 23, 42, 0.65)';
             context.beginPath();
             context.moveTo(width * 0.22, height * 0.78);
@@ -3639,14 +4008,15 @@ document.addEventListener('DOMContentLoaded', () => {
             context.lineTo(width * 0.78, height * 0.78);
             context.closePath();
             context.fill();
+
             context.fillStyle = '#fdf4ff';
             context.beginPath();
             context.ellipse(width * 0.5, height * 0.58, width * 0.28, height * 0.2, 0, 0, Math.PI * 2);
             context.fill();
         });
     }
+
     function createPlayerVariantDataUrl(variant) {
-        var _a;
         const width = 160;
         const height = 120;
         const palettes = {
@@ -3693,13 +4063,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 glow: 'rgba(249, 115, 22, 0.45)'
             }
         };
-        const palette = (_a = palettes[variant]) !== null && _a !== void 0 ? _a : palettes.default;
+        const palette = palettes[variant] ?? palettes.default;
         return createCanvasTexture(width, height, (context) => {
             const gradient = context.createLinearGradient(0, 0, width, height);
             gradient.addColorStop(0, palette.baseStart);
             gradient.addColorStop(1, palette.baseEnd);
             context.fillStyle = gradient;
             context.fillRect(0, 0, width, height);
+
             context.fillStyle = palette.visor;
             context.beginPath();
             context.moveTo(width * 0.22, height * 0.78);
@@ -3707,8 +4078,16 @@ document.addEventListener('DOMContentLoaded', () => {
             context.lineTo(width * 0.78, height * 0.78);
             context.closePath();
             context.fill();
+
             if (palette.glow) {
-                const glowGradient = context.createRadialGradient(width * 0.5, height * 0.52, height * 0.12, width * 0.5, height * 0.52, height * 0.4);
+                const glowGradient = context.createRadialGradient(
+                    width * 0.5,
+                    height * 0.52,
+                    height * 0.12,
+                    width * 0.5,
+                    height * 0.52,
+                    height * 0.4
+                );
                 glowGradient.addColorStop(0, palette.glow);
                 glowGradient.addColorStop(1, 'rgba(15, 23, 42, 0)');
                 context.fillStyle = glowGradient;
@@ -3716,15 +4095,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 context.ellipse(width * 0.5, height * 0.58, width * 0.32, height * 0.26, 0, 0, Math.PI * 2);
                 context.fill();
             }
+
             context.fillStyle = palette.accent;
             context.beginPath();
             context.ellipse(width * 0.5, height * 0.58, width * 0.28, height * 0.2, 0, 0, Math.PI * 2);
             context.fill();
         });
     }
-    const playerSkinOverrides = isPlainObject(cosmeticOverrides === null || cosmeticOverrides === void 0 ? void 0 : cosmeticOverrides.skins) && cosmeticOverrides.skins
-        ? cosmeticOverrides.skins
-        : {};
+
+    const playerSkinOverrides =
+        isPlainObject(cosmeticOverrides?.skins) && cosmeticOverrides.skins
+            ? cosmeticOverrides.skins
+            : {};
     const DEFAULT_PLAYER_SKIN_ID = 'default';
     const playerSkinBaseSources = {
         default: 'assets/player.png',
@@ -3733,25 +4115,32 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const playerSkinImages = new Map();
     let activePlayerImage = null;
+
     function resolvePlayerSkinAsset(id) {
-        var _a;
         const normalizedId = typeof id === 'string' && id ? id : DEFAULT_PLAYER_SKIN_ID;
-        return resolveAssetConfig(playerSkinOverrides === null || playerSkinOverrides === void 0 ? void 0 : playerSkinOverrides[normalizedId], (_a = playerSkinBaseSources[normalizedId]) !== null && _a !== void 0 ? _a : null);
+        return resolveAssetConfig(playerSkinOverrides?.[normalizedId], playerSkinBaseSources[normalizedId] ?? null);
     }
+
     function getPlayerSkinImage(id) {
         const normalizedId = typeof id === 'string' && id ? id : DEFAULT_PLAYER_SKIN_ID;
         if (!playerSkinImages.has(normalizedId)) {
             const assetConfig = resolvePlayerSkinAsset(normalizedId);
-            playerSkinImages.set(normalizedId, loadImageWithFallback(assetConfig, () => createPlayerVariantDataUrl(normalizedId)));
+            playerSkinImages.set(
+                normalizedId,
+                loadImageWithFallback(assetConfig, () => createPlayerVariantDataUrl(normalizedId))
+            );
         }
         return playerSkinImages.get(normalizedId);
     }
+
     function setActivePlayerSkinById(id) {
         const normalizedId = typeof id === 'string' && id ? id : DEFAULT_PLAYER_SKIN_ID;
         activePlayerImage = getPlayerSkinImage(normalizedId);
         return activePlayerImage;
     }
+
     setActivePlayerSkinById(DEFAULT_PLAYER_SKIN_ID);
+
     const villainFallbackPalette = ['#f472b6', '#34d399', '#fde68a'];
     function createVillainFallbackDataUrl(index = 0) {
         const size = 128;
@@ -3775,6 +4164,7 @@ document.addEventListener('DOMContentLoaded', () => {
             context.strokeStyle = 'rgba(15, 23, 42, 0.65)';
             context.lineWidth = 6;
             context.stroke();
+
             context.fillStyle = 'rgba(15, 23, 42, 0.75)';
             context.beginPath();
             context.arc(0, 0, width * 0.14, 0, Math.PI * 2);
@@ -3782,12 +4172,14 @@ document.addEventListener('DOMContentLoaded', () => {
             context.restore();
         });
     }
+
     const fallbackFontStack = '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
     const customFontFamily = 'Flight Time';
     const primaryFontStack = customFontFamily
         ? `"${customFontFamily}", ${fallbackFontStack}`
         : fallbackFontStack;
     const fontsReady = customFontFamily ? loadCustomFont(customFontFamily) : Promise.resolve();
+
     const STORAGE_KEYS = {
         playerName: 'nyanEscape.playerName',
         highScores: 'nyanEscape.highScores',
@@ -3801,49 +4193,48 @@ document.addEventListener('DOMContentLoaded', () => {
         customLoadouts: 'nyanEscape.customLoadouts',
         metaProgress: 'nyanEscape.metaProgress'
     };
+
     var storageAvailable = false;
     try {
         if (typeof localStorage === 'undefined') {
             storageAvailable = false;
-        }
-        else {
+        } else {
             const testKey = '__nyanEscapeTest__';
             localStorage.setItem(testKey, '1');
             localStorage.removeItem(testKey);
             storageAvailable = true;
         }
-    }
-    catch (error) {
+    } catch (error) {
         storageAvailable = false;
     }
+
     function readStorage(key) {
-        if (!storageAvailable)
-            return null;
+        if (!storageAvailable) return null;
         try {
             return localStorage.getItem(key);
-        }
-        catch (error) {
+        } catch (error) {
             storageAvailable = false;
             return null;
         }
     }
+
     function writeStorage(key, value) {
-        if (!storageAvailable)
-            return;
+        if (!storageAvailable) return;
         try {
             localStorage.setItem(key, value);
-        }
-        catch (error) {
+        } catch (error) {
             storageAvailable = false;
         }
     }
-    const CUSTOM_LOADOUT_VERSION = 1;
-    const CUSTOM_LOADOUT_SLOTS = [
-        { slot: 'slotA', defaultName: 'Custom Loadout A' },
-        { slot: 'slotB', defaultName: 'Custom Loadout B' }
-    ];
-    const MAX_LOADOUT_NAME_LENGTH = 32;
-    const LOADOUTS_MANAGED_EXTERNALLY = true;
+
+const CUSTOM_LOADOUT_VERSION = 1;
+const CUSTOM_LOADOUT_SLOTS = [
+    { slot: 'slotA', defaultName: 'Custom Loadout A' },
+    { slot: 'slotB', defaultName: 'Custom Loadout B' }
+];
+const MAX_LOADOUT_NAME_LENGTH = 32;
+const LOADOUTS_MANAGED_EXTERNALLY = true;
+
     function sanitizeLoadoutName(name, fallback) {
         const base = typeof name === 'string' ? name.trim() : '';
         if (!base) {
@@ -3851,11 +4242,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return base.slice(0, MAX_LOADOUT_NAME_LENGTH);
     }
+
     function createDefaultCustomLoadout(slotMeta, index = 0) {
-        var _a, _b;
-        const fallbackName = (_a = slotMeta === null || slotMeta === void 0 ? void 0 : slotMeta.defaultName) !== null && _a !== void 0 ? _a : `Custom Loadout ${index + 1}`;
+        const fallbackName = slotMeta?.defaultName ?? `Custom Loadout ${index + 1}`;
         return {
-            slot: (_b = slotMeta === null || slotMeta === void 0 ? void 0 : slotMeta.slot) !== null && _b !== void 0 ? _b : `slot${index + 1}`,
+            slot: slotMeta?.slot ?? `slot${index + 1}`,
             name: fallbackName,
             characterId: 'nova',
             weaponId: 'pulse',
@@ -3863,92 +4254,97 @@ document.addEventListener('DOMContentLoaded', () => {
             trailId: 'rainbow'
         };
     }
+
     function coerceLoadoutRecord(entry, fallback, slotMeta, index) {
-        var _a, _b;
-        const base = fallback !== null && fallback !== void 0 ? fallback : createDefaultCustomLoadout(slotMeta, index);
+        const base = fallback ?? createDefaultCustomLoadout(slotMeta, index);
         if (!entry || typeof entry !== 'object') {
-            return Object.assign({}, base);
+            return { ...base };
         }
-        const slotId = (_a = slotMeta === null || slotMeta === void 0 ? void 0 : slotMeta.slot) !== null && _a !== void 0 ? _a : base.slot;
-        const defaultName = (_b = slotMeta === null || slotMeta === void 0 ? void 0 : slotMeta.defaultName) !== null && _b !== void 0 ? _b : base.name;
+        const slotId = slotMeta?.slot ?? base.slot;
+        const defaultName = slotMeta?.defaultName ?? base.name;
         return {
             slot: slotId,
             name: sanitizeLoadoutName(entry.name, defaultName),
-            characterId: typeof entry.characterId === 'string' && entry.characterId
-                ? entry.characterId
-                : base.characterId,
-            weaponId: typeof entry.weaponId === 'string' && entry.weaponId ? entry.weaponId : base.weaponId,
+            characterId:
+                typeof entry.characterId === 'string' && entry.characterId
+                    ? entry.characterId
+                    : base.characterId,
+            weaponId:
+                typeof entry.weaponId === 'string' && entry.weaponId ? entry.weaponId : base.weaponId,
             skinId: typeof entry.skinId === 'string' && entry.skinId ? entry.skinId : base.skinId,
             trailId: typeof entry.trailId === 'string' && entry.trailId ? entry.trailId : base.trailId
         };
     }
+
     function sanitizeStoredActiveSlot(slots, candidate) {
-        var _a, _b;
         if (!Array.isArray(slots) || slots.length === 0) {
             return null;
         }
-        const fallback = (_b = (_a = slots[0]) === null || _a === void 0 ? void 0 : _a.slot) !== null && _b !== void 0 ? _b : null;
+        const fallback = slots[0]?.slot ?? null;
         if (typeof candidate !== 'string') {
             return fallback;
         }
         const match = slots.find((entry) => entry && entry.slot === candidate);
         return match ? match.slot : fallback;
     }
+
     function loadCustomLoadouts() {
-        var _a, _b, _c, _d, _e, _f;
-        const defaults = CUSTOM_LOADOUT_SLOTS.map((slotMeta, index) => createDefaultCustomLoadout(slotMeta, index));
+        const defaults = CUSTOM_LOADOUT_SLOTS.map((slotMeta, index) =>
+            createDefaultCustomLoadout(slotMeta, index)
+        );
         if (!storageAvailable) {
-            storedActiveLoadoutSlot = (_b = (_a = defaults[0]) === null || _a === void 0 ? void 0 : _a.slot) !== null && _b !== void 0 ? _b : null;
+            storedActiveLoadoutSlot = defaults[0]?.slot ?? null;
             return defaults;
         }
         const raw = readStorage(STORAGE_KEYS.customLoadouts);
         if (!raw) {
-            storedActiveLoadoutSlot = (_d = (_c = defaults[0]) === null || _c === void 0 ? void 0 : _c.slot) !== null && _d !== void 0 ? _d : null;
+            storedActiveLoadoutSlot = defaults[0]?.slot ?? null;
             return defaults;
         }
         try {
             const parsed = JSON.parse(raw);
-            const slots = Array.isArray(parsed === null || parsed === void 0 ? void 0 : parsed.slots) ? parsed.slots : [];
+            const slots = Array.isArray(parsed?.slots) ? parsed.slots : [];
             const sanitized = CUSTOM_LOADOUT_SLOTS.map((slotMeta, index) => {
-                var _a;
-                const match = (_a = slots.find((entry) => entry && typeof entry.slot === 'string' && entry.slot === slotMeta.slot)) !== null && _a !== void 0 ? _a : slots[index];
+                const match =
+                    slots.find((entry) => entry && typeof entry.slot === 'string' && entry.slot === slotMeta.slot) ??
+                    slots[index];
                 return coerceLoadoutRecord(match, defaults[index], slotMeta, index);
             });
-            storedActiveLoadoutSlot = sanitizeStoredActiveSlot(sanitized, parsed === null || parsed === void 0 ? void 0 : parsed.activeSlot);
+            storedActiveLoadoutSlot = sanitizeStoredActiveSlot(sanitized, parsed?.activeSlot);
             return sanitized;
-        }
-        catch (error) {
-            storedActiveLoadoutSlot = (_f = (_e = defaults[0]) === null || _e === void 0 ? void 0 : _e.slot) !== null && _f !== void 0 ? _f : null;
+        } catch (error) {
+            storedActiveLoadoutSlot = defaults[0]?.slot ?? null;
             return defaults;
         }
     }
+
     function persistCustomLoadouts(loadouts = customLoadouts) {
         if (!storageAvailable) {
             return;
         }
         const payload = {
             version: CUSTOM_LOADOUT_VERSION,
-            activeSlot: sanitizeStoredActiveSlot(loadouts, storedActiveLoadoutSlot !== null && storedActiveLoadoutSlot !== void 0 ? storedActiveLoadoutSlot : activeLoadoutId),
+            activeSlot: sanitizeStoredActiveSlot(loadouts, storedActiveLoadoutSlot ?? activeLoadoutId),
             slots: Array.isArray(loadouts)
                 ? loadouts.map((entry, index) => {
-                    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
-                    const slotMeta = (_a = CUSTOM_LOADOUT_SLOTS[index]) !== null && _a !== void 0 ? _a : null;
-                    const expectedSlot = (_c = (_b = slotMeta === null || slotMeta === void 0 ? void 0 : slotMeta.slot) !== null && _b !== void 0 ? _b : entry === null || entry === void 0 ? void 0 : entry.slot) !== null && _c !== void 0 ? _c : `slot${index + 1}`;
-                    const defaultName = (_e = (_d = slotMeta === null || slotMeta === void 0 ? void 0 : slotMeta.defaultName) !== null && _d !== void 0 ? _d : entry === null || entry === void 0 ? void 0 : entry.name) !== null && _e !== void 0 ? _e : `Custom Loadout ${index + 1}`;
-                    return {
-                        slot: expectedSlot,
-                        name: sanitizeLoadoutName(entry === null || entry === void 0 ? void 0 : entry.name, defaultName),
-                        characterId: (_f = entry === null || entry === void 0 ? void 0 : entry.characterId) !== null && _f !== void 0 ? _f : 'nova',
-                        weaponId: (_g = entry === null || entry === void 0 ? void 0 : entry.weaponId) !== null && _g !== void 0 ? _g : 'pulse',
-                        skinId: (_h = entry === null || entry === void 0 ? void 0 : entry.skinId) !== null && _h !== void 0 ? _h : 'default',
-                        trailId: (_j = entry === null || entry === void 0 ? void 0 : entry.trailId) !== null && _j !== void 0 ? _j : 'rainbow'
-                    };
-                })
+                      const slotMeta = CUSTOM_LOADOUT_SLOTS[index] ?? null;
+                      const expectedSlot = slotMeta?.slot ?? entry?.slot ?? `slot${index + 1}`;
+                      const defaultName = slotMeta?.defaultName ?? entry?.name ?? `Custom Loadout ${index + 1}`;
+                      return {
+                          slot: expectedSlot,
+                          name: sanitizeLoadoutName(entry?.name, defaultName),
+                          characterId: entry?.characterId ?? 'nova',
+                          weaponId: entry?.weaponId ?? 'pulse',
+                          skinId: entry?.skinId ?? 'default',
+                          trailId: entry?.trailId ?? 'rainbow'
+                      };
+                  })
                 : []
         };
         storedActiveLoadoutSlot = payload.activeSlot;
         writeStorage(STORAGE_KEYS.customLoadouts, JSON.stringify(payload));
     }
+
     let storedActiveLoadoutSlot = null;
     let customLoadouts = loadCustomLoadouts();
     storedActiveLoadoutSlot = sanitizeStoredActiveSlot(customLoadouts, storedActiveLoadoutSlot);
@@ -3966,44 +4362,49 @@ document.addEventListener('DOMContentLoaded', () => {
     let loadoutEditorTrailButtons = [];
     let loadoutEditorPendingSkinId = null;
     let loadoutEditorPendingTrailId = null;
-    let activePilotId = (_1 = (_0 = pilotRoster[0]) === null || _0 === void 0 ? void 0 : _0.id) !== null && _1 !== void 0 ? _1 : 'nova';
+
+    let activePilotId = pilotRoster[0]?.id ?? 'nova';
     let pendingPilotId = activePilotId;
     let activeWeaponId = 'pulse';
     let pendingWeaponId = activeWeaponId;
+
     function getPilotDefinition(pilotId) {
         if (pilotIndex.has(pilotId)) {
             return pilotIndex.get(pilotId);
         }
         return pilotRoster[0];
     }
+
     function getWeaponDefinition(weaponId) {
         if (weaponId && weaponLoadouts[weaponId]) {
             return weaponLoadouts[weaponId];
         }
         return weaponLoadouts.pulse;
     }
+
     function getSkinLabel(skinId) {
-        var _a;
-        return (_a = SKIN_LABELS[skinId]) !== null && _a !== void 0 ? _a : 'Prototype Hull';
+        return SKIN_LABELS[skinId] ?? 'Prototype Hull';
     }
+
     function getTrailLabel(trailId) {
-        var _a;
-        return (_a = TRAIL_LABELS[trailId]) !== null && _a !== void 0 ? _a : 'Stellar Stream';
+        return TRAIL_LABELS[trailId] ?? 'Stellar Stream';
     }
+
     function getTrailGradientStyle(trailId) {
         const style = resolveTrailStyle(trailId);
-        const colors = Array.isArray(style === null || style === void 0 ? void 0 : style.colors) ? style.colors : null;
+        const colors = Array.isArray(style?.colors) ? style.colors : null;
         if (!colors || !colors.length) {
             return 'linear-gradient(90deg, rgba(56,189,248,0.8), rgba(99,102,241,0.8))';
         }
         const stops = colors
             .map((color, index) => {
-            const percent = Math.round((index / Math.max(1, colors.length - 1)) * 100);
-            return `${color} ${percent}%`;
-        })
+                const percent = Math.round((index / Math.max(1, colors.length - 1)) * 100);
+                return `${color} ${percent}%`;
+            })
             .join(', ');
         return `linear-gradient(90deg, ${stops})`;
     }
+
     function ensureCosmeticsState() {
         if (!isPlainObject(state)) {
             state = { gameState: 'ready' };
@@ -4012,7 +4413,9 @@ document.addEventListener('DOMContentLoaded', () => {
             state.cosmetics = createDefaultCosmeticsState();
             return state.cosmetics;
         }
+
         const defaults = createDefaultCosmeticsState();
+
         if (!Array.isArray(state.cosmetics.ownedSkins)) {
             state.cosmetics.ownedSkins = [...defaults.ownedSkins];
         }
@@ -4023,19 +4426,19 @@ document.addEventListener('DOMContentLoaded', () => {
             state.cosmetics.ownedWeapons = [...defaults.ownedWeapons];
         }
         if (!isPlainObject(state.cosmetics.equipped)) {
-            state.cosmetics.equipped = Object.assign({}, defaults.equipped);
+            state.cosmetics.equipped = { ...defaults.equipped };
         }
         return state.cosmetics;
     }
+
     function updatePilotSummary(pilot) {
-        var _a;
-        const definition = pilot !== null && pilot !== void 0 ? pilot : getPilotDefinition(activePilotId);
+        const definition = pilot ?? getPilotDefinition(activePilotId);
         if (characterSelectSummaryDescription) {
-            characterSelectSummaryDescription.textContent = (_a = definition === null || definition === void 0 ? void 0 : definition.summary) !== null && _a !== void 0 ? _a : '';
+            characterSelectSummaryDescription.textContent = definition?.summary ?? '';
         }
         if (characterSelectSummaryOngoing) {
             characterSelectSummaryOngoing.innerHTML = '';
-            const details = Array.isArray(definition === null || definition === void 0 ? void 0 : definition.highlights) ? definition.highlights : [];
+            const details = Array.isArray(definition?.highlights) ? definition.highlights : [];
             if (details.length) {
                 characterSelectSummaryOngoing.hidden = false;
                 characterSelectSummaryOngoing.setAttribute('aria-hidden', 'false');
@@ -4044,37 +4447,36 @@ document.addEventListener('DOMContentLoaded', () => {
                     li.textContent = item;
                     characterSelectSummaryOngoing.appendChild(li);
                 }
-            }
-            else {
+            } else {
                 characterSelectSummaryOngoing.hidden = true;
                 characterSelectSummaryOngoing.setAttribute('aria-hidden', 'true');
             }
         }
     }
+
     function updateWeaponSelectSummary(weapon) {
-        var _a;
-        const definition = weapon !== null && weapon !== void 0 ? weapon : getWeaponDefinition(activeWeaponId);
+        const definition = weapon ?? getWeaponDefinition(activeWeaponId);
         if (weaponSelectSummaryDescription) {
-            weaponSelectSummaryDescription.textContent = (_a = definition === null || definition === void 0 ? void 0 : definition.description) !== null && _a !== void 0 ? _a : '';
+            weaponSelectSummaryDescription.textContent = definition?.description ?? '';
         }
     }
+
     function refreshWeaponSummary(weapon) {
-        var _a, _b;
-        const definition = weapon !== null && weapon !== void 0 ? weapon : getWeaponDefinition(activeWeaponId);
+        const definition = weapon ?? getWeaponDefinition(activeWeaponId);
         if (weaponSummaryName) {
-            weaponSummaryName.textContent = (_a = definition === null || definition === void 0 ? void 0 : definition.name) !== null && _a !== void 0 ? _a : 'Weapon Loadout';
+            weaponSummaryName.textContent = definition?.name ?? 'Weapon Loadout';
         }
         if (weaponSummaryDescription) {
-            const highlight = Array.isArray(definition === null || definition === void 0 ? void 0 : definition.highlights) ? definition.highlights[0] : '';
-            weaponSummaryDescription.textContent = highlight || (definition === null || definition === void 0 ? void 0 : definition.summary) || '';
+            const highlight = Array.isArray(definition?.highlights) ? definition.highlights[0] : '';
+            weaponSummaryDescription.textContent = highlight || definition?.summary || '';
         }
-        if (weaponSummaryImage && (definition === null || definition === void 0 ? void 0 : definition.icon)) {
+        if (weaponSummaryImage && definition?.icon) {
             weaponSummaryImage.src = definition.icon;
-            weaponSummaryImage.alt = `${(_b = definition.name) !== null && _b !== void 0 ? _b : 'Weapon'} schematic`;
+            weaponSummaryImage.alt = `${definition.name ?? 'Weapon'} schematic`;
         }
     }
+
     function updatePreflightSummary() {
-        var _a, _b, _c, _d, _e, _f;
         const pilot = getPilotDefinition(activePilotId);
         const weapon = getWeaponDefinition(activeWeaponId);
         if (preflightLoadoutSummary) {
@@ -4083,29 +4485,30 @@ document.addEventListener('DOMContentLoaded', () => {
             preflightLoadoutSummary.setAttribute('aria-hidden', hasData ? 'false' : 'true');
         }
         if (preflightPilotName) {
-            preflightPilotName.textContent = (_a = pilot === null || pilot === void 0 ? void 0 : pilot.name) !== null && _a !== void 0 ? _a : 'Nova';
+            preflightPilotName.textContent = pilot?.name ?? 'Nova';
         }
         if (preflightPilotRole) {
-            preflightPilotRole.textContent = (_b = pilot === null || pilot === void 0 ? void 0 : pilot.role) !== null && _b !== void 0 ? _b : '';
+            preflightPilotRole.textContent = pilot?.role ?? '';
         }
         if (preflightPilotImage) {
-            preflightPilotImage.src = (_c = pilot === null || pilot === void 0 ? void 0 : pilot.image) !== null && _c !== void 0 ? _c : 'assets/player.png';
-            preflightPilotImage.alt = (pilot === null || pilot === void 0 ? void 0 : pilot.name) ? `${pilot.name} portrait` : 'Active pilot portrait';
+            preflightPilotImage.src = pilot?.image ?? 'assets/player.png';
+            preflightPilotImage.alt = pilot?.name ? `${pilot.name} portrait` : 'Active pilot portrait';
         }
         if (preflightWeaponName) {
-            preflightWeaponName.textContent = (_d = weapon === null || weapon === void 0 ? void 0 : weapon.name) !== null && _d !== void 0 ? _d : 'Pulse Array';
+            preflightWeaponName.textContent = weapon?.name ?? 'Pulse Array';
         }
         if (preflightWeaponHighlight) {
-            const highlight = Array.isArray(weapon === null || weapon === void 0 ? void 0 : weapon.highlights) && weapon.highlights.length
+            const highlight = Array.isArray(weapon?.highlights) && weapon.highlights.length
                 ? weapon.highlights[0]
-                : (_e = weapon === null || weapon === void 0 ? void 0 : weapon.summary) !== null && _e !== void 0 ? _e : '';
+                : weapon?.summary ?? '';
             preflightWeaponHighlight.textContent = highlight;
         }
         if (preflightWeaponImage) {
-            preflightWeaponImage.src = (_f = weapon === null || weapon === void 0 ? void 0 : weapon.icon) !== null && _f !== void 0 ? _f : 'assets/weapon-pulse.svg';
-            preflightWeaponImage.alt = (weapon === null || weapon === void 0 ? void 0 : weapon.name) ? `${weapon.name} schematic` : 'Active weapon schematic';
+            preflightWeaponImage.src = weapon?.icon ?? 'assets/weapon-pulse.svg';
+            preflightWeaponImage.alt = weapon?.name ? `${weapon.name} schematic` : 'Active weapon schematic';
         }
     }
+
     function updatePilotSelectionState() {
         const selectedId = pendingPilotId;
         for (const card of characterCards) {
@@ -4123,6 +4526,7 @@ document.addEventListener('DOMContentLoaded', () => {
             characterSelectConfirm.setAttribute('aria-disabled', disabled ? 'true' : 'false');
         }
     }
+
     function updateWeaponSelectionState() {
         const selectedId = pendingWeaponId;
         for (const card of weaponCards) {
@@ -4140,10 +4544,10 @@ document.addEventListener('DOMContentLoaded', () => {
             weaponSelectConfirm.setAttribute('aria-disabled', disabled ? 'true' : 'false');
         }
     }
+
     function setActivePilot(pilotId, { updatePending = true, refresh = true } = {}) {
-        var _a;
         const definition = getPilotDefinition(pilotId);
-        activePilotId = (_a = definition === null || definition === void 0 ? void 0 : definition.id) !== null && _a !== void 0 ? _a : activePilotId;
+        activePilotId = definition?.id ?? activePilotId;
         state.activePilotId = activePilotId;
         if (updatePending) {
             pendingPilotId = activePilotId;
@@ -4155,10 +4559,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return definition;
     }
-    function setActiveWeapon(weaponId, { updatePending = true, refresh = true, fromLoadout = false } = {}) {
-        var _a;
+
+    function setActiveWeapon(
+        weaponId,
+        { updatePending = true, refresh = true, fromLoadout = false } = {}
+    ) {
         const definition = getWeaponDefinition(weaponId);
-        activeWeaponId = (_a = definition === null || definition === void 0 ? void 0 : definition.id) !== null && _a !== void 0 ? _a : activeWeaponId;
+        activeWeaponId = definition?.id ?? activeWeaponId;
         const cosmetics = ensureCosmeticsState();
         if (!cosmetics.ownedWeapons.includes(activeWeaponId)) {
             cosmetics.ownedWeapons.push(activeWeaponId);
@@ -4179,15 +4586,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return definition;
     }
+
     function showLoadoutStatus(slotId, message, type = 'info') {
         if (!slotId) {
             return;
         }
         loadoutStatusMessages.set(slotId, { message, type, timestamp: Date.now() });
     }
+
     function buildPreviewRow({ title, value, image }) {
         const row = document.createElement('div');
         row.className = 'custom-loadout-preview-row';
+
         if (image) {
             const thumb = document.createElement('div');
             thumb.className = 'custom-loadout-preview-thumb';
@@ -4199,6 +4609,7 @@ document.addEventListener('DOMContentLoaded', () => {
             thumb.appendChild(img);
             row.appendChild(thumb);
         }
+
         const info = document.createElement('div');
         info.className = 'custom-loadout-preview-info';
         const label = document.createElement('span');
@@ -4212,9 +4623,9 @@ document.addEventListener('DOMContentLoaded', () => {
         row.appendChild(info);
         return row;
     }
+
     function buildLoadoutCard(loadout, { context = 'panel' } = {}) {
-        var _a, _b, _c, _d, _e, _f, _g, _h;
-        const slotId = (_a = loadout === null || loadout === void 0 ? void 0 : loadout.slot) !== null && _a !== void 0 ? _a : `slot-${Math.random().toString(36).slice(2)}`;
+        const slotId = loadout?.slot ?? `slot-${Math.random().toString(36).slice(2)}`;
         const card = document.createElement('article');
         card.className = 'custom-loadout-card';
         card.dataset.loadoutSlot = slotId;
@@ -4224,10 +4635,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (LOADOUTS_MANAGED_EXTERNALLY) {
             card.classList.add('is-readonly');
         }
-        const pilot = getPilotDefinition(loadout === null || loadout === void 0 ? void 0 : loadout.characterId);
-        const weapon = getWeaponDefinition(loadout === null || loadout === void 0 ? void 0 : loadout.weaponId);
-        const skinId = (_b = loadout === null || loadout === void 0 ? void 0 : loadout.skinId) !== null && _b !== void 0 ? _b : ensureCosmeticsState().equipped.skin;
-        const trailId = (_c = loadout === null || loadout === void 0 ? void 0 : loadout.trailId) !== null && _c !== void 0 ? _c : ensureCosmeticsState().equipped.trail;
+
+        const pilot = getPilotDefinition(loadout?.characterId);
+        const weapon = getWeaponDefinition(loadout?.weaponId);
+        const skinId = loadout?.skinId ?? ensureCosmeticsState().equipped.skin;
+        const trailId = loadout?.trailId ?? ensureCosmeticsState().equipped.trail;
+
         const header = document.createElement('div');
         header.className = 'custom-loadout-header';
         const nameField = document.createElement('div');
@@ -4237,10 +4650,11 @@ document.addEventListener('DOMContentLoaded', () => {
         nameLabel.textContent = 'Preset';
         const nameValue = document.createElement('p');
         nameValue.className = 'custom-loadout-preview-value';
-        nameValue.textContent = (_d = loadout === null || loadout === void 0 ? void 0 : loadout.name) !== null && _d !== void 0 ? _d : 'Custom Loadout';
+        nameValue.textContent = loadout?.name ?? 'Custom Loadout';
         nameField.appendChild(nameLabel);
         nameField.appendChild(nameValue);
         header.appendChild(nameField);
+
         if (context === 'panel' && !LOADOUTS_MANAGED_EXTERNALLY) {
             const headerActions = document.createElement('div');
             headerActions.className = 'custom-loadout-header-actions';
@@ -4256,16 +4670,23 @@ document.addEventListener('DOMContentLoaded', () => {
             header.appendChild(headerActions);
         }
         card.appendChild(header);
+
         const body = document.createElement('div');
         body.className = 'custom-loadout-body';
-        body.appendChild(buildPreviewRow({ title: 'Pilot', value: (_e = pilot === null || pilot === void 0 ? void 0 : pilot.name) !== null && _e !== void 0 ? _e : 'Nova', image: (_f = pilot === null || pilot === void 0 ? void 0 : pilot.image) !== null && _f !== void 0 ? _f : 'assets/player.png' }));
-        body.appendChild(buildPreviewRow({
-            title: 'Weapon',
-            value: (_g = weapon === null || weapon === void 0 ? void 0 : weapon.name) !== null && _g !== void 0 ? _g : 'Pulse Array',
-            image: (_h = weapon === null || weapon === void 0 ? void 0 : weapon.icon) !== null && _h !== void 0 ? _h : 'assets/weapon-pulse.svg'
-        }));
+        body.appendChild(
+            buildPreviewRow({ title: 'Pilot', value: pilot?.name ?? 'Nova', image: pilot?.image ?? 'assets/player.png' })
+        );
+        body.appendChild(
+            buildPreviewRow({
+                title: 'Weapon',
+                value: weapon?.name ?? 'Pulse Array',
+                image: weapon?.icon ?? 'assets/weapon-pulse.svg'
+            })
+        );
+
         const tags = document.createElement('div');
         tags.className = 'custom-loadout-tags';
+
         const skinTag = document.createElement('div');
         skinTag.className = 'custom-loadout-tag';
         const skinLabel = document.createElement('span');
@@ -4277,6 +4698,7 @@ document.addEventListener('DOMContentLoaded', () => {
         skinTag.appendChild(skinLabel);
         skinTag.appendChild(skinValue);
         tags.appendChild(skinTag);
+
         const trailTag = document.createElement('div');
         trailTag.className = 'custom-loadout-tag';
         const trailLabel = document.createElement('span');
@@ -4292,8 +4714,10 @@ document.addEventListener('DOMContentLoaded', () => {
         trailTag.appendChild(trailValue);
         trailTag.appendChild(swatch);
         tags.appendChild(trailTag);
+
         body.appendChild(tags);
         card.appendChild(body);
+
         const footer = document.createElement('div');
         footer.className = 'custom-loadout-footer';
         const statusMessage = document.createElement('p');
@@ -4304,8 +4728,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 context === 'overlay'
                     ? 'Preset equipped from lobby selection.'
                     : 'Manage presets in the Astrocat Lobby.';
-        }
-        else {
+        } else {
             const applyButton = document.createElement('button');
             applyButton.type = 'button';
             applyButton.className = 'custom-loadout-apply';
@@ -4320,21 +4743,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusMessage.textContent = status.message;
                 if (status.type === 'success') {
                     statusMessage.classList.add('success');
-                }
-                else if (status.type === 'error') {
+                } else if (status.type === 'error') {
                     statusMessage.classList.add('error');
                 }
             }
         }
         footer.appendChild(statusMessage);
         card.appendChild(footer);
+
         if (!LOADOUTS_MANAGED_EXTERNALLY) {
             card.addEventListener('click', () => {
                 applyCustomLoadout(loadout);
             });
         }
+
         return card;
     }
+
     function renderLoadoutGrid(container, context) {
         if (!(container instanceof HTMLElement)) {
             return;
@@ -4342,7 +4767,7 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = '';
         const now = Date.now();
         for (const [slotKey, entry] of loadoutStatusMessages) {
-            if ((entry === null || entry === void 0 ? void 0 : entry.timestamp) && now - entry.timestamp > 6000) {
+            if (entry?.timestamp && now - entry.timestamp > 6000) {
                 loadoutStatusMessages.delete(slotKey);
             }
         }
@@ -4359,10 +4784,12 @@ document.addEventListener('DOMContentLoaded', () => {
             container.appendChild(card);
         }
     }
+
     function renderCustomLoadoutCollections() {
         renderLoadoutGrid(customLoadoutGrid, { context: 'panel' });
         renderLoadoutGrid(pilotPreviewGrid, { context: 'overlay' });
     }
+
     function getAllSkinOptions() {
         const cosmetics = ensureCosmeticsState();
         const owned = Array.isArray(cosmetics.ownedSkins) ? cosmetics.ownedSkins : [];
@@ -4372,6 +4799,7 @@ document.addEventListener('DOMContentLoaded', () => {
             label: getSkinLabel(skinId)
         }));
     }
+
     function getAllTrailOptions() {
         const cosmetics = ensureCosmeticsState();
         const owned = Array.isArray(cosmetics.ownedTrails) ? cosmetics.ownedTrails : [];
@@ -4381,17 +4809,18 @@ document.addEventListener('DOMContentLoaded', () => {
             label: getTrailLabel(trailId)
         }));
     }
+
     function updateLoadoutEditorSummary() {
-        var _a, _b;
-        const pilot = getPilotDefinition(loadoutEditorPendingCharacterId !== null && loadoutEditorPendingCharacterId !== void 0 ? loadoutEditorPendingCharacterId : activePilotId);
-        const weapon = getWeaponDefinition(loadoutEditorPendingWeaponId !== null && loadoutEditorPendingWeaponId !== void 0 ? loadoutEditorPendingWeaponId : activeWeaponId);
-        const skinLabel = getSkinLabel(loadoutEditorPendingSkinId !== null && loadoutEditorPendingSkinId !== void 0 ? loadoutEditorPendingSkinId : ensureCosmeticsState().equipped.skin);
-        const trailLabel = getTrailLabel(loadoutEditorPendingTrailId !== null && loadoutEditorPendingTrailId !== void 0 ? loadoutEditorPendingTrailId : ensureCosmeticsState().equipped.trail);
+        const pilot = getPilotDefinition(loadoutEditorPendingCharacterId ?? activePilotId);
+        const weapon = getWeaponDefinition(loadoutEditorPendingWeaponId ?? activeWeaponId);
+        const skinLabel = getSkinLabel(loadoutEditorPendingSkinId ?? ensureCosmeticsState().equipped.skin);
+        const trailLabel = getTrailLabel(loadoutEditorPendingTrailId ?? ensureCosmeticsState().equipped.trail);
+
         if (loadoutEditorSummaryValues.pilot) {
-            loadoutEditorSummaryValues.pilot.textContent = (_a = pilot === null || pilot === void 0 ? void 0 : pilot.name) !== null && _a !== void 0 ? _a : 'Nova';
+            loadoutEditorSummaryValues.pilot.textContent = pilot?.name ?? 'Nova';
         }
         if (loadoutEditorSummaryValues.weapon) {
-            loadoutEditorSummaryValues.weapon.textContent = (_b = weapon === null || weapon === void 0 ? void 0 : weapon.name) !== null && _b !== void 0 ? _b : 'Pulse Array';
+            loadoutEditorSummaryValues.weapon.textContent = weapon?.name ?? 'Pulse Array';
         }
         if (loadoutEditorSummaryValues.skin) {
             loadoutEditorSummaryValues.skin.textContent = skinLabel;
@@ -4400,6 +4829,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadoutEditorSummaryValues.trail.textContent = trailLabel;
         }
     }
+
     function updateLoadoutEditorPilotSelection() {
         for (const button of loadoutEditorPilotButtons) {
             if (!(button instanceof HTMLElement)) {
@@ -4410,6 +4840,7 @@ document.addEventListener('DOMContentLoaded', () => {
             button.setAttribute('aria-pressed', selected ? 'true' : 'false');
         }
     }
+
     function updateLoadoutEditorWeaponSelection() {
         for (const button of loadoutEditorWeaponButtons) {
             if (!(button instanceof HTMLElement)) {
@@ -4420,6 +4851,7 @@ document.addEventListener('DOMContentLoaded', () => {
             button.setAttribute('aria-pressed', selected ? 'true' : 'false');
         }
     }
+
     function updateLoadoutEditorSkinSelection() {
         for (const button of loadoutEditorSkinButtons) {
             if (!(button instanceof HTMLElement)) {
@@ -4430,6 +4862,7 @@ document.addEventListener('DOMContentLoaded', () => {
             button.setAttribute('aria-checked', selected ? 'true' : 'false');
         }
     }
+
     function updateLoadoutEditorTrailSelection() {
         for (const button of loadoutEditorTrailButtons) {
             if (!(button instanceof HTMLElement)) {
@@ -4440,6 +4873,7 @@ document.addEventListener('DOMContentLoaded', () => {
             button.setAttribute('aria-checked', selected ? 'true' : 'false');
         }
     }
+
     function refreshLoadoutEditorSelectionState() {
         updateLoadoutEditorPilotSelection();
         updateLoadoutEditorWeaponSelection();
@@ -4447,6 +4881,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateLoadoutEditorTrailSelection();
         updateLoadoutEditorSummary();
     }
+
     function renderLoadoutEditorPilotGrid() {
         if (!(loadoutEditorPilotGrid instanceof HTMLElement)) {
             return;
@@ -4458,20 +4893,24 @@ document.addEventListener('DOMContentLoaded', () => {
             button.type = 'button';
             button.className = 'character-card';
             button.dataset.characterId = pilot.id;
+
             const img = document.createElement('img');
             img.src = pilot.image;
             img.alt = `${pilot.name} portrait`;
             img.loading = 'lazy';
             img.decoding = 'async';
             button.appendChild(img);
+
             const name = document.createElement('span');
             name.className = 'character-name';
             name.textContent = pilot.name;
             button.appendChild(name);
+
             const role = document.createElement('span');
             role.className = 'character-role';
             role.textContent = pilot.role;
             button.appendChild(role);
+
             if (Array.isArray(pilot.highlights) && pilot.highlights.length) {
                 const details = document.createElement('div');
                 details.className = 'character-details';
@@ -4487,6 +4926,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 details.appendChild(list);
                 button.appendChild(details);
             }
+
             button.addEventListener('click', () => {
                 loadoutEditorPendingCharacterId = pilot.id;
                 refreshLoadoutEditorSelectionState();
@@ -4498,13 +4938,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     refreshLoadoutEditorSelectionState();
                 }
             });
+
             loadoutEditorPilotGrid.appendChild(button);
             loadoutEditorPilotButtons.push(button);
         }
         refreshLoadoutEditorSelectionState();
     }
+
     function renderLoadoutEditorWeaponGrid() {
-        var _a;
         if (!(loadoutEditorWeaponGrid instanceof HTMLElement)) {
             return;
         }
@@ -4515,6 +4956,7 @@ document.addEventListener('DOMContentLoaded', () => {
             button.type = 'button';
             button.className = 'character-card weapon-card';
             button.dataset.weaponId = weapon.id;
+
             if (weapon.icon) {
                 const img = document.createElement('img');
                 img.src = weapon.icon;
@@ -4523,14 +4965,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 img.decoding = 'async';
                 button.appendChild(img);
             }
+
             const name = document.createElement('span');
             name.className = 'character-name';
             name.textContent = weapon.name;
             button.appendChild(name);
+
             const role = document.createElement('span');
             role.className = 'character-role';
-            role.textContent = (_a = weapon.summary) !== null && _a !== void 0 ? _a : 'Weapon Loadout';
+            role.textContent = weapon.summary ?? 'Weapon Loadout';
             button.appendChild(role);
+
             if (Array.isArray(weapon.highlights) && weapon.highlights.length) {
                 const details = document.createElement('div');
                 details.className = 'character-details';
@@ -4546,6 +4991,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 details.appendChild(list);
                 button.appendChild(details);
             }
+
             button.addEventListener('click', () => {
                 loadoutEditorPendingWeaponId = weapon.id;
                 refreshLoadoutEditorSelectionState();
@@ -4557,21 +5003,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     refreshLoadoutEditorSelectionState();
                 }
             });
+
             loadoutEditorWeaponGrid.appendChild(button);
             loadoutEditorWeaponButtons.push(button);
         }
         refreshLoadoutEditorSelectionState();
     }
-    function buildLoadoutEditorOptionButton({ id, label, type }) {
+
+    function buildLoadoutEditorOptionButton({
+        id,
+        label,
+        type
+    }) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'loadout-editor-option';
         button.setAttribute('role', 'radio');
+
         const thumb = document.createElement('span');
         thumb.className = 'loadout-editor-option-thumb';
+
         if (type === 'skin') {
             const asset = resolvePlayerSkinAsset(id);
-            const src = (typeof asset === 'string' && asset) ||
+            const src =
+                (typeof asset === 'string' && asset) ||
                 (asset && typeof asset === 'object' && asset.src) ||
                 playerSkinBaseSources[id] ||
                 playerSkinBaseSources.default;
@@ -4581,13 +5036,13 @@ document.addEventListener('DOMContentLoaded', () => {
             img.loading = 'lazy';
             img.decoding = 'async';
             thumb.appendChild(img);
-        }
-        else {
+        } else {
             const preview = document.createElement('span');
             preview.className = 'loadout-editor-trail-preview';
             preview.style.background = getTrailGradientStyle(id);
             thumb.appendChild(preview);
         }
+
         const meta = document.createElement('span');
         meta.className = 'loadout-editor-option-meta';
         const title = document.createElement('strong');
@@ -4596,10 +5051,12 @@ document.addEventListener('DOMContentLoaded', () => {
         subtitle.textContent = type === 'skin' ? 'Suit' : 'Stream';
         meta.appendChild(title);
         meta.appendChild(subtitle);
+
         button.appendChild(thumb);
         button.appendChild(meta);
         return button;
     }
+
     function renderLoadoutEditorSkinOptions() {
         if (!(loadoutEditorSkinGrid instanceof HTMLElement)) {
             return;
@@ -4625,6 +5082,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         refreshLoadoutEditorSelectionState();
     }
+
     function renderLoadoutEditorTrailOptions() {
         if (!(loadoutEditorTrailGrid instanceof HTMLElement)) {
             return;
@@ -4650,6 +5108,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         refreshLoadoutEditorSelectionState();
     }
+
     function ensureLoadoutEditorPendingValues() {
         const cosmetics = ensureCosmeticsState();
         if (!loadoutEditorPendingCharacterId) {
@@ -4665,8 +5124,8 @@ document.addEventListener('DOMContentLoaded', () => {
             loadoutEditorPendingTrailId = cosmetics.equipped.trail;
         }
     }
+
     function openLoadoutEditor(slotId, { trigger } = {}) {
-        var _a, _b, _c, _d, _e;
         if (!loadoutEditorModal) {
             return;
         }
@@ -4677,41 +5136,45 @@ document.addEventListener('DOMContentLoaded', () => {
         loadoutEditorActiveSlotId = slotId;
         loadoutEditorReturnFocus = trigger instanceof HTMLElement ? trigger : null;
         latestCosmeticSnapshot = {
-            characterId: (_a = loadout.characterId) !== null && _a !== void 0 ? _a : activePilotId,
-            weaponId: (_b = loadout.weaponId) !== null && _b !== void 0 ? _b : activeWeaponId,
-            skinId: (_c = loadout.skinId) !== null && _c !== void 0 ? _c : ensureCosmeticsState().equipped.skin,
-            trailId: (_d = loadout.trailId) !== null && _d !== void 0 ? _d : ensureCosmeticsState().equipped.trail
+            characterId: loadout.characterId ?? activePilotId,
+            weaponId: loadout.weaponId ?? activeWeaponId,
+            skinId: loadout.skinId ?? ensureCosmeticsState().equipped.skin,
+            trailId: loadout.trailId ?? ensureCosmeticsState().equipped.trail
         };
         loadoutEditorPendingCharacterId = latestCosmeticSnapshot.characterId;
         loadoutEditorPendingWeaponId = latestCosmeticSnapshot.weaponId;
         loadoutEditorPendingSkinId = latestCosmeticSnapshot.skinId;
         loadoutEditorPendingTrailId = latestCosmeticSnapshot.trailId;
         ensureLoadoutEditorPendingValues();
+
         const slotMeta = getLoadoutSlotMeta(slotId);
         if (loadoutEditorTitle) {
-            const slotName = ((_e = loadout === null || loadout === void 0 ? void 0 : loadout.name) === null || _e === void 0 ? void 0 : _e.trim()) || (slotMeta === null || slotMeta === void 0 ? void 0 : slotMeta.defaultName) || 'Custom Loadout';
+            const slotName = loadout?.name?.trim() || slotMeta?.defaultName || 'Custom Loadout';
             loadoutEditorTitle.textContent = `Customize ${slotName}`;
         }
         if (loadoutEditorSubtitle) {
-            const slotName = (slotMeta === null || slotMeta === void 0 ? void 0 : slotMeta.defaultName) || slotId;
+            const slotName = slotMeta?.defaultName || slotId;
             loadoutEditorSubtitle.textContent = `Adjust the selections saved to ${slotName}. Changes are stored instantly when you save.`;
         }
         if (loadoutEditorSaveButton) {
-            const saveLabel = (slotMeta === null || slotMeta === void 0 ? void 0 : slotMeta.defaultName) ? `Save ${slotMeta.defaultName}` : 'Save Loadout';
+            const saveLabel = slotMeta?.defaultName ? `Save ${slotMeta.defaultName}` : 'Save Loadout';
             loadoutEditorSaveButton.textContent = saveLabel;
         }
+
         renderLoadoutEditorPilotGrid();
         renderLoadoutEditorWeaponGrid();
         renderLoadoutEditorSkinOptions();
         renderLoadoutEditorTrailOptions();
+
         openModal(loadoutEditorModal, {
             bodyClass: 'loadout-editor-open',
-            initialFocus: () => {
-                var _a, _b;
-                return (_b = (_a = loadoutEditorPilotButtons.find((button) => button.classList.contains('selected'))) !== null && _a !== void 0 ? _a : loadoutEditorPilotButtons[0]) !== null && _b !== void 0 ? _b : loadoutEditorSaveButton;
-            }
+            initialFocus: () =>
+                loadoutEditorPilotButtons.find((button) => button.classList.contains('selected')) ??
+                loadoutEditorPilotButtons[0] ??
+                loadoutEditorSaveButton
         });
     }
+
     function closeLoadoutEditor({ restoreFocus = true } = {}) {
         if (!loadoutEditorModal) {
             return;
@@ -4724,6 +5187,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadoutEditorActiveSlotId = null;
         latestCosmeticSnapshot = null;
     }
+
     function handleLoadoutEditorSave() {
         if (!loadoutEditorActiveSlotId) {
             closeLoadoutEditor();
@@ -4737,16 +5201,19 @@ document.addEventListener('DOMContentLoaded', () => {
             trailId: loadoutEditorPendingTrailId
         };
         const snapshot = latestCosmeticSnapshot;
-        const hasChanges = !snapshot ||
+        const hasChanges =
+            !snapshot ||
             snapshot.characterId !== updates.characterId ||
             snapshot.weaponId !== updates.weaponId ||
             snapshot.skinId !== updates.skinId ||
             snapshot.trailId !== updates.trailId;
+
         if (!hasChanges) {
             showLoadoutStatus(loadoutEditorActiveSlotId, 'Preset already up to date', 'info');
             closeLoadoutEditor();
             return;
         }
+
         const result = updateCustomLoadout(loadoutEditorActiveSlotId, updates);
         if (result) {
             showLoadoutStatus(loadoutEditorActiveSlotId, 'Preset saved', 'success');
@@ -4760,12 +5227,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 updatePreflightSummary();
             }
             renderCustomLoadoutCollections();
-        }
-        else {
+        } else {
             showLoadoutStatus(loadoutEditorActiveSlotId, 'Unable to save preset', 'error');
         }
         closeLoadoutEditor();
     }
+
     function renderPilotSelectGrid() {
         if (!(characterSelectGrid instanceof HTMLElement)) {
             return;
@@ -4777,20 +5244,24 @@ document.addEventListener('DOMContentLoaded', () => {
             button.type = 'button';
             button.className = 'character-card';
             button.dataset.characterId = pilot.id;
+
             const img = document.createElement('img');
             img.src = pilot.image;
             img.alt = `${pilot.name} portrait`;
             img.loading = 'lazy';
             img.decoding = 'async';
             button.appendChild(img);
+
             const name = document.createElement('span');
             name.className = 'character-name';
             name.textContent = pilot.name;
             button.appendChild(name);
+
             const role = document.createElement('span');
             role.className = 'character-role';
             role.textContent = pilot.role;
             button.appendChild(role);
+
             if (Array.isArray(pilot.highlights) && pilot.highlights.length) {
                 const details = document.createElement('div');
                 details.className = 'character-details';
@@ -4806,6 +5277,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 details.appendChild(list);
                 button.appendChild(details);
             }
+
             button.addEventListener('click', () => {
                 pendingPilotId = pilot.id;
                 updatePilotSelectionState();
@@ -4817,13 +5289,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     updatePilotSelectionState();
                 }
             });
+
             characterSelectGrid.appendChild(button);
             characterCards.push(button);
         }
         updatePilotSelectionState();
     }
+
     function renderWeaponSelectGrid() {
-        var _a;
         if (!(weaponSelectGrid instanceof HTMLElement)) {
             return;
         }
@@ -4834,6 +5307,7 @@ document.addEventListener('DOMContentLoaded', () => {
             button.type = 'button';
             button.className = 'character-card weapon-card';
             button.dataset.weaponId = weapon.id;
+
             if (weapon.icon) {
                 const img = document.createElement('img');
                 img.src = weapon.icon;
@@ -4842,14 +5316,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 img.decoding = 'async';
                 button.appendChild(img);
             }
+
             const name = document.createElement('span');
             name.className = 'character-name';
             name.textContent = weapon.name;
             button.appendChild(name);
+
             const role = document.createElement('span');
             role.className = 'character-role';
-            role.textContent = (_a = weapon.summary) !== null && _a !== void 0 ? _a : 'Weapon Loadout';
+            role.textContent = weapon.summary ?? 'Weapon Loadout';
             button.appendChild(role);
+
             if (Array.isArray(weapon.highlights) && weapon.highlights.length) {
                 const details = document.createElement('div');
                 details.className = 'character-details';
@@ -4865,6 +5342,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 details.appendChild(list);
                 button.appendChild(details);
             }
+
             button.addEventListener('click', () => {
                 pendingWeaponId = weapon.id;
                 updateWeaponSelectionState();
@@ -4876,13 +5354,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateWeaponSelectionState();
                 }
             });
+
             weaponSelectGrid.appendChild(button);
             weaponCards.push(button);
         }
         updateWeaponSelectionState();
     }
+
     function applyCustomLoadout(loadout, { silent = false } = {}) {
-        var _a, _b, _c;
         if (!loadout || typeof loadout !== 'object') {
             return;
         }
@@ -4901,21 +5380,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             setActiveTrailStyleById(loadout.trailId);
         }
-        setActivePilot((_a = loadout.characterId) !== null && _a !== void 0 ? _a : activePilotId, { updatePending: false, refresh: !silent });
-        setActiveWeapon((_b = loadout.weaponId) !== null && _b !== void 0 ? _b : activeWeaponId, {
+        setActivePilot(loadout.characterId ?? activePilotId, { updatePending: false, refresh: !silent });
+        setActiveWeapon(loadout.weaponId ?? activeWeaponId, {
             updatePending: false,
             refresh: !silent,
             fromLoadout: true
         });
-        setActiveLoadoutId((_c = loadout.slot) !== null && _c !== void 0 ? _c : null);
+        setActiveLoadoutId(loadout.slot ?? null);
         updatePreflightSummary();
         if (!silent && loadout.slot) {
             showLoadoutStatus(loadout.slot, 'Equipped for launch', 'success');
             renderCustomLoadoutCollections();
         }
     }
+
     function initializeLoadoutSelections() {
-        var _a, _b, _c, _d;
         const cosmetics = ensureCosmeticsState();
         const preferredSlot = sanitizeStoredActiveSlot(customLoadouts, storedActiveLoadoutSlot);
         const initial = preferredSlot
@@ -4929,8 +5408,8 @@ document.addEventListener('DOMContentLoaded', () => {
             pendingPilotId = activePilotId;
             activeWeaponId = getWeaponDefinition(initial.weaponId).id;
             pendingWeaponId = activeWeaponId;
-            cosmetics.equipped.skin = (_a = initial.skinId) !== null && _a !== void 0 ? _a : cosmetics.equipped.skin;
-            cosmetics.equipped.trail = (_b = initial.trailId) !== null && _b !== void 0 ? _b : cosmetics.equipped.trail;
+            cosmetics.equipped.skin = initial.skinId ?? cosmetics.equipped.skin;
+            cosmetics.equipped.trail = initial.trailId ?? cosmetics.equipped.trail;
             if (initial.skinId && !cosmetics.ownedSkins.includes(initial.skinId)) {
                 cosmetics.ownedSkins.push(initial.skinId);
             }
@@ -4948,9 +5427,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (initial.slot) {
                 setActiveLoadoutId(initial.slot);
             }
-        }
-        else {
-            activePilotId = (_d = (_c = pilotRoster[0]) === null || _c === void 0 ? void 0 : _c.id) !== null && _d !== void 0 ? _d : 'nova';
+        } else {
+            activePilotId = pilotRoster[0]?.id ?? 'nova';
             pendingPilotId = activePilotId;
             activeWeaponId = getWeaponDefinition(getActiveWeaponId()).id;
             pendingWeaponId = activeWeaponId;
@@ -4965,6 +5443,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePilotSummary(getPilotDefinition(activePilotId));
         updatePreflightSummary();
     }
+
     function setActiveLoadoutId(slotId) {
         const resolved = slotId && getCustomLoadout(slotId) ? slotId : null;
         if (activeLoadoutId === resolved && storedActiveLoadoutSlot === resolved) {
@@ -4978,19 +5457,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateActiveLoadoutPrompt();
     }
+
     initializeLoadoutSelections();
     renderPilotSelectGrid();
     renderWeaponSelectGrid();
     renderCustomLoadoutCollections();
+
     function runWithSuppressedActiveLoadoutSync(callback) {
         suppressActiveLoadoutSync += 1;
         try {
             return callback();
-        }
-        finally {
+        } finally {
             suppressActiveLoadoutSync = Math.max(0, suppressActiveLoadoutSync - 1);
         }
     }
+
     function updateActiveLoadoutPrompt() {
         if (!pilotPreviewDescription) {
             return;
@@ -5000,22 +5481,24 @@ document.addEventListener('DOMContentLoaded', () => {
             ? defaultPilotPreviewDescription
             : loadoutCreationPromptText;
     }
+
     function getLoadoutSlotMeta(slotId) {
-        var _a;
-        return (_a = CUSTOM_LOADOUT_SLOTS.find((slot) => slot.slot === slotId)) !== null && _a !== void 0 ? _a : null;
+        return CUSTOM_LOADOUT_SLOTS.find((slot) => slot.slot === slotId) ?? null;
     }
+
     function getLoadoutIndex(slotId) {
         if (!slotId) {
             return -1;
         }
         return customLoadouts.findIndex((entry) => entry && entry.slot === slotId);
     }
+
     function getCustomLoadout(slotId) {
         const index = getLoadoutIndex(slotId);
         return index >= 0 ? customLoadouts[index] : null;
     }
+
     function updateCustomLoadout(slotId, updates, { persist = true } = {}) {
-        var _a, _b, _c;
         const index = getLoadoutIndex(slotId);
         if (index === -1) {
             return null;
@@ -5024,12 +5507,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!target || !updates || typeof updates !== 'object') {
             return target;
         }
-        const slotMeta = (_b = (_a = getLoadoutSlotMeta(slotId)) !== null && _a !== void 0 ? _a : CUSTOM_LOADOUT_SLOTS[index]) !== null && _b !== void 0 ? _b : null;
-        const defaultName = (_c = slotMeta === null || slotMeta === void 0 ? void 0 : slotMeta.defaultName) !== null && _c !== void 0 ? _c : target.name;
+        const slotMeta = getLoadoutSlotMeta(slotId) ?? CUSTOM_LOADOUT_SLOTS[index] ?? null;
+        const defaultName = slotMeta?.defaultName ?? target.name;
         if (Object.prototype.hasOwnProperty.call(updates, 'name')) {
             target.name = sanitizeLoadoutName(updates.name, defaultName);
-        }
-        else {
+        } else {
             target.name = sanitizeLoadoutName(target.name, defaultName);
         }
         if (typeof updates.characterId === 'string' && updates.characterId) {
@@ -5049,14 +5531,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return target;
     }
+
     function setCustomLoadoutName(slotId, name, { persist = true } = {}) {
-        var _a, _b, _c;
         const index = getLoadoutIndex(slotId);
         if (index === -1) {
             return null;
         }
-        const slotMeta = (_b = (_a = getLoadoutSlotMeta(slotId)) !== null && _a !== void 0 ? _a : CUSTOM_LOADOUT_SLOTS[index]) !== null && _b !== void 0 ? _b : null;
-        const defaultName = (_c = slotMeta === null || slotMeta === void 0 ? void 0 : slotMeta.defaultName) !== null && _c !== void 0 ? _c : `Custom Loadout ${index + 1}`;
+        const slotMeta = getLoadoutSlotMeta(slotId) ?? CUSTOM_LOADOUT_SLOTS[index] ?? null;
+        const defaultName = slotMeta?.defaultName ?? `Custom Loadout ${index + 1}`;
         const sanitized = sanitizeLoadoutName(name, defaultName);
         const target = customLoadouts[index];
         if (target.name === sanitized) {
@@ -5068,8 +5550,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return target;
     }
+
     const API_CONFIG = (() => {
-        var _a, _b, _c, _d, _e, _f, _g;
         if (typeof window === 'undefined') {
             return {
                 baseUrl: '',
@@ -5078,9 +5560,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 scopes: ['global', 'weekly']
             };
         }
-        const rootDataset = (_b = (_a = document.documentElement) === null || _a === void 0 ? void 0 : _a.dataset) !== null && _b !== void 0 ? _b : {};
-        const bodyDataset = (_d = (_c = document.body) === null || _c === void 0 ? void 0 : _c.dataset) !== null && _d !== void 0 ? _d : {};
-        const rawBase = (_g = (_f = (_e = window.NYAN_ESCAPE_API_BASE_URL) !== null && _e !== void 0 ? _e : rootDataset.nyanApiBase) !== null && _f !== void 0 ? _f : bodyDataset.nyanApiBase) !== null && _g !== void 0 ? _g : '';
+        const rootDataset = document.documentElement?.dataset ?? {};
+        const bodyDataset = document.body?.dataset ?? {};
+        const rawBase =
+            window.NYAN_ESCAPE_API_BASE_URL ??
+            rootDataset.nyanApiBase ??
+            bodyDataset.nyanApiBase ??
+            '';
         const baseUrl = typeof rawBase === 'string' ? rawBase.trim() : '';
         return {
             baseUrl: baseUrl ? baseUrl.replace(/\/+$/, '') : '',
@@ -5089,6 +5575,7 @@ document.addEventListener('DOMContentLoaded', () => {
             scopes: ['global', 'weekly']
         };
     })();
+
     function generateUuid() {
         if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
             return crypto.randomUUID();
@@ -5096,8 +5583,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const bytes = new Uint8Array(16);
         if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
             crypto.getRandomValues(bytes);
-        }
-        else {
+        } else {
             for (let i = 0; i < bytes.length; i++) {
                 bytes[i] = Math.floor(Math.random() * 256);
             }
@@ -5105,13 +5591,17 @@ document.addEventListener('DOMContentLoaded', () => {
         bytes[6] = (bytes[6] & 0x0f) | 0x40;
         bytes[8] = (bytes[8] & 0x3f) | 0x80;
         const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0'));
-        return (`${hex[0]}${hex[1]}${hex[2]}${hex[3]}-` +
+        return (
+            `${hex[0]}${hex[1]}${hex[2]}${hex[3]}-` +
             `${hex[4]}${hex[5]}-` +
             `${hex[6]}${hex[7]}-` +
             `${hex[8]}${hex[9]}-` +
-            `${hex[10]}${hex[11]}${hex[12]}${hex[13]}${hex[14]}${hex[15]}`);
+            `${hex[10]}${hex[11]}${hex[12]}${hex[13]}${hex[14]}${hex[15]}`
+        );
     }
+
     let cachedDeviceId = null;
+
     function getDeviceIdentifier() {
         if (cachedDeviceId) {
             return cachedDeviceId;
@@ -5126,24 +5616,25 @@ document.addEventListener('DOMContentLoaded', () => {
         writeStorage(STORAGE_KEYS.deviceId, generated);
         return generated;
     }
+
     function buildApiUrl(path = '') {
         if (!API_CONFIG.baseUrl) {
             return null;
         }
-        const normalizedPath = String(path !== null && path !== void 0 ? path : '').replace(/^\/+/, '');
+        const normalizedPath = String(path ?? '').replace(/^\/+/, '');
         const base = API_CONFIG.baseUrl.endsWith('/') ? API_CONFIG.baseUrl : `${API_CONFIG.baseUrl}/`;
         try {
             return new URL(normalizedPath, base).toString();
-        }
-        catch (error) {
+        } catch (error) {
             console.error('Invalid leaderboard API base URL', error);
             return null;
         }
     }
+
     async function fetchWithTimeout(resource, options = {}) {
-        const _a = options !== null && options !== void 0 ? options : {}, { timeout = API_CONFIG.timeoutMs, signal } = _a, rest = __rest(_a, ["timeout", "signal"]);
+        const { timeout = API_CONFIG.timeoutMs, signal, ...rest } = options ?? {};
         if (typeof AbortController === 'undefined' || !timeout || timeout <= 0) {
-            return fetch(resource, Object.assign({ signal }, rest));
+            return fetch(resource, { signal, ...rest });
         }
         const controller = new AbortController();
         const timers = setTimeout(() => {
@@ -5161,39 +5652,44 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         try {
             const combinedSignal = controller.signal;
-            return await fetch(resource, Object.assign(Object.assign({}, rest), { signal: combinedSignal }));
-        }
-        finally {
+            return await fetch(resource, { ...rest, signal: combinedSignal });
+        } finally {
             clearTimeout(timers);
             if (signal) {
                 signal.removeEventListener('abort', abortListener);
             }
         }
     }
+
     async function parseJsonSafely(response) {
         try {
             return await response.json();
-        }
-        catch (error) {
+        } catch (error) {
             return null;
         }
     }
+
     const RUN_TOKEN_BUFFER_MS = 2000;
     let activeRunToken = null;
     let activeRunTokenExpiresAt = 0;
     let runTokenFetchPromise = null;
+
     function invalidateRunToken() {
         activeRunToken = null;
         activeRunTokenExpiresAt = 0;
     }
+
     function hasValidRunToken() {
-        return (typeof activeRunToken === 'string' &&
+        return (
+            typeof activeRunToken === 'string' &&
             activeRunToken &&
             Number.isFinite(activeRunTokenExpiresAt) &&
-            activeRunTokenExpiresAt - RUN_TOKEN_BUFFER_MS > Date.now());
+            activeRunTokenExpiresAt - RUN_TOKEN_BUFFER_MS > Date.now()
+        );
     }
+
     async function ensureRunToken(options = {}) {
-        const { forceRefresh = false } = options !== null && options !== void 0 ? options : {};
+        const { forceRefresh = false } = options ?? {};
         if (forceRefresh) {
             invalidateRunToken();
         }
@@ -5222,25 +5718,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         },
                         body: JSON.stringify({ deviceId })
                     });
-                }
-                catch (error) {
-                    if ((error === null || error === void 0 ? void 0 : error.name) === 'AbortError') {
+                } catch (error) {
+                    if (error?.name === 'AbortError') {
                         error.code = 'timeout';
-                    }
-                    else {
+                    } else {
                         error.code = 'network';
                     }
                     throw error;
                 }
                 const data = await parseJsonSafely(response);
                 if (!response.ok) {
-                    const message = (data === null || data === void 0 ? void 0 : data.message) || (data === null || data === void 0 ? void 0 : data.error) || `Run token request failed (${response.status})`;
+                    const message = data?.message || data?.error || `Run token request failed (${response.status})`;
                     const error = new Error(message);
                     error.code = response.status === 401 ? 'auth' : 'server';
                     throw error;
                 }
-                const token = typeof (data === null || data === void 0 ? void 0 : data.runToken) === 'string' ? data.runToken : null;
-                const expiresAt = Number(data === null || data === void 0 ? void 0 : data.expiresAt);
+                const token = typeof data?.runToken === 'string' ? data.runToken : null;
+                const expiresAt = Number(data?.expiresAt);
                 if (!token || !Number.isFinite(expiresAt)) {
                     const error = new Error('Invalid run token response from server.');
                     error.code = 'server';
@@ -5249,13 +5743,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 activeRunToken = token;
                 activeRunTokenExpiresAt = expiresAt;
                 return { token, expiresAt };
-            }
-            finally {
+            } finally {
                 runTokenFetchPromise = null;
             }
         })();
         return runTokenFetchPromise;
     }
+
     if (storageAvailable) {
         const storedFirstRun = readStorage(STORAGE_KEYS.firstRunComplete);
         firstRunExperience = storedFirstRun !== 'true';
@@ -5266,28 +5760,31 @@ document.addEventListener('DOMContentLoaded', () => {
             updateIntelLore(storedLoreProgressMs);
         }
     }
+
     refreshFlyNowButton();
+
     if (comicIntro) {
         comicIntro.hidden = !firstRunExperience;
     }
+
     function loadHighScores() {
         const raw = readStorage(STORAGE_KEYS.highScores);
-        if (!raw)
-            return {};
+        if (!raw) return {};
         try {
             const parsed = JSON.parse(raw);
             return typeof parsed === 'object' && parsed !== null ? parsed : {};
-        }
-        catch (error) {
+        } catch (error) {
             return {};
         }
     }
+
     function persistHighScores(data) {
-        if (!storageAvailable)
-            return;
+        if (!storageAvailable) return;
         writeStorage(STORAGE_KEYS.highScores, JSON.stringify(data));
     }
+
     const DEFAULT_PLAYER_NAME = 'Ace Pilot';
+
     function sanitizeLeaderboardEntries(entries = []) {
         if (!Array.isArray(entries)) {
             return [];
@@ -5295,44 +5792,40 @@ document.addEventListener('DOMContentLoaded', () => {
         return entries
             .filter((entry) => entry && typeof entry === 'object')
             .map((entry) => {
-            var _a, _b, _c, _d, _e;
-            const playerName = sanitizePlayerName((_b = (_a = entry.player) !== null && _a !== void 0 ? _a : entry.playerName) !== null && _b !== void 0 ? _b : '') || DEFAULT_PLAYER_NAME;
-            const score = Number.isFinite(entry.score) ? Math.max(0, Math.floor(entry.score)) : 0;
-            const timeMs = Number.isFinite(entry.timeMs) ? Math.max(0, Math.floor(entry.timeMs)) : 0;
-            const bestStreak = Number.isFinite(entry.bestStreak)
-                ? Math.max(0, Math.floor(entry.bestStreak))
-                : 0;
-            const nyan = Number.isFinite(entry.nyan) ? Math.max(0, Math.floor(entry.nyan)) : 0;
-            const rawTimestamp = (_e = (_d = (_c = entry.recordedAt) !== null && _c !== void 0 ? _c : entry.createdAt) !== null && _d !== void 0 ? _d : entry.timestamp) !== null && _e !== void 0 ? _e : Date.now();
-            let recordedAt = Date.now();
-            if (typeof rawTimestamp === 'string') {
-                const parsed = Date.parse(rawTimestamp);
-                recordedAt = Number.isFinite(parsed) ? parsed : Date.now();
-            }
-            else {
-                const numeric = Number(rawTimestamp);
-                recordedAt = Number.isFinite(numeric) ? numeric : Date.now();
-            }
-            return {
-                player: playerName,
-                score,
-                timeMs,
-                bestStreak,
-                nyan,
-                recordedAt
-            };
-        })
+                const playerName = sanitizePlayerName(entry.player ?? entry.playerName ?? '') || DEFAULT_PLAYER_NAME;
+                const score = Number.isFinite(entry.score) ? Math.max(0, Math.floor(entry.score)) : 0;
+                const timeMs = Number.isFinite(entry.timeMs) ? Math.max(0, Math.floor(entry.timeMs)) : 0;
+                const bestStreak = Number.isFinite(entry.bestStreak)
+                    ? Math.max(0, Math.floor(entry.bestStreak))
+                    : 0;
+                const nyan = Number.isFinite(entry.nyan) ? Math.max(0, Math.floor(entry.nyan)) : 0;
+                const rawTimestamp = entry.recordedAt ?? entry.createdAt ?? entry.timestamp ?? Date.now();
+                let recordedAt = Date.now();
+                if (typeof rawTimestamp === 'string') {
+                    const parsed = Date.parse(rawTimestamp);
+                    recordedAt = Number.isFinite(parsed) ? parsed : Date.now();
+                } else {
+                    const numeric = Number(rawTimestamp);
+                    recordedAt = Number.isFinite(numeric) ? numeric : Date.now();
+                }
+                return {
+                    player: playerName,
+                    score,
+                    timeMs,
+                    bestStreak,
+                    nyan,
+                    recordedAt
+                };
+            })
             .sort((a, b) => {
-            if (b.score !== a.score)
-                return b.score - a.score;
-            if (b.timeMs !== a.timeMs)
-                return b.timeMs - a.timeMs;
-            return a.recordedAt - b.recordedAt;
-        })
+                if (b.score !== a.score) return b.score - a.score;
+                if (b.timeMs !== a.timeMs) return b.timeMs - a.timeMs;
+                return a.recordedAt - b.recordedAt;
+            })
             .slice(0, 50);
     }
+
     function sanitizeLeaderboardSnapshot(snapshot = {}) {
-        var _a, _b, _c, _d, _e, _f;
         if (Array.isArray(snapshot)) {
             return {
                 global: sanitizeLeaderboardEntries(snapshot),
@@ -5343,22 +5836,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!snapshot || typeof snapshot !== 'object') {
             return { global: [], weekly: [], fetchedAt: 0 };
         }
-        const fetchedRaw = (_b = (_a = snapshot.fetchedAt) !== null && _a !== void 0 ? _a : snapshot.updatedAt) !== null && _b !== void 0 ? _b : Date.now();
+        const fetchedRaw = snapshot.fetchedAt ?? snapshot.updatedAt ?? Date.now();
         let fetchedAt = Date.now();
         if (typeof fetchedRaw === 'string') {
             const parsed = Date.parse(fetchedRaw);
             fetchedAt = Number.isFinite(parsed) ? parsed : Date.now();
-        }
-        else {
+        } else {
             const numeric = Number(fetchedRaw);
             fetchedAt = Number.isFinite(numeric) ? numeric : Date.now();
         }
         return {
-            global: sanitizeLeaderboardEntries((_d = (_c = snapshot.global) !== null && _c !== void 0 ? _c : snapshot.entries) !== null && _d !== void 0 ? _d : []),
-            weekly: sanitizeLeaderboardEntries((_f = (_e = snapshot.weekly) !== null && _e !== void 0 ? _e : snapshot.week) !== null && _f !== void 0 ? _f : []),
+            global: sanitizeLeaderboardEntries(snapshot.global ?? snapshot.entries ?? []),
+            weekly: sanitizeLeaderboardEntries(snapshot.weekly ?? snapshot.week ?? []),
             fetchedAt
         };
     }
+
     function loadLeaderboard() {
         const raw = readStorage(STORAGE_KEYS.leaderboard);
         if (!raw) {
@@ -5367,22 +5860,21 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const parsed = JSON.parse(raw);
             return sanitizeLeaderboardSnapshot(parsed);
-        }
-        catch (error) {
+        } catch (error) {
             console.warn('Failed to parse cached leaderboard snapshot', error);
             return { global: [], weekly: [], fetchedAt: 0 };
         }
     }
+
     function persistLeaderboard(snapshot) {
-        if (!storageAvailable)
-            return;
+        if (!storageAvailable) return;
         const sanitized = sanitizeLeaderboardSnapshot(snapshot);
         writeStorage(STORAGE_KEYS.leaderboard, JSON.stringify(sanitized));
     }
+
     function loadSubmissionLog() {
         const raw = readStorage(STORAGE_KEYS.submissionLog);
-        if (!raw)
-            return {};
+        if (!raw) return {};
         try {
             const parsed = JSON.parse(raw);
             if (typeof parsed !== 'object' || parsed === null) {
@@ -5399,22 +5891,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 sanitized[key] = normalized;
             }
             return sanitized;
-        }
-        catch (error) {
+        } catch (error) {
             return {};
         }
     }
+
     function persistSubmissionLog(log) {
-        if (!storageAvailable)
-            return;
+        if (!storageAvailable) return;
         writeStorage(STORAGE_KEYS.submissionLog, JSON.stringify(log));
     }
+
     const SUBMISSION_WINDOW_MS = 24 * 60 * 60 * 1000;
     const SUBMISSION_LIMIT = 3;
+
     let submissionLog = loadSubmissionLog();
+
     let hasStoredSettings = false;
+
     const AVAILABLE_DIFFICULTY_IDS = ['easy', 'medium', 'hard', 'hyper'];
     const DEFAULT_DIFFICULTY_ID = 'medium';
+
     const DIFFICULTY_PRESETS = {
         easy: {
             id: 'easy',
@@ -5526,6 +6022,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     };
+
     function normalizeDifficultySetting(value) {
         if (typeof value !== 'string') {
             return DEFAULT_DIFFICULTY_ID;
@@ -5533,31 +6030,37 @@ document.addEventListener('DOMContentLoaded', () => {
         const normalized = value.toLowerCase();
         return AVAILABLE_DIFFICULTY_IDS.includes(normalized) ? normalized : DEFAULT_DIFFICULTY_ID;
     }
+
     function getDifficultyPreset(id) {
-        var _a;
         const normalized = normalizeDifficultySetting(id);
-        return (_a = DIFFICULTY_PRESETS[normalized]) !== null && _a !== void 0 ? _a : DIFFICULTY_PRESETS[DEFAULT_DIFFICULTY_ID];
+        return DIFFICULTY_PRESETS[normalized] ?? DIFFICULTY_PRESETS[DEFAULT_DIFFICULTY_ID];
     }
+
     function applyDifficultyPreset(id, { announce = false } = {}) {
-        var _a;
         const preset = getDifficultyPreset(id);
-        const normalizedId = (_a = preset === null || preset === void 0 ? void 0 : preset.id) !== null && _a !== void 0 ? _a : DEFAULT_DIFFICULTY_ID;
+        const normalizedId = preset?.id ?? DEFAULT_DIFFICULTY_ID;
         activeDifficultyPreset = normalizedId;
+
         const baseConfig = applyOverrides(cloneConfig(baseGameConfig), gameplayOverrides);
-        const overrides = preset === null || preset === void 0 ? void 0 : preset.overrides;
+        const overrides = preset?.overrides;
         const nextConfig = overrides ? applyOverrides(baseConfig, overrides) : baseConfig;
+
         config = nextConfig;
+
         if (typeof document !== 'undefined' && document.body) {
             document.body.dataset.difficultyPreset = normalizedId;
         }
-        if (announce && (preset === null || preset === void 0 ? void 0 : preset.label)) {
+
+        if (announce && preset?.label) {
             const message = preset.description
                 ? `${preset.label}: ${preset.description}`
                 : `${preset.label} difficulty engaged`;
             console.info(`[difficulty] ${message}`);
         }
+
         return preset;
     }
+
     const DEFAULT_SETTINGS = {
         masterVolume: typeof audioManager.getMasterVolume === 'function'
             ? audioManager.getMasterVolume()
@@ -5571,7 +6074,9 @@ document.addEventListener('DOMContentLoaded', () => {
         reducedEffects: systemPrefersReducedEffects(),
         difficulty: DEFAULT_DIFFICULTY_ID
     };
-    let settingsState = Object.assign({}, DEFAULT_SETTINGS);
+
+    let settingsState = { ...DEFAULT_SETTINGS };
+
     function sanitizeVolume(value, fallback = DEFAULT_SETTINGS.masterVolume) {
         const numeric = Number(value);
         if (!Number.isFinite(numeric)) {
@@ -5579,9 +6084,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return clamp(numeric, 0, 1);
     }
-    function coerceSettings(partial, base = settingsState !== null && settingsState !== void 0 ? settingsState : DEFAULT_SETTINGS) {
-        var _a, _b;
-        const source = Object.assign({}, base);
+
+    function coerceSettings(partial, base = settingsState ?? DEFAULT_SETTINGS) {
+        const source = { ...base };
         if (partial && typeof partial === 'object') {
             if (Object.prototype.hasOwnProperty.call(partial, 'masterVolume')) {
                 source.masterVolume = partial.masterVolume;
@@ -5600,33 +6105,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         return {
-            masterVolume: sanitizeVolume(source.masterVolume, (_a = base.masterVolume) !== null && _a !== void 0 ? _a : DEFAULT_SETTINGS.masterVolume),
+            masterVolume: sanitizeVolume(source.masterVolume, base.masterVolume ?? DEFAULT_SETTINGS.masterVolume),
             musicEnabled: source.musicEnabled !== false,
             sfxEnabled: source.sfxEnabled !== false,
             reducedEffects: source.reducedEffects === true,
-            difficulty: normalizeDifficultySetting((_b = source.difficulty) !== null && _b !== void 0 ? _b : base.difficulty)
+            difficulty: normalizeDifficultySetting(source.difficulty ?? base.difficulty)
         };
     }
+
     function loadSettingsPreferences() {
         hasStoredSettings = false;
         if (!storageAvailable) {
-            return Object.assign({}, DEFAULT_SETTINGS);
+            return { ...DEFAULT_SETTINGS };
         }
         const raw = readStorage(STORAGE_KEYS.settings);
         if (!raw) {
-            return Object.assign({}, DEFAULT_SETTINGS);
+            return { ...DEFAULT_SETTINGS };
         }
         try {
             const parsed = JSON.parse(raw);
             const coerced = coerceSettings(parsed, DEFAULT_SETTINGS);
             hasStoredSettings = true;
             return coerced;
-        }
-        catch (error) {
+        } catch (error) {
             hasStoredSettings = false;
-            return Object.assign({}, DEFAULT_SETTINGS);
+            return { ...DEFAULT_SETTINGS };
         }
     }
+
     function persistSettingsPreferences() {
         if (!storageAvailable) {
             return;
@@ -5640,6 +6146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         writeStorage(STORAGE_KEYS.settings, JSON.stringify(payload));
     }
+
     const COSMETIC_RARITIES = {
         common: {
             id: 'common',
@@ -5672,11 +6179,12 @@ document.addEventListener('DOMContentLoaded', () => {
             className: 'rarity-mythic'
         }
     };
+
     function getCosmeticRarityMeta(rarity) {
-        var _a;
         const key = typeof rarity === 'string' ? rarity.toLowerCase() : 'common';
-        return (_a = COSMETIC_RARITIES[key]) !== null && _a !== void 0 ? _a : COSMETIC_RARITIES.common;
+        return COSMETIC_RARITIES[key] ?? COSMETIC_RARITIES.common;
     }
+
     const STREAK_MILESTONES = [
         {
             id: 'streak-8',
@@ -5733,6 +6241,7 @@ document.addEventListener('DOMContentLoaded', () => {
             bonus: { type: 'nyan', amount: 1200 }
         }
     ];
+
     const COMMUNITY_GOALS = [
         {
             id: 'fleetScore',
@@ -5753,6 +6262,7 @@ document.addEventListener('DOMContentLoaded', () => {
             rarity: 'rare'
         }
     ];
+
     // Provide a minimal placeholder season track so meta progress initialisation
     // never touches the original SEASON_PASS_TRACK constant when it is missing.
     // This prevents a ReferenceError that previously stopped the app from
@@ -5762,31 +6272,36 @@ document.addEventListener('DOMContentLoaded', () => {
         label: 'Season Pass',
         tiers: []
     });
+
     function resolveSeasonPassTrack() {
-        const globalScope = typeof globalThis !== 'undefined'
-            ? globalThis
-            : typeof window !== 'undefined'
-                ? window
-                : null;
+        const globalScope =
+            typeof globalThis !== 'undefined'
+                ? globalThis
+                : typeof window !== 'undefined'
+                    ? window
+                    : null;
+
         if (globalScope) {
             try {
                 const track = globalScope.SEASON_PASS_TRACK;
                 if (typeof track !== 'undefined') {
                     return track;
                 }
-            }
-            catch (error) {
+            } catch (error) {
                 if (!(error instanceof ReferenceError)) {
                     throw error;
                 }
             }
         }
+
         return null;
     }
+
     let seasonPassTrackRef = resolveSeasonPassTrack();
     if (!seasonPassTrackRef) {
         seasonPassTrackRef = DISABLED_SEASON_PASS_TRACK;
     }
+
     const CHALLENGE_DEFINITIONS = {
         daily: [
             {
@@ -5877,27 +6392,33 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         ]
     };
+
     function registerCosmeticRewardSource(map, reward, source) {
-        var _a, _b, _c;
         if (!reward || typeof reward !== 'object') {
             return;
         }
         if (reward.type === 'bundle') {
             if (Array.isArray(reward.items)) {
                 for (const item of reward.items) {
-                    registerCosmeticRewardSource(map, item, Object.assign(Object.assign({}, source), { bundle: (_b = (_a = reward.label) !== null && _a !== void 0 ? _a : source === null || source === void 0 ? void 0 : source.title) !== null && _b !== void 0 ? _b : 'Bundle' }));
+                    registerCosmeticRewardSource(map, item, {
+                        ...source,
+                        bundle: reward.label ?? source?.title ?? 'Bundle'
+                    });
                 }
             }
             return;
         }
         if (reward.type === 'cosmetic' && reward.id) {
-            const list = (_c = map.get(reward.id)) !== null && _c !== void 0 ? _c : [];
-            list.push(Object.assign(Object.assign({}, source), { reward }));
+            const list = map.get(reward.id) ?? [];
+            list.push({
+                ...source,
+                reward
+            });
             map.set(reward.id, list);
         }
     }
+
     const COSMETIC_REWARD_SOURCES = (() => {
-        var _a, _b, _c;
         const map = new Map();
         for (const [slotKey, list] of Object.entries(CHALLENGE_DEFINITIONS)) {
             if (!Array.isArray(list)) {
@@ -5910,29 +6431,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 registerCosmeticRewardSource(map, definition.reward, {
                     type: 'challenge',
                     slot: slotKey,
-                    title: (_a = definition.title) !== null && _a !== void 0 ? _a : definition.id
+                    title: definition.title ?? definition.id
                 });
             }
         }
         for (const milestone of STREAK_MILESTONES) {
             registerCosmeticRewardSource(map, milestone.reward, {
                 type: 'milestone',
-                title: (_b = milestone.title) !== null && _b !== void 0 ? _b : milestone.id
+                title: milestone.title ?? milestone.id
             });
         }
-        if (seasonPassTrackRef === null || seasonPassTrackRef === void 0 ? void 0 : seasonPassTrackRef.tiers) {
+        if (seasonPassTrackRef?.tiers) {
             for (const tier of seasonPassTrackRef.tiers) {
                 if (!tier || !tier.reward) {
                     continue;
                 }
                 registerCosmeticRewardSource(map, tier.reward, {
                     type: 'season',
-                    title: (_c = tier.label) !== null && _c !== void 0 ? _c : tier.id
+                    title: tier.label ?? tier.id
                 });
             }
         }
         return map;
     })();
+
     const ACHIEVEMENT_DEFINITIONS = [
         {
             id: 'achv-first-flight',
@@ -5963,14 +6485,17 @@ document.addEventListener('DOMContentLoaded', () => {
             icon: '🌐'
         }
     ];
+
     function attemptInitializeMetaProgressManager() {
         if (metaProgressManager) {
             return metaProgressManager;
         }
+
         const resolvedTrack = resolveSeasonPassTrack();
         if (resolvedTrack) {
             seasonPassTrackRef = resolvedTrack;
         }
+
         // Skip initialization entirely when the season pass track has been
         // disabled or failed to load. Attempting to create the manager would
         // otherwise trigger access to the deferred season track definition and
@@ -5979,45 +6504,56 @@ document.addEventListener('DOMContentLoaded', () => {
             disableSeasonPassUI();
             return null;
         }
+
         const manager = createMetaProgressManager({
             challengeManager: getChallengeManager(),
             broadcast: broadcastMetaMessage,
             seasonTrack: () => seasonPassTrackRef
         });
+
         if (!manager) {
             return null;
         }
+
         metaProgressManager = manager;
+
         if (seasonPassPanel) {
             seasonPassPanel.hidden = false;
             seasonPassPanel.removeAttribute('aria-hidden');
         }
+
         if (typeof metaProgressManager.subscribe === 'function') {
             metaProgressManager.subscribe((snapshot) => {
                 latestMetaSnapshot = snapshot;
             });
         }
+
         return metaProgressManager;
     }
+
     if (!attemptInitializeMetaProgressManager()) {
-        const scheduleMetaInitialization = typeof queueMicrotask === 'function'
-            ? queueMicrotask
-            : (callback) => Promise.resolve().then(callback);
+        const scheduleMetaInitialization =
+            typeof queueMicrotask === 'function'
+                ? queueMicrotask
+                : (callback) => Promise.resolve().then(callback);
+
         scheduleMetaInitialization(() => {
             if (!attemptInitializeMetaProgressManager()) {
                 const initializeWhenReady = () => {
                     attemptInitializeMetaProgressManager();
                 };
+
                 if (typeof document !== 'undefined' && document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', initializeWhenReady, { once: true });
-                }
-                else {
+                } else {
                     initializeWhenReady();
                 }
             }
         });
     }
+
     const CHALLENGE_STATE_VERSION = 1;
+
     function createDefaultCosmeticsState() {
         return {
             ownedSkins: ['default'],
@@ -6026,6 +6562,7 @@ document.addEventListener('DOMContentLoaded', () => {
             equipped: { skin: 'default', trail: 'rainbow', weapon: 'pulse' }
         };
     }
+
     function createDefaultChallengeState() {
         const defaultState = {
             version: CHALLENGE_STATE_VERSION,
@@ -6040,6 +6577,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setActivePlayerSkinById(defaultState.cosmetics.equipped.skin);
         return defaultState;
     }
+
     function sanitizeChallengeGoal(goal) {
         if (!goal || typeof goal !== 'object') {
             return { metric: 'score', target: 0, mode: 'sum' };
@@ -6053,10 +6591,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const normalized = { metric, target, mode };
         if (goal.filter && typeof goal.filter === 'object') {
-            normalized.filter = Object.assign({}, goal.filter);
+            normalized.filter = { ...goal.filter };
         }
         return normalized;
     }
+
     function sanitizeChallengeSlot(slotKey, entry) {
         if (!entry || typeof entry !== 'object') {
             return null;
@@ -6080,6 +6619,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updatedAt: typeof entry.updatedAt === 'number' ? entry.updatedAt : Date.now()
         };
     }
+
     function migrateChallengeState(raw) {
         const base = createDefaultChallengeState();
         if (!isPlainObject(raw)) {
@@ -6090,12 +6630,12 @@ document.addEventListener('DOMContentLoaded', () => {
             slots: {},
             history: Array.isArray(raw.history)
                 ? raw.history
-                    .filter((entry) => isPlainObject(entry))
-                    .slice(-24)
-                    .map((entry) => (Object.assign({}, entry)))
+                      .filter((entry) => isPlainObject(entry))
+                      .slice(-24)
+                      .map((entry) => ({ ...entry }))
                 : [],
-            cosmetics: isPlainObject(raw.cosmetics) ? Object.assign({}, raw.cosmetics) : createDefaultCosmeticsState(),
-            milestones: isPlainObject(raw.milestones) ? Object.assign({}, raw.milestones) : { streak: { achieved: [] } }
+            cosmetics: isPlainObject(raw.cosmetics) ? { ...raw.cosmetics } : createDefaultCosmeticsState(),
+            milestones: isPlainObject(raw.milestones) ? { ...raw.milestones } : { streak: { achieved: [] } }
         };
         const slots = isPlainObject(raw.slots) ? raw.slots : {};
         for (const [slotKey, entry] of Object.entries(slots)) {
@@ -6107,44 +6647,49 @@ document.addEventListener('DOMContentLoaded', () => {
         const defaultCosmetics = createDefaultCosmeticsState();
         if (!Array.isArray(state.cosmetics.ownedSkins)) {
             state.cosmetics.ownedSkins = [...defaultCosmetics.ownedSkins];
-        }
-        else {
-            state.cosmetics.ownedSkins = Array.from(new Set(state.cosmetics.ownedSkins.map((value) => String(value))));
+        } else {
+            state.cosmetics.ownedSkins = Array.from(
+                new Set(state.cosmetics.ownedSkins.map((value) => String(value)))
+            );
             if (!state.cosmetics.ownedSkins.includes('default')) {
                 state.cosmetics.ownedSkins.unshift('default');
             }
         }
         if (!Array.isArray(state.cosmetics.ownedTrails)) {
             state.cosmetics.ownedTrails = [...defaultCosmetics.ownedTrails];
-        }
-        else {
-            state.cosmetics.ownedTrails = Array.from(new Set(state.cosmetics.ownedTrails.map((value) => String(value))));
+        } else {
+            state.cosmetics.ownedTrails = Array.from(
+                new Set(state.cosmetics.ownedTrails.map((value) => String(value)))
+            );
             if (!state.cosmetics.ownedTrails.includes('rainbow')) {
                 state.cosmetics.ownedTrails.unshift('rainbow');
             }
         }
         if (!Array.isArray(state.cosmetics.ownedWeapons)) {
             state.cosmetics.ownedWeapons = [...defaultCosmetics.ownedWeapons];
-        }
-        else {
-            state.cosmetics.ownedWeapons = Array.from(new Set(state.cosmetics.ownedWeapons.map((value) => String(value))));
+        } else {
+            state.cosmetics.ownedWeapons = Array.from(
+                new Set(state.cosmetics.ownedWeapons.map((value) => String(value)))
+            );
             if (!state.cosmetics.ownedWeapons.includes('pulse')) {
                 state.cosmetics.ownedWeapons.unshift('pulse');
             }
         }
         if (!isPlainObject(state.cosmetics.equipped)) {
-            state.cosmetics.equipped = Object.assign({}, defaultCosmetics.equipped);
-        }
-        else {
-            const equippedSkin = typeof state.cosmetics.equipped.skin === 'string'
-                ? state.cosmetics.equipped.skin
-                : defaultCosmetics.equipped.skin;
-            const equippedTrail = typeof state.cosmetics.equipped.trail === 'string'
-                ? state.cosmetics.equipped.trail
-                : defaultCosmetics.equipped.trail;
-            const equippedWeapon = typeof state.cosmetics.equipped.weapon === 'string'
-                ? state.cosmetics.equipped.weapon
-                : defaultCosmetics.equipped.weapon;
+            state.cosmetics.equipped = { ...defaultCosmetics.equipped };
+        } else {
+            const equippedSkin =
+                typeof state.cosmetics.equipped.skin === 'string'
+                    ? state.cosmetics.equipped.skin
+                    : defaultCosmetics.equipped.skin;
+            const equippedTrail =
+                typeof state.cosmetics.equipped.trail === 'string'
+                    ? state.cosmetics.equipped.trail
+                    : defaultCosmetics.equipped.trail;
+            const equippedWeapon =
+                typeof state.cosmetics.equipped.weapon === 'string'
+                    ? state.cosmetics.equipped.weapon
+                    : defaultCosmetics.equipped.weapon;
             state.cosmetics.equipped = {
                 skin: state.cosmetics.ownedSkins.includes(equippedSkin)
                     ? equippedSkin
@@ -6167,9 +6712,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!Array.isArray(state.milestones.streak.achieved)) {
             state.milestones.streak.achieved = [];
-        }
-        else {
-            state.milestones.streak.achieved = Array.from(new Set(state.milestones.streak.achieved.map((value) => String(value))));
+        } else {
+            state.milestones.streak.achieved = Array.from(
+                new Set(state.milestones.streak.achieved.map((value) => String(value)))
+            );
         }
         state.version = Math.max(state.version, 1);
         if (state.version !== CHALLENGE_STATE_VERSION) {
@@ -6177,6 +6723,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return state;
     }
+
     function loadChallengeState() {
         if (!storageAvailable) {
             return createDefaultChallengeState();
@@ -6188,28 +6735,29 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const parsed = JSON.parse(raw);
             return migrateChallengeState(parsed);
-        }
-        catch (error) {
+        } catch (error) {
             return createDefaultChallengeState();
         }
     }
+
     function persistChallengeState(state) {
         if (!storageAvailable) {
             return;
         }
         try {
             writeStorage(STORAGE_KEYS.challenges, JSON.stringify(state));
-        }
-        catch (error) {
+        } catch (error) {
             // Ignore write failures for challenge data
         }
     }
+
     function getDayIndex(date) {
         const start = new Date(date.getFullYear(), 0, 1);
         start.setHours(0, 0, 0, 0);
         const diff = date - start;
         return Math.floor(diff / 86400000);
     }
+
     function getWeekIndex(date) {
         const reference = new Date(date.getFullYear(), 0, 1);
         reference.setHours(0, 0, 0, 0);
@@ -6219,9 +6767,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const diff = date - reference;
         return Math.max(0, Math.floor(diff / (86400000 * 7)));
     }
+
     function getMonthIndex(date) {
         return date.getFullYear() * 12 + date.getMonth();
     }
+
     function computeRotationId(slot, date) {
         if (slot === 'weekly') {
             const week = getWeekIndex(date);
@@ -6234,9 +6784,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const day = getDayIndex(date);
         return `${date.getFullYear()}-${day}`;
     }
+
     function parseRotationId(slot, rotationId) {
         if (slot === 'weekly') {
-            const match = /^([0-9]{4})-W([0-9]+)$/.exec(rotationId !== null && rotationId !== void 0 ? rotationId : '');
+            const match = /^([0-9]{4})-W([0-9]+)$/.exec(rotationId ?? '');
             if (match) {
                 const year = Number(match[1]);
                 const week = Number(match[2]);
@@ -6249,9 +6800,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     return reference;
                 }
             }
-        }
-        else if (slot === 'event') {
-            const match = /^([0-9]{4})-M([0-9]{2})$/.exec(rotationId !== null && rotationId !== void 0 ? rotationId : '');
+        } else if (slot === 'event') {
+            const match = /^([0-9]{4})-M([0-9]{2})$/.exec(rotationId ?? '');
             if (match) {
                 const year = Number(match[1]);
                 const month = Number(match[2]);
@@ -6261,9 +6811,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     return reference;
                 }
             }
-        }
-        else {
-            const match = /^([0-9]{4})-([0-9]+)$/.exec(rotationId !== null && rotationId !== void 0 ? rotationId : '');
+        } else {
+            const match = /^([0-9]{4})-([0-9]+)$/.exec(rotationId ?? '');
             if (match) {
                 const year = Number(match[1]);
                 const day = Number(match[2]);
@@ -6277,9 +6826,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return new Date();
     }
+
     function getRotationEnd(slot, rotationId, referenceDate = new Date()) {
-        var _a;
-        const base = (_a = parseRotationId(slot, rotationId)) !== null && _a !== void 0 ? _a : referenceDate;
+        const base = parseRotationId(slot, rotationId) ?? referenceDate;
         if (slot === 'weekly') {
             const end = new Date(base.getTime());
             const day = end.getDay();
@@ -6301,6 +6850,7 @@ document.addEventListener('DOMContentLoaded', () => {
         end.setHours(24, 0, 0, 0);
         return end.getTime();
     }
+
     function formatDurationShort(milliseconds) {
         const totalSeconds = Math.floor(milliseconds / 1000);
         const minutes = Math.floor(totalSeconds / 60);
@@ -6310,6 +6860,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return `${totalSeconds}s`;
     }
+
     function describeReward(reward) {
         if (!reward || typeof reward !== 'object') {
             return '—';
@@ -6327,54 +6878,59 @@ document.addEventListener('DOMContentLoaded', () => {
             let baseLabel = 'Reward ready';
             if (reward.category === 'skin') {
                 baseLabel = 'Hull skin unlock';
-            }
-            else if (reward.category === 'trail') {
+            } else if (reward.category === 'trail') {
                 baseLabel = 'Trail effect unlock';
-            }
-            else if (reward.category === 'weapon') {
+            } else if (reward.category === 'weapon') {
                 baseLabel = 'Weapon system unlock';
             }
             return rarityMeta ? `${baseLabel} (${rarityMeta.label})` : baseLabel;
         }
         return 'Reward ready';
     }
+
     function createChallengeManager(config = {}) {
-        const { definitions = CHALLENGE_DEFINITIONS, cosmeticsCatalog = null, onChallengeCompleted, onRewardClaimed } = config !== null && config !== void 0 ? config : {};
+        const {
+            definitions = CHALLENGE_DEFINITIONS,
+            cosmeticsCatalog = null,
+            onChallengeCompleted,
+            onRewardClaimed
+        } = config ?? {};
         let state = loadChallengeState();
         const listeners = new Set();
         const definitionIndex = new Map();
-        const cosmetics = cosmeticsCatalog !== null && cosmeticsCatalog !== void 0 ? cosmeticsCatalog : { skins: {}, trails: {}, weapons: {} };
+        const cosmetics = cosmeticsCatalog ?? { skins: {}, trails: {}, weapons: {} };
         let cachedSnapshot = null;
+
         function indexDefinitions() {
             definitionIndex.clear();
-            for (const [slotKey, list] of Object.entries(definitions !== null && definitions !== void 0 ? definitions : {})) {
+            for (const [slotKey, list] of Object.entries(definitions ?? {})) {
                 if (!Array.isArray(list)) {
                     continue;
                 }
                 for (const definition of list) {
                     if (definition && typeof definition === 'object' && typeof definition.id === 'string') {
-                        definitionIndex.set(definition.id, Object.assign(Object.assign({}, definition), { slot: slotKey }));
+                        definitionIndex.set(definition.id, { ...definition, slot: slotKey });
                     }
                 }
             }
         }
+
         function selectDefinition(slot, date) {
-            const list = Array.isArray(definitions === null || definitions === void 0 ? void 0 : definitions[slot]) ? definitions[slot] : [];
+            const list = Array.isArray(definitions?.[slot]) ? definitions[slot] : [];
             if (!list.length) {
                 return null;
             }
             let index = 0;
             if (slot === 'weekly') {
                 index = getWeekIndex(date);
-            }
-            else if (slot === 'event') {
+            } else if (slot === 'event') {
                 index = getMonthIndex(date);
-            }
-            else {
+            } else {
                 index = getDayIndex(date);
             }
             return list[index % list.length];
         }
+
         function formatProgress(goal, value, target) {
             if (!goal || typeof goal !== 'object') {
                 return `${value} / ${target}`;
@@ -6390,6 +6946,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return `${value} / ${target}`;
         }
+
         function ensureMilestoneBucket(kind) {
             if (!state.milestones || typeof state.milestones !== 'object') {
                 state.milestones = { streak: { achieved: [] } };
@@ -6402,6 +6959,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return state.milestones[kind];
         }
+
         function formatCountdown(slot, rotationId, now) {
             const resetAt = getRotationEnd(slot, rotationId, new Date(now));
             if (!resetAt) {
@@ -6420,34 +6978,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return `Resets in ${Math.max(1, minutes)}m`;
         }
+
         function computeActiveChallenges(snapshot) {
-            var _a, _b, _c, _d, _e, _f, _g, _h;
             const list = [];
             const now = Date.now();
             for (const [slotKey, entry] of Object.entries(snapshot.slots)) {
-                if (!entry)
-                    continue;
-                const definition = (_a = definitionIndex.get(entry.challengeId)) !== null && _a !== void 0 ? _a : {};
-                const goal = (_b = entry.goal) !== null && _b !== void 0 ? _b : { metric: 'score', target: 0, mode: 'sum' };
-                const target = Math.max(0, Math.round((_c = goal.target) !== null && _c !== void 0 ? _c : 0));
-                const value = Math.max(0, Math.floor((_d = entry.progressValue) !== null && _d !== void 0 ? _d : 0));
+                if (!entry) continue;
+                const definition = definitionIndex.get(entry.challengeId) ?? {};
+                const goal = entry.goal ?? { metric: 'score', target: 0, mode: 'sum' };
+                const target = Math.max(0, Math.round(goal.target ?? 0));
+                const value = Math.max(0, Math.floor(entry.progressValue ?? 0));
                 const percent = target > 0 ? Math.min(100, Math.round((value / target) * 100)) : entry.completedAt ? 100 : 0;
-                const reward = (_e = definition.reward) !== null && _e !== void 0 ? _e : null;
+                const reward = definition.reward ?? null;
                 const completed = Boolean(entry.completedAt) || (target > 0 && value >= target);
                 const claimed = Boolean(entry.claimedAt);
                 const readyToClaim = completed && !claimed && Boolean(reward);
-                list.push({
-                    id: (_f = definition.id) !== null && _f !== void 0 ? _f : entry.challengeId,
-                    slot: slotKey,
-                    slotLabel: slotKey === 'daily'
-                        ? 'Daily'
-                        : slotKey === 'weekly'
-                            ? 'Weekly'
-                            : slotKey === 'event'
-                                ? 'Event'
-                                : slotKey,
-                    title: (_g = definition.title) !== null && _g !== void 0 ? _g : entry.challengeId,
-                    description: (_h = definition.description) !== null && _h !== void 0 ? _h : '',
+                    list.push({
+                        id: definition.id ?? entry.challengeId,
+                        slot: slotKey,
+                    slotLabel:
+                        slotKey === 'daily'
+                            ? 'Daily'
+                            : slotKey === 'weekly'
+                                ? 'Weekly'
+                                : slotKey === 'event'
+                                    ? 'Event'
+                                    : slotKey,
+                        title: definition.title ?? entry.challengeId,
+                    description: definition.description ?? '',
                     reward,
                     rewardLabel: describeReward(reward),
                     completed,
@@ -6469,32 +7027,33 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return list;
         }
+
         function buildSnapshot() {
-            var _a, _b;
             const snapshot = {
                 version: CHALLENGE_STATE_VERSION,
                 slots: {},
                 history: Array.isArray(state.history)
-                    ? state.history.slice(-24).map((entry) => (Object.assign({}, entry)))
+                    ? state.history.slice(-24).map((entry) => ({ ...entry }))
                     : [],
                 cosmetics: {
                     ownedSkins: [...state.cosmetics.ownedSkins],
                     ownedTrails: [...state.cosmetics.ownedTrails],
                     ownedWeapons: [...state.cosmetics.ownedWeapons],
-                    equipped: Object.assign({}, state.cosmetics.equipped)
+                    equipped: { ...state.cosmetics.equipped }
                 }
             };
             for (const [slotKey, entry] of Object.entries(state.slots)) {
-                snapshot.slots[slotKey] = Object.assign(Object.assign({}, entry), { goal: Object.assign({}, entry.goal), slot: slotKey });
+                snapshot.slots[slotKey] = { ...entry, goal: { ...entry.goal }, slot: slotKey };
             }
             snapshot.milestones = {
-                streak: Array.isArray((_b = (_a = state.milestones) === null || _a === void 0 ? void 0 : _a.streak) === null || _b === void 0 ? void 0 : _b.achieved)
+                streak: Array.isArray(state.milestones?.streak?.achieved)
                     ? [...state.milestones.streak.achieved]
                     : []
             };
             snapshot.activeChallenges = computeActiveChallenges(snapshot);
             return snapshot;
         }
+
         function unlockReward(reward) {
             if (!reward || typeof reward !== 'object') {
                 return false;
@@ -6513,7 +7072,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return false;
             }
             if (reward.category === 'skin') {
-                if ((cosmetics === null || cosmetics === void 0 ? void 0 : cosmetics.skins) && !cosmetics.skins[reward.id]) {
+                if (cosmetics?.skins && !cosmetics.skins[reward.id]) {
                     return false;
                 }
                 let changed = false;
@@ -6529,7 +7088,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return changed;
             }
             if (reward.category === 'trail') {
-                if ((cosmetics === null || cosmetics === void 0 ? void 0 : cosmetics.trails) && !cosmetics.trails[reward.id]) {
+                if (cosmetics?.trails && !cosmetics.trails[reward.id]) {
                     return false;
                 }
                 let changed = false;
@@ -6545,7 +7104,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return changed;
             }
             if (reward.category === 'weapon') {
-                if ((cosmetics === null || cosmetics === void 0 ? void 0 : cosmetics.weapons) && !cosmetics.weapons[reward.id]) {
+                if (cosmetics?.weapons && !cosmetics.weapons[reward.id]) {
                     return false;
                 }
                 let changed = false;
@@ -6561,10 +7120,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return false;
         }
+
         function ensureActive(date = new Date()) {
-            var _a, _b;
             let mutated = false;
-            for (const slotKey of Object.keys(definitions !== null && definitions !== void 0 ? definitions : {})) {
+            for (const slotKey of Object.keys(definitions ?? {})) {
                 const definition = selectDefinition(slotKey, date);
                 const rotationId = computeRotationId(slotKey, date);
                 if (!definition) {
@@ -6577,7 +7136,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const current = state.slots[slotKey];
                 if (!current || current.challengeId !== definition.id || current.rotation !== rotationId) {
                     if (current) {
-                        state.history.push(Object.assign(Object.assign({}, current), { archivedAt: Date.now(), slot: slotKey }));
+                        state.history.push({ ...current, archivedAt: Date.now(), slot: slotKey });
                         state.history = state.history.slice(-24);
                     }
                     state.slots[slotKey] = {
@@ -6592,14 +7151,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         updatedAt: Date.now()
                     };
                     mutated = true;
-                }
-                else {
+                } else {
                     const normalizedGoal = sanitizeChallengeGoal(definition.goal);
-                    if (current.goal.metric !== normalizedGoal.metric ||
+                    if (
+                        current.goal.metric !== normalizedGoal.metric ||
                         current.goal.mode !== normalizedGoal.mode ||
-                        current.goal.target !== normalizedGoal.target) {
+                        current.goal.target !== normalizedGoal.target
+                    ) {
                         current.goal = normalizedGoal;
-                        current.progressValue = Math.min((_a = current.progressValue) !== null && _a !== void 0 ? _a : 0, (_b = normalizedGoal.target) !== null && _b !== void 0 ? _b : current.progressValue);
+                        current.progressValue = Math.min(
+                            current.progressValue ?? 0,
+                            normalizedGoal.target ?? current.progressValue
+                        );
                         if (current.completedAt && current.progressValue < normalizedGoal.target) {
                             current.completedAt = null;
                             current.claimedAt = null;
@@ -6611,18 +7174,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return mutated;
         }
+
         function notifyListeners() {
             for (const listener of listeners) {
                 try {
                     listener(cachedSnapshot);
-                }
-                catch (error) {
+                } catch (error) {
                     console.error('challenge listener error', error);
                 }
             }
         }
+
         function commitState({ notify = true, completions = [], rewardClaim = null } = {}) {
-            var _a, _b;
             persistChallengeState(state);
             cachedSnapshot = buildSnapshot();
             if (notify) {
@@ -6633,11 +7196,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         onChallengeCompleted(completion.definition, {
                             slot: completion.slot,
-                            progress: Object.assign({}, completion.entry),
-                            reward: (_b = (_a = completion.definition) === null || _a === void 0 ? void 0 : _a.reward) !== null && _b !== void 0 ? _b : null
+                            progress: { ...completion.entry },
+                            reward: completion.definition?.reward ?? null
                         });
-                    }
-                    catch (error) {
+                    } catch (error) {
                         console.error('challenge completion hook error', error);
                     }
                 }
@@ -6645,54 +7207,47 @@ document.addEventListener('DOMContentLoaded', () => {
             if (rewardClaim && typeof onRewardClaimed === 'function') {
                 try {
                     onRewardClaimed(rewardClaim.definition, rewardClaim.reward);
-                }
-                catch (error) {
+                } catch (error) {
                     console.error('challenge reward hook error', error);
                 }
             }
         }
+
         function recordEvent(event, payload = {}) {
-            var _a, _b, _c, _d, _e, _f, _g, _h, _j;
             const date = new Date();
             let mutated = ensureActive(date);
             const completions = [];
             for (const [slotKey, entry] of Object.entries(state.slots)) {
-                if (!entry)
-                    continue;
-                const goal = (_a = entry.goal) !== null && _a !== void 0 ? _a : { metric: 'score', target: 0, mode: 'sum' };
-                const before = (_b = entry.progressValue) !== null && _b !== void 0 ? _b : 0;
+                if (!entry) continue;
+                const goal = entry.goal ?? { metric: 'score', target: 0, mode: 'sum' };
+                const before = entry.progressValue ?? 0;
                 let after = before;
                 if (goal.metric === 'time' && event === 'time') {
-                    const totalMs = Number((_c = payload.totalMs) !== null && _c !== void 0 ? _c : 0);
+                    const totalMs = Number(payload.totalMs ?? 0);
                     if (Number.isFinite(totalMs) && totalMs > after) {
                         after = totalMs;
                     }
-                }
-                else if (goal.metric === 'score' && event === 'score') {
-                    const totalScore = Number((_d = payload.totalScore) !== null && _d !== void 0 ? _d : 0);
+                } else if (goal.metric === 'score' && event === 'score') {
+                    const totalScore = Number(payload.totalScore ?? 0);
                     if (Number.isFinite(totalScore) && totalScore > after) {
                         after = totalScore;
                     }
-                }
-                else if (goal.metric === 'villain' && event === 'villain') {
-                    const count = Number((_e = payload.count) !== null && _e !== void 0 ? _e : 1);
+                } else if (goal.metric === 'villain' && event === 'villain') {
+                    const count = Number(payload.count ?? 1);
                     if (Number.isFinite(count) && count > 0) {
                         after = before + count;
                     }
-                }
-                else if (goal.metric === 'powerUp' && event === 'powerUp') {
-                    const allowedTypes = Array.isArray((_f = goal.filter) === null || _f === void 0 ? void 0 : _f.types) ? goal.filter.types : null;
+                } else if (goal.metric === 'powerUp' && event === 'powerUp') {
+                    const allowedTypes = Array.isArray(goal.filter?.types) ? goal.filter.types : null;
                     if (!allowedTypes || allowedTypes.includes(payload.type)) {
                         after = before + 1;
                     }
-                }
-                else if (goal.metric === 'streak' && event === 'streak') {
-                    const best = Number((_g = payload.bestStreak) !== null && _g !== void 0 ? _g : 0);
+                } else if (goal.metric === 'streak' && event === 'streak') {
+                    const best = Number(payload.bestStreak ?? 0);
                     if (Number.isFinite(best) && best > 0) {
                         if (goal.mode === 'sum') {
                             after = before + best;
-                        }
-                        else if (best > after) {
+                        } else if (best > after) {
                             after = best;
                         }
                     }
@@ -6702,23 +7257,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     entry.updatedAt = Date.now();
                     mutated = true;
                 }
-                const target = (_h = goal.target) !== null && _h !== void 0 ? _h : 0;
+                const target = goal.target ?? 0;
                 if (target > 0 && entry.progressValue >= target && !entry.completedAt) {
                     entry.completedAt = Date.now();
                     mutated = true;
-                    const definition = (_j = definitionIndex.get(entry.challengeId)) !== null && _j !== void 0 ? _j : {
+                    const definition = definitionIndex.get(entry.challengeId) ?? {
                         id: entry.challengeId,
                         slot: slotKey
                     };
-                    completions.push({ slot: slotKey, entry: Object.assign({}, entry), definition });
+                    completions.push({ slot: slotKey, entry: { ...entry }, definition });
                 }
             }
             if (mutated) {
                 commitState({ notify: true, completions });
             }
         }
+
         function claimReward(challengeId) {
-            var _a, _b;
             const date = new Date();
             let mutated = ensureActive(date);
             for (const [slotKey, entry] of Object.entries(state.slots)) {
@@ -6728,8 +7283,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!entry.completedAt || entry.claimedAt) {
                     return false;
                 }
-                const definition = (_a = definitionIndex.get(entry.challengeId)) !== null && _a !== void 0 ? _a : { id: challengeId, slot: slotKey };
-                const reward = (_b = definition.reward) !== null && _b !== void 0 ? _b : null;
+                const definition = definitionIndex.get(entry.challengeId) ?? { id: challengeId, slot: slotKey };
+                const reward = definition.reward ?? null;
                 if (reward) {
                     unlockReward(reward);
                 }
@@ -6744,41 +7299,39 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return false;
         }
+
         function equipCosmetic(category, id) {
             let mutated = ensureActive(new Date());
             if (category === 'skin') {
                 if (!state.cosmetics.ownedSkins.includes(id) || state.cosmetics.equipped.skin === id) {
                     return false;
                 }
-                if ((cosmetics === null || cosmetics === void 0 ? void 0 : cosmetics.skins) && !cosmetics.skins[id]) {
+                if (cosmetics?.skins && !cosmetics.skins[id]) {
                     return false;
                 }
                 state.cosmetics.equipped.skin = id;
                 setActivePlayerSkinById(id);
                 mutated = true;
-            }
-            else if (category === 'trail') {
+            } else if (category === 'trail') {
                 if (!state.cosmetics.ownedTrails.includes(id) || state.cosmetics.equipped.trail === id) {
                     return false;
                 }
-                if ((cosmetics === null || cosmetics === void 0 ? void 0 : cosmetics.trails) && !cosmetics.trails[id]) {
+                if (cosmetics?.trails && !cosmetics.trails[id]) {
                     return false;
                 }
                 state.cosmetics.equipped.trail = id;
                 setActiveTrailStyleById(id);
                 mutated = true;
-            }
-            else if (category === 'weapon') {
+            } else if (category === 'weapon') {
                 if (!state.cosmetics.ownedWeapons.includes(id) || state.cosmetics.equipped.weapon === id) {
                     return false;
                 }
-                if ((cosmetics === null || cosmetics === void 0 ? void 0 : cosmetics.weapons) && !cosmetics.weapons[id]) {
+                if (cosmetics?.weapons && !cosmetics.weapons[id]) {
                     return false;
                 }
                 state.cosmetics.equipped.weapon = id;
                 mutated = true;
-            }
-            else {
+            } else {
                 return false;
             }
             if (mutated) {
@@ -6786,8 +7339,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return true;
         }
+
         function markMilestoneAchieved(kind, milestone) {
-            var _a, _b;
             if (!milestone || typeof milestone !== 'object' || !milestone.id) {
                 return false;
             }
@@ -6805,30 +7358,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 milestoneId: milestone.id,
                 slot: kind,
                 achievedAt: Date.now(),
-                reward: (_a = milestone.reward) !== null && _a !== void 0 ? _a : null
+                reward: milestone.reward ?? null
             });
             state.history = state.history.slice(-24);
             const rewardUnlocked = milestone.reward ? unlockReward(milestone.reward) : false;
-            const definition = { id: milestone.id, title: (_b = milestone.title) !== null && _b !== void 0 ? _b : 'Milestone', slot: kind };
+            const definition = { id: milestone.id, title: milestone.title ?? 'Milestone', slot: kind };
             commitState({
                 notify: true,
                 rewardClaim: rewardUnlocked ? { definition, reward: milestone.reward } : null
             });
             return true;
         }
+
         function grantCosmeticReward(reward, { reason = 'system', notify = true } = {}) {
-            var _a;
             if (!reward || typeof reward !== 'object') {
                 return false;
             }
             const unlocked = unlockReward(reward);
-            const definition = { id: reason, title: (_a = reward.label) !== null && _a !== void 0 ? _a : 'Reward', slot: reason };
+            const definition = { id: reason, title: reward.label ?? 'Reward', slot: reason };
             commitState({ notify, rewardClaim: unlocked ? { definition, reward } : null });
             return unlocked;
         }
+
         function subscribe(listener) {
             if (typeof listener !== 'function') {
-                return () => { };
+                return () => {};
             }
             listeners.add(listener);
             listener(cachedSnapshot);
@@ -6836,6 +7390,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 listeners.delete(listener);
             };
         }
+
         indexDefinitions();
         const initialMutated = ensureActive(new Date());
         cachedSnapshot = buildSnapshot();
@@ -6843,6 +7398,7 @@ document.addEventListener('DOMContentLoaded', () => {
             persistChallengeState(state);
             cachedSnapshot = buildSnapshot();
         }
+
         return {
             recordEvent,
             claimReward,
@@ -6853,39 +7409,40 @@ document.addEventListener('DOMContentLoaded', () => {
             getSnapshot: () => cachedSnapshot
         };
     }
+
     function createMetaProgressManager({ challengeManager, broadcast, seasonTrack } = {}) {
-        var _a;
         if (typeof seasonTrack === 'function') {
             try {
                 seasonTrack = seasonTrack();
-            }
-            catch (error) {
+            } catch (error) {
                 if (error instanceof ReferenceError) {
                     return null;
                 }
                 throw error;
             }
-        }
-        else {
+        } else {
             try {
                 // Trigger access to the binding early so environments with
                 // deferred season data defined via top-level const bindings do
                 // not throw later during initialization when the variable is
                 // still in its temporal dead zone.
                 seasonTrack;
-            }
-            catch (error) {
+            } catch (error) {
                 if (error instanceof ReferenceError) {
                     return null;
                 }
                 throw error;
             }
         }
+
         if (!seasonTrack) {
             return null;
         }
+
         const META_PROGRESS_VERSION = 1;
+
         let missingGrantCosmeticWarningLogged = false;
+
         const defaultState = () => ({
             version: META_PROGRESS_VERSION,
             achievements: {},
@@ -6903,17 +7460,18 @@ document.addEventListener('DOMContentLoaded', () => {
             })),
             streak: { milestonesEarned: [] }
         });
+
         const buildSafeDefaultState = () => {
             try {
                 return defaultState();
-            }
-            catch (error) {
+            } catch (error) {
                 if (error instanceof ReferenceError) {
                     return null;
                 }
                 throw error;
             }
         };
+
         function ensureSeasonState(state) {
             if (!state.seasonPass || state.seasonPass.seasonId !== seasonTrack.seasonId) {
                 state.seasonPass = {
@@ -6921,8 +7479,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     points: 0,
                     claimedTiers: []
                 };
-            }
-            else {
+            } else {
                 state.seasonPass.points = Number.isFinite(state.seasonPass.points)
                     ? Math.max(0, state.seasonPass.points)
                     : 0;
@@ -6932,6 +7489,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return state.seasonPass;
         }
+
         function ensureCommunityEntry(state, goalId) {
             let entry = Array.isArray(state.communityGoals)
                 ? state.communityGoals.find((item) => item.id === goalId)
@@ -6956,8 +7514,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 : 0;
             return entry;
         }
+
         function migrateMetaState(raw) {
-            var _a;
             if (!raw || typeof raw !== 'object') {
                 return buildSafeDefaultState();
             }
@@ -6975,7 +7533,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (Number.isFinite(unlockedAt)) {
                         state.achievements[id] = {
                             unlockedAt,
-                            context: (_a = entry.context) !== null && _a !== void 0 ? _a : null
+                            context: entry.context ?? null
                         };
                     }
                 }
@@ -6985,36 +7543,40 @@ document.addEventListener('DOMContentLoaded', () => {
                     seasonId: raw.seasonPass.seasonId === seasonTrack.seasonId
                         ? seasonTrack.seasonId
                         : seasonTrack.seasonId,
-                    points: raw.seasonPass.seasonId === seasonTrack.seasonId &&
+                    points:
+                        raw.seasonPass.seasonId === seasonTrack.seasonId &&
                         Number.isFinite(raw.seasonPass.points)
-                        ? Math.max(0, raw.seasonPass.points)
-                        : 0,
-                    claimedTiers: raw.seasonPass.seasonId === seasonTrack.seasonId &&
+                            ? Math.max(0, raw.seasonPass.points)
+                            : 0,
+                    claimedTiers:
+                        raw.seasonPass.seasonId === seasonTrack.seasonId &&
                         Array.isArray(raw.seasonPass.claimedTiers)
-                        ? Array.from(new Set(raw.seasonPass.claimedTiers.map((value) => String(value))))
-                        : []
+                            ? Array.from(new Set(raw.seasonPass.claimedTiers.map((value) => String(value))))
+                            : []
                 };
             }
             if (Array.isArray(raw.communityGoals)) {
                 state.communityGoals = raw.communityGoals
                     .map((entry) => ({
-                    id: entry === null || entry === void 0 ? void 0 : entry.id,
-                    progress: Number.isFinite(entry === null || entry === void 0 ? void 0 : entry.progress) ? Math.max(0, entry.progress) : 0,
-                    contributions: Number.isFinite(entry === null || entry === void 0 ? void 0 : entry.contributions) ? Math.max(0, entry.contributions) : 0,
-                    completedAt: Number.isFinite(entry === null || entry === void 0 ? void 0 : entry.completedAt) ? entry.completedAt : null,
-                    lastBroadcastPercent: Number.isFinite(entry === null || entry === void 0 ? void 0 : entry.lastBroadcastPercent)
-                        ? Math.max(0, entry.lastBroadcastPercent)
-                        : 0
-                }))
+                        id: entry?.id,
+                        progress: Number.isFinite(entry?.progress) ? Math.max(0, entry.progress) : 0,
+                        contributions: Number.isFinite(entry?.contributions) ? Math.max(0, entry.contributions) : 0,
+                        completedAt: Number.isFinite(entry?.completedAt) ? entry.completedAt : null,
+                        lastBroadcastPercent: Number.isFinite(entry?.lastBroadcastPercent)
+                            ? Math.max(0, entry.lastBroadcastPercent)
+                            : 0
+                    }))
                     .filter((entry) => entry.id);
             }
             if (raw.streak && Array.isArray(raw.streak.milestonesEarned)) {
-                state.streak.milestonesEarned = Array.from(new Set(raw.streak.milestonesEarned.map((value) => String(value))));
+                state.streak.milestonesEarned = Array.from(
+                    new Set(raw.streak.milestonesEarned.map((value) => String(value)))
+                );
             }
             return state;
         }
+
         function loadMetaState() {
-            var _a;
             const fallbackState = buildSafeDefaultState();
             if (!fallbackState) {
                 return null;
@@ -7028,12 +7590,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     return fallbackState;
                 }
                 const parsed = JSON.parse(raw);
-                return (_a = migrateMetaState(parsed)) !== null && _a !== void 0 ? _a : fallbackState;
-            }
-            catch (error) {
+                return migrateMetaState(parsed) ?? fallbackState;
+            } catch (error) {
                 return fallbackState;
             }
         }
+
         let state = loadMetaState();
         if (!state) {
             return null;
@@ -7043,32 +7605,46 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const goal of COMMUNITY_GOALS) {
             ensureCommunityEntry(state, goal.id);
         }
-        state.streak.milestonesEarned = Array.isArray((_a = state.streak) === null || _a === void 0 ? void 0 : _a.milestonesEarned)
+        state.streak.milestonesEarned = Array.isArray(state.streak?.milestonesEarned)
             ? Array.from(new Set(state.streak.milestonesEarned.map((value) => String(value))))
             : [];
+
         const listeners = new Set();
+
         function buildSnapshot() {
-            var _a, _b, _c;
             const season = ensureSeasonState(state);
-            const tiers = ((_a = seasonTrack.tiers) !== null && _a !== void 0 ? _a : []).map((tier, index, array) => {
+            const tiers = (seasonTrack.tiers ?? []).map((tier, index, array) => {
                 const previousThreshold = index > 0 ? array[index - 1].threshold : 0;
                 const unlocked = season.points >= tier.threshold;
-                return Object.assign(Object.assign({}, tier), { unlocked, claimed: season.claimedTiers.includes(tier.id), previousThreshold });
+                return {
+                    ...tier,
+                    unlocked,
+                    claimed: season.claimedTiers.includes(tier.id),
+                    previousThreshold
+                };
             });
-            const nextTier = (_b = tiers.find((tier) => !tier.claimed && season.points < tier.threshold)) !== null && _b !== void 0 ? _b : null;
+            const nextTier = tiers.find((tier) => !tier.claimed && season.points < tier.threshold) ?? null;
             const currentTier = nextTier
                 ? tiers[Math.max(0, tiers.indexOf(nextTier) - 1)]
-                : (_c = tiers[tiers.length - 1]) !== null && _c !== void 0 ? _c : null;
+                : tiers[tiers.length - 1] ?? null;
+
             const community = COMMUNITY_GOALS.map((goal) => {
                 const entry = ensureCommunityEntry(state, goal.id);
                 const percent = goal.target > 0 ? Math.min(100, Math.round((entry.progress / goal.target) * 100)) : 0;
-                return Object.assign(Object.assign({}, goal), { progress: entry.progress, contributions: entry.contributions, completedAt: entry.completedAt, percent });
+                return {
+                    ...goal,
+                    progress: entry.progress,
+                    contributions: entry.contributions,
+                    completedAt: entry.completedAt,
+                    percent
+                };
             });
+
             return {
-                achievements: ACHIEVEMENT_DEFINITIONS.map((definition) => {
-                    var _a, _b;
-                    return (Object.assign(Object.assign({}, definition), { unlockedAt: (_b = (_a = state.achievements[definition.id]) === null || _a === void 0 ? void 0 : _a.unlockedAt) !== null && _b !== void 0 ? _b : null }));
-                }),
+                achievements: ACHIEVEMENT_DEFINITIONS.map((definition) => ({
+                    ...definition,
+                    unlockedAt: state.achievements[definition.id]?.unlockedAt ?? null
+                })),
                 seasonPass: {
                     seasonId: season.seasonId,
                     label: seasonTrack.label,
@@ -7079,32 +7655,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 communityGoals: community,
                 streak: {
-                    milestones: STREAK_MILESTONES.map((milestone) => (Object.assign(Object.assign({}, milestone), { earned: state.streak.milestonesEarned.includes(milestone.id) })))
+                    milestones: STREAK_MILESTONES.map((milestone) => ({
+                        ...milestone,
+                        earned: state.streak.milestonesEarned.includes(milestone.id)
+                    }))
                 }
             };
         }
+
         let cachedSnapshot = buildSnapshot();
+
         function persistState() {
             if (!storageAvailable) {
                 return;
             }
             try {
                 writeStorage(STORAGE_KEYS.metaProgress, JSON.stringify(state));
-            }
-            catch (error) {
+            } catch (error) {
                 // Ignore persistence failures
             }
         }
+
         function notifyListeners() {
             for (const listener of listeners) {
                 try {
                     listener(cachedSnapshot);
-                }
-                catch (error) {
+                } catch (error) {
                     console.error('meta progress listener error', error);
                 }
             }
         }
+
         function commit({ messages = [] } = {}) {
             persistState();
             cachedSnapshot = buildSnapshot();
@@ -7119,6 +7700,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
+
         function unlockAchievement(id, context) {
             const definition = ACHIEVEMENT_DEFINITIONS.find((entry) => entry.id === id);
             if (!definition) {
@@ -7129,7 +7711,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             state.achievements[id] = {
                 unlockedAt: Date.now(),
-                context: context !== null && context !== void 0 ? context : null
+                context: context ?? null
             };
             return {
                 changed: true,
@@ -7139,8 +7721,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
         }
+
         function addSeasonPassPoints(points) {
-            var _a, _b;
             if (!Number.isFinite(points) || points <= 0) {
                 return { changed: false, messages: [] };
             }
@@ -7148,23 +7730,21 @@ document.addEventListener('DOMContentLoaded', () => {
             season.points += Math.max(0, Math.round(points));
             let changed = true;
             const messages = [];
-            for (const tier of (_a = seasonTrack.tiers) !== null && _a !== void 0 ? _a : []) {
+            for (const tier of seasonTrack.tiers ?? []) {
                 if (season.points >= tier.threshold && !season.claimedTiers.includes(tier.id)) {
                     season.claimedTiers.push(tier.id);
                     messages.push({
-                        text: `Season pass tier unlocked: ${(_b = tier.label) !== null && _b !== void 0 ? _b : tier.id}`,
+                        text: `Season pass tier unlocked: ${tier.label ?? tier.id}`,
                         meta: { type: 'season' }
                     });
                     if (tier.reward) {
-                        if (typeof (challengeManager === null || challengeManager === void 0 ? void 0 : challengeManager.grantCosmeticReward) === 'function') {
+                        if (typeof challengeManager?.grantCosmeticReward === 'function') {
                             try {
                                 challengeManager.grantCosmeticReward(tier.reward, { reason: `season-${tier.id}` });
-                            }
-                            catch (error) {
+                            } catch (error) {
                                 console.error('season reward grant failed', error);
                             }
-                        }
-                        else if (!missingGrantCosmeticWarningLogged) {
+                        } else if (!missingGrantCosmeticWarningLogged) {
                             console.warn('season reward grant skipped: grantCosmeticReward callback missing');
                             missingGrantCosmeticWarningLogged = true;
                         }
@@ -7174,6 +7754,7 @@ document.addEventListener('DOMContentLoaded', () => {
             season.claimedTiers = Array.from(new Set(season.claimedTiers));
             return { changed, messages };
         }
+
         function addCommunityContribution(goalId, amount) {
             if (!Number.isFinite(amount) || amount <= 0) {
                 return { changed: false, messages: [] };
@@ -7196,8 +7777,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (achievement.changed && achievement.message) {
                     messages.push(achievement.message);
                 }
-            }
-            else if (entry.progress !== previous) {
+            } else if (entry.progress !== previous) {
                 const percent = goal.target > 0 ? Math.min(100, Math.round((entry.progress / goal.target) * 100)) : 0;
                 if (percent - entry.lastBroadcastPercent >= 10) {
                     entry.lastBroadcastPercent = percent;
@@ -7206,6 +7786,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return { changed, messages };
         }
+
         function recordScore(deltaScore = 0, { totalScore = 0 } = {}) {
             const messages = [];
             let changed = false;
@@ -7227,6 +7808,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 commit({ messages });
             }
         }
+
         function recordStreak({ bestStreak = 0, delta = 0 } = {}) {
             const messages = [];
             let changed = false;
@@ -7240,11 +7822,10 @@ document.addEventListener('DOMContentLoaded', () => {
             for (const milestone of STREAK_MILESTONES) {
                 if (bestStreak >= milestone.threshold && !state.streak.milestonesEarned.includes(milestone.id)) {
                     state.streak.milestonesEarned.push(milestone.id);
-                    if (challengeManager === null || challengeManager === void 0 ? void 0 : challengeManager.markMilestoneAchieved) {
+                    if (challengeManager?.markMilestoneAchieved) {
                         try {
                             challengeManager.markMilestoneAchieved('streak', milestone);
-                        }
-                        catch (error) {
+                        } catch (error) {
                             console.error('streak milestone grant failed', error);
                         }
                     }
@@ -7256,6 +7837,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 commit({ messages });
             }
         }
+
         function calculateSeasonPoints(summary = {}) {
             const score = Number(summary.score) || 0;
             const placement = Number(summary.placement);
@@ -7264,8 +7846,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const placementBonus = Number.isFinite(placement) && placement > 0 ? Math.max(0, 40 - Math.min(placement, 40)) : 0;
             return Math.max(0, recordedBonus + scoreBonus + placementBonus);
         }
+
         function recordRun(summary = {}) {
-            var _a;
             const messages = [];
             let changed = false;
             const firstFlight = unlockAchievement('achv-first-flight', {
@@ -7278,7 +7860,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     messages.push(firstFlight.message);
                 }
             }
-            if (((_a = summary.bestStreak) !== null && _a !== void 0 ? _a : 0) >= 12) {
+            if ((summary.bestStreak ?? 0) >= 12) {
                 const comboAce = unlockAchievement('achv-combo-ace', { bestStreak: summary.bestStreak });
                 if (comboAce.changed) {
                     changed = true;
@@ -7296,12 +7878,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 commit({ messages });
             }
         }
+
         function registerChallengeCompletion(definition) {
             const seasonResult = addSeasonPassPoints(20);
             if (seasonResult.changed || seasonResult.messages.length) {
                 commit({ messages: seasonResult.messages });
             }
         }
+
         function registerRewardClaim(definition, reward) {
             if (!reward) {
                 return;
@@ -7313,21 +7897,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     : []
             });
         }
+
         function subscribe(listener) {
             if (typeof listener !== 'function') {
-                return () => { };
+                return () => {};
             }
             listeners.add(listener);
             try {
                 listener(cachedSnapshot);
-            }
-            catch (error) {
+            } catch (error) {
                 console.error('meta progress subscriber error', error);
             }
             return () => {
                 listeners.delete(listener);
             };
         }
+
         return {
             recordScore,
             recordStreak,
@@ -7338,6 +7923,7 @@ document.addEventListener('DOMContentLoaded', () => {
             getSnapshot: () => cachedSnapshot
         };
     }
+
     function syncReducedEffectsMode() {
         const next = manualReducedEffectsEnabled || autoReducedEffectsEnabled;
         const previous = reducedEffectsMode;
@@ -7348,6 +7934,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return previous !== next;
     }
+
     function refreshReducedEffectsStatus() {
         if (!reducedEffectsStatus) {
             if (reducedEffectsToggle) {
@@ -7360,35 +7947,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (manualReducedEffectsEnabled) {
             reducedEffectsStatus.textContent = 'On';
-        }
-        else if (autoReducedEffectsEnabled) {
+        } else if (autoReducedEffectsEnabled) {
             reducedEffectsStatus.textContent = 'Auto';
-        }
-        else {
+        } else {
             reducedEffectsStatus.textContent = 'Off';
         }
     }
+
     function applyReducedEffectsFlag(enabled, { source = 'manual', refreshUI = true } = {}) {
         const normalized = Boolean(enabled);
         if (source === 'manual') {
             manualReducedEffectsEnabled = normalized;
             if (normalized) {
                 autoReducedEffectsEnabled = false;
-            }
-            else {
+            } else {
                 if (autoReducedEffectsEnabled) {
                     autoReducedEffectsEnabled = false;
                 }
-                performanceMonitor.cooldownUntil = Math.max(performanceMonitor.cooldownUntil, getTimestamp() + AUTO_REDUCED_EFFECTS_MANUAL_COOLDOWN);
+                performanceMonitor.cooldownUntil = Math.max(
+                    performanceMonitor.cooldownUntil,
+                    getTimestamp() + AUTO_REDUCED_EFFECTS_MANUAL_COOLDOWN
+                );
             }
-        }
-        else if (source === 'auto') {
+        } else if (source === 'auto') {
             autoReducedEffectsEnabled = normalized;
             if (!normalized) {
-                performanceMonitor.cooldownUntil = Math.max(performanceMonitor.cooldownUntil, getTimestamp() + AUTO_REDUCED_EFFECTS_CHANGE_COOLDOWN);
+                performanceMonitor.cooldownUntil = Math.max(
+                    performanceMonitor.cooldownUntil,
+                    getTimestamp() + AUTO_REDUCED_EFFECTS_CHANGE_COOLDOWN
+                );
             }
-        }
-        else {
+        } else {
             reducedEffectsMode = normalized;
         }
         const changed = syncReducedEffectsMode();
@@ -7397,6 +7986,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return changed;
     }
+
     function updateSettingsUI() {
         if (masterVolumeSlider) {
             const volumePercent = Math.round(settingsState.masterVolume * 100);
@@ -7436,17 +8026,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (difficultyDescriptionEl) {
                 const preset = getDifficultyPreset(normalizedDifficulty);
-                difficultyDescriptionEl.textContent = (preset === null || preset === void 0 ? void 0 : preset.description)
+                difficultyDescriptionEl.textContent = preset?.description
                     ? `${preset.label}: ${preset.description}`
                     : '';
             }
-        }
-        else if (difficultyDescriptionEl) {
+        } else if (difficultyDescriptionEl) {
             difficultyDescriptionEl.textContent = '';
         }
     }
+
     function applySettingsPreferences(partial, { persist = false, announceDifficulty = false } = {}) {
-        const previousDifficulty = settingsState === null || settingsState === void 0 ? void 0 : settingsState.difficulty;
+        const previousDifficulty = settingsState?.difficulty;
         settingsState = coerceSettings(partial, settingsState);
         audioManager.setMasterVolume(settingsState.masterVolume);
         audioManager.toggleMusic(settingsState.musicEnabled);
@@ -7457,8 +8047,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const difficultyChanged = normalizeDifficultySetting(previousDifficulty) !== normalizedDifficulty;
         if (!config) {
             activeDifficultyPreset = normalizedDifficulty;
-        }
-        else {
+        } else {
             applyDifficultyPreset(normalizedDifficulty, {
                 announce: announceDifficulty && difficultyChanged
             });
@@ -7469,8 +8058,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return settingsState;
     }
+
     settingsState = loadSettingsPreferences();
     applySettingsPreferences(settingsState, { persist: false });
+
     if (reducedMotionQuery) {
         const handleReducedMotionPreferenceChange = (event) => {
             if (hasStoredSettings) {
@@ -7486,48 +8077,45 @@ document.addEventListener('DOMContentLoaded', () => {
             reducedMotionListenerCleanup = () => {
                 reducedMotionQuery.removeEventListener('change', handleReducedMotionPreferenceChange);
             };
-        }
-        else if (typeof reducedMotionQuery.addListener === 'function') {
+        } else if (typeof reducedMotionQuery.addListener === 'function') {
             reducedMotionQuery.addListener(handleReducedMotionPreferenceChange);
             reducedMotionListenerCleanup = () => {
                 reducedMotionQuery.removeListener(handleReducedMotionPreferenceChange);
             };
         }
     }
+
     const isSettingsDrawerOpen = () => Boolean(settingsDrawer && !settingsDrawer.hasAttribute('hidden'));
+
     function setSettingsDrawerOpen(open, { focusTarget = true } = {}) {
-        var _a;
         if (!settingsDrawer) {
             return;
         }
         if (open) {
             if (state.gameState === 'running') {
                 resumeAfterSettingsClose = pauseGame({ reason: 'settings', showOverlay: false });
-            }
-            else {
+            } else {
                 resumeAfterSettingsClose = false;
             }
             settingsDrawer.hidden = false;
             settingsDrawer.setAttribute('aria-hidden', 'false');
-            settingsButton === null || settingsButton === void 0 ? void 0 : settingsButton.setAttribute('aria-expanded', 'true');
-            bodyElement === null || bodyElement === void 0 ? void 0 : bodyElement.classList.add('settings-open');
-            const focusEl = (_a = masterVolumeSlider !== null && masterVolumeSlider !== void 0 ? masterVolumeSlider : settingsCloseButton) !== null && _a !== void 0 ? _a : settingsButton;
+            settingsButton?.setAttribute('aria-expanded', 'true');
+            bodyElement?.classList.add('settings-open');
+            const focusEl = masterVolumeSlider ?? settingsCloseButton ?? settingsButton;
             if (focusTarget && focusEl) {
                 window.requestAnimationFrame(() => {
                     try {
                         focusEl.focus({ preventScroll: true });
-                    }
-                    catch (_a) {
+                    } catch {
                         // Ignore focus errors
                     }
                 });
             }
-        }
-        else {
+        } else {
             settingsDrawer.hidden = true;
             settingsDrawer.setAttribute('aria-hidden', 'true');
-            settingsButton === null || settingsButton === void 0 ? void 0 : settingsButton.setAttribute('aria-expanded', 'false');
-            bodyElement === null || bodyElement === void 0 ? void 0 : bodyElement.classList.remove('settings-open');
+            settingsButton?.setAttribute('aria-expanded', 'false');
+            bodyElement?.classList.remove('settings-open');
             if (resumeAfterSettingsClose) {
                 resumeAfterSettingsClose = false;
                 resumeGame();
@@ -7536,27 +8124,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.requestAnimationFrame(() => {
                     try {
                         settingsButton.focus({ preventScroll: true });
-                    }
-                    catch (_a) {
+                    } catch {
                         // Ignore focus errors
                     }
                 });
             }
         }
     }
+
     const openSettingsDrawer = (options = {}) => setSettingsDrawerOpen(true, options);
     const closeSettingsDrawer = (options = {}) => setSettingsDrawerOpen(false, options);
     const toggleSettingsDrawer = () => setSettingsDrawerOpen(!isSettingsDrawerOpen());
+
     if (settingsButton) {
         settingsButton.addEventListener('click', () => {
             toggleSettingsDrawer();
         });
     }
+
     if (settingsCloseButton) {
         settingsCloseButton.addEventListener('click', () => {
             closeSettingsDrawer();
         });
     }
+
     if (settingsDrawer) {
         settingsDrawer.addEventListener('click', (event) => {
             const target = event.target;
@@ -7565,6 +8156,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
     if (masterVolumeSlider) {
         const handleVolumeChange = (persist) => {
             const normalized = clamp(Number(masterVolumeSlider.value) / 100, 0, 1);
@@ -7573,21 +8165,25 @@ document.addEventListener('DOMContentLoaded', () => {
         masterVolumeSlider.addEventListener('input', () => handleVolumeChange(false));
         masterVolumeSlider.addEventListener('change', () => handleVolumeChange(true));
     }
+
     if (musicToggle) {
         musicToggle.addEventListener('change', () => {
             applySettingsPreferences({ musicEnabled: musicToggle.checked }, { persist: true });
         });
     }
+
     if (sfxToggle) {
         sfxToggle.addEventListener('change', () => {
             applySettingsPreferences({ sfxEnabled: sfxToggle.checked }, { persist: true });
         });
     }
+
     if (reducedEffectsToggle) {
         reducedEffectsToggle.addEventListener('change', () => {
             applySettingsPreferences({ reducedEffects: reducedEffectsToggle.checked }, { persist: true });
         });
     }
+
     if (difficultyRadios.length) {
         for (const radio of difficultyRadios) {
             radio.addEventListener('change', () => {
@@ -7595,17 +8191,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 const normalized = normalizeDifficultySetting(radio.value);
-                applySettingsPreferences({ difficulty: normalized }, { persist: true, announceDifficulty: true });
+                applySettingsPreferences(
+                    { difficulty: normalized },
+                    { persist: true, announceDifficulty: true }
+                );
             });
         }
     }
+
     function ensureSubmissionLogEntry(name) {
-        if (!name)
-            return;
+        if (!name) return;
         if (!Array.isArray(submissionLog[name])) {
             submissionLog[name] = [];
         }
     }
+
     function getSubmissionUsage(name, now = Date.now()) {
         ensureSubmissionLogEntry(name);
         const cutoff = now - SUBMISSION_WINDOW_MS;
@@ -7616,6 +8216,7 @@ document.addEventListener('DOMContentLoaded', () => {
         submissionLog[name] = recent;
         return { recent, count: recent.length };
     }
+
     function trackSubmissionUsage(name, timestamp) {
         const { recent } = getSubmissionUsage(name, timestamp);
         recent.push(timestamp);
@@ -7624,6 +8225,7 @@ document.addEventListener('DOMContentLoaded', () => {
         persistSubmissionLog(submissionLog);
         return recent.length;
     }
+
     function sanitizePlayerName(value) {
         if (typeof value !== 'string') {
             return '';
@@ -7632,6 +8234,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const filtered = condensed.replace(/[^A-Za-z0-9 _\-]/g, '');
         return filtered.trim().slice(0, 24);
     }
+
     const temporaryCallsignPrefixes = [
         'Rookie',
         'Nova',
@@ -7660,14 +8263,18 @@ document.addEventListener('DOMContentLoaded', () => {
         'Burst',
         'Rider'
     ];
+
     function generateTemporaryCallsign() {
-        const prefix = temporaryCallsignPrefixes[Math.floor(Math.random() * temporaryCallsignPrefixes.length)] || 'Rookie';
-        const suffix = temporaryCallsignSuffixes[Math.floor(Math.random() * temporaryCallsignSuffixes.length)] || 'Pilot';
+        const prefix =
+            temporaryCallsignPrefixes[Math.floor(Math.random() * temporaryCallsignPrefixes.length)] || 'Rookie';
+        const suffix =
+            temporaryCallsignSuffixes[Math.floor(Math.random() * temporaryCallsignSuffixes.length)] || 'Pilot';
         const number = Math.floor(Math.random() * 90) + 10;
         const raw = `${prefix} ${suffix}${number}`;
         const sanitized = sanitizePlayerName(raw);
         return sanitized.length >= 3 ? sanitized : 'Flight Cadet';
     }
+
     function refreshFlyNowButton() {
         if (!flyNowButton) {
             return;
@@ -7677,20 +8284,18 @@ document.addEventListener('DOMContentLoaded', () => {
         flyNowButton.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
         flyNowButton.disabled = !shouldShow;
     }
+
     function refreshOverlayLaunchButton() {
-        var _a;
         if (!overlayButton) {
             return;
         }
         const mode = overlayButton.dataset.launchMode || (state.gameState === 'ready' ? 'launch' : 'retry');
-        let label = (_a = overlayButton.textContent) !== null && _a !== void 0 ? _a : '';
+        let label = overlayButton.textContent ?? '';
         if (mode === 'launch') {
             label = getLaunchControlText();
-        }
-        else if (mode === 'retry') {
+        } else if (mode === 'retry') {
             label = getRetryControlText();
-        }
-        else if (mode === 'prepare') {
+        } else if (mode === 'prepare') {
             label = 'Confirm Callsign';
         }
         let shouldDisable = false;
@@ -7704,6 +8309,7 @@ document.addEventListener('DOMContentLoaded', () => {
             overlayButton.textContent = label;
         }
     }
+
     function startTutorialFlight() {
         if (!flyNowButton || state.gameState === 'running') {
             return;
@@ -7714,6 +8320,7 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshFlyNowButton();
         startGame({ skipCommit: true, tutorial: true, tutorialCallsign: generatedCallsign });
     }
+
     function getPendingPlayerName() {
         if (!playerNameInput) {
             return playerName;
@@ -7721,6 +8328,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sanitized = sanitizePlayerName(playerNameInput.value);
         return sanitized || DEFAULT_PLAYER_NAME;
     }
+
     function loadStoredPlayerName() {
         const storedName = readStorage(STORAGE_KEYS.playerName);
         const sanitized = sanitizePlayerName(storedName);
@@ -7729,6 +8337,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return DEFAULT_PLAYER_NAME;
     }
+
     const MAX_STORED_HIGH_SCORES = 10;
     const DISPLAY_HIGH_SCORE_COUNT = 3;
     let highScoreData = loadHighScores();
@@ -7758,18 +8367,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const cachedLeaderboards = loadLeaderboard();
     const leaderboardState = {
         scopes: {
-            global: (_2 = cachedLeaderboards.global) !== null && _2 !== void 0 ? _2 : [],
-            weekly: (_3 = cachedLeaderboards.weekly) !== null && _3 !== void 0 ? _3 : []
+            global: cachedLeaderboards.global ?? [],
+            weekly: cachedLeaderboards.weekly ?? []
         },
-        fetchedAt: (_4 = cachedLeaderboards.fetchedAt) !== null && _4 !== void 0 ? _4 : 0,
+        fetchedAt: cachedLeaderboards.fetchedAt ?? 0,
         source: cachedLeaderboards.fetchedAt ? 'cache' : 'empty',
         error: null
     };
     let activeLeaderboardScope = 'global';
-    let leaderboardEntries = (_5 = leaderboardState.scopes[activeLeaderboardScope]) !== null && _5 !== void 0 ? _5 : [];
+    let leaderboardEntries = leaderboardState.scopes[activeLeaderboardScope] ?? [];
     const leaderboardStatusState = { message: '', type: 'info' };
     let leaderboardFetchPromise = null;
     let offlineModeActive = false;
+
     function setLeaderboardStatus(message, type = 'info') {
         leaderboardStatusState.message = typeof message === 'string' ? message.trim() : '';
         const allowedTypes = new Set(['info', 'success', 'error', 'warning', 'loading']);
@@ -7791,6 +8401,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return leaderboardStatusState;
     }
+
     function renderLeaderboardEntries(entries) {
         if (!leaderboardListEl) {
             return;
@@ -7837,6 +8448,7 @@ document.addEventListener('DOMContentLoaded', () => {
             leaderboardListEl.append(item);
         });
     }
+
     function updateLeaderboardTitle() {
         if (!leaderboardTitleEl) {
             return;
@@ -7849,6 +8461,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         leaderboardTitleEl.dataset.scope = activeLeaderboardScope;
     }
+
     function setActiveLeaderboardScope(nextScope) {
         const availableScopes = Array.isArray(API_CONFIG.scopes) && API_CONFIG.scopes.length
             ? API_CONFIG.scopes
@@ -7859,11 +8472,10 @@ document.addEventListener('DOMContentLoaded', () => {
             ? leaderboardState.scopes[normalized].slice()
             : [];
         leaderboardTabButtons.forEach((button) => {
-            var _a;
             if (!(button instanceof HTMLElement)) {
                 return;
             }
-            const scope = (_a = button.dataset.leaderboardScope) !== null && _a !== void 0 ? _a : '';
+            const scope = button.dataset.leaderboardScope ?? '';
             const isActive = scope === normalized;
             button.classList.toggle('active', isActive);
             button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
@@ -7876,11 +8488,15 @@ document.addEventListener('DOMContentLoaded', () => {
         updateLeaderboardTitle();
         return leaderboardEntries;
     }
+
     function applyLeaderboardSnapshot(snapshot, { source = 'remote', persist = true } = {}) {
-        var _a, _b, _c;
         const sanitized = sanitizeLeaderboardSnapshot(snapshot);
-        leaderboardState.scopes = Object.assign(Object.assign({}, leaderboardState.scopes), { global: (_a = sanitized.global) !== null && _a !== void 0 ? _a : [], weekly: (_b = sanitized.weekly) !== null && _b !== void 0 ? _b : [] });
-        leaderboardState.fetchedAt = (_c = sanitized.fetchedAt) !== null && _c !== void 0 ? _c : Date.now();
+        leaderboardState.scopes = {
+            ...leaderboardState.scopes,
+            global: sanitized.global ?? [],
+            weekly: sanitized.weekly ?? []
+        };
+        leaderboardState.fetchedAt = sanitized.fetchedAt ?? Date.now();
         leaderboardState.source = source;
         leaderboardState.error = null;
         if (persist) {
@@ -7895,12 +8511,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const relative = formatRelativeTime(leaderboardState.fetchedAt);
             const suffix = relative ? ` — last synced ${relative}.` : '.';
             setLeaderboardStatus(`Showing cached standings${suffix}`, 'info');
-        }
-        else if (source === 'empty') {
+        } else if (source === 'empty') {
             setLeaderboardStatus('No standings available yet. Complete a ranked run to take the lead!', 'info');
         }
         return sanitized;
     }
+
     function refreshLeaderboardsFromApi({ force = false } = {}) {
         if (!API_CONFIG.baseUrl) {
             return Promise.resolve(null);
@@ -7929,7 +8545,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return Promise.resolve(null);
         }
         leaderboardFetchPromise = (async () => {
-            var _a, _b;
             try {
                 setLeaderboardStatus('Syncing galaxy standings…', 'loading');
                 const response = await fetchWithTimeout(endpoint, {
@@ -7943,47 +8558,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!payload || typeof payload !== 'object') {
                     throw new Error('Invalid leaderboard response payload.');
                 }
-                const leaderboards = payload && typeof payload === 'object' && payload.leaderboards && typeof payload.leaderboards === 'object'
-                    ? payload.leaderboards
-                    : {};
-                const sanitized = applyLeaderboardSnapshot({
-                    global: (_a = leaderboards.global) !== null && _a !== void 0 ? _a : [],
-                    weekly: (_b = leaderboards.weekly) !== null && _b !== void 0 ? _b : [],
-                    fetchedAt: payload.fetchedAt
-                }, { source: 'remote', persist: true });
+                const leaderboards =
+                    payload && typeof payload === 'object' && payload.leaderboards && typeof payload.leaderboards === 'object'
+                        ? payload.leaderboards
+                        : {};
+                const sanitized = applyLeaderboardSnapshot(
+                    {
+                        global: leaderboards.global ?? [],
+                        weekly: leaderboards.weekly ?? [],
+                        fetchedAt: payload.fetchedAt
+                    },
+                    { source: 'remote', persist: true }
+                );
                 const relative = leaderboardState.fetchedAt ? formatRelativeTime(leaderboardState.fetchedAt) : '';
                 const suffix = relative ? ` — synced ${relative}.` : '.';
                 setLeaderboardStatus(`Standings updated${suffix}`, 'success');
                 return sanitized;
-            }
-            catch (error) {
+            } catch (error) {
                 console.error('Failed to refresh leaderboards', error);
                 leaderboardState.error = error;
-                setLeaderboardStatus('Unable to sync leaderboards right now. Showing last known standings.', 'error');
+                setLeaderboardStatus(
+                    'Unable to sync leaderboards right now. Showing last known standings.',
+                    'error'
+                );
                 if (!getIsOnline()) {
                     offlineModeActive = true;
                 }
                 return null;
-            }
-            finally {
+            } finally {
                 leaderboardFetchPromise = null;
             }
         })();
         return leaderboardFetchPromise;
     }
+
     function getIsOnline() {
         if (typeof navigator === 'undefined') {
             return true;
         }
         return navigator.onLine !== false;
     }
+
     function updateNetworkStatus({ announce = false } = {}) {
         const online = getIsOnline();
         if (announce) {
             if (!online && !offlineModeActive) {
                 setLeaderboardStatus('Offline mode — showing cached standings.', 'warning');
-            }
-            else if (online && offlineModeActive && API_CONFIG.baseUrl) {
+            } else if (online && offlineModeActive && API_CONFIG.baseUrl) {
                 setLeaderboardStatus('Back online — syncing standings…', 'info');
             }
         }
@@ -7997,8 +8618,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let preflightReady = false;
     let tutorialFlightActive = false;
     let tutorialCallsign = null;
-    let activeSummaryTab = summarySections.has('run') ? 'run' : (_6 = summarySections.keys().next().value) !== null && _6 !== void 0 ? _6 : null;
+    let activeSummaryTab = summarySections.has('run') ? 'run' : summarySections.keys().next().value ?? null;
     let resumeAfterSettingsClose = false;
+
     function setActiveSummaryTab(tabId, { focusTab = false } = {}) {
         if (!tabId || !summarySections.has(tabId)) {
             return;
@@ -8009,8 +8631,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isActive) {
                 section.hidden = false;
                 section.classList.add('active');
-            }
-            else {
+            } else {
                 section.hidden = true;
                 section.classList.remove('active');
             }
@@ -8028,20 +8649,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (focusTab) {
                     try {
                         button.focus({ preventScroll: true });
-                    }
-                    catch (_a) {
+                    } catch {
                         button.focus();
                     }
                 }
-            }
-            else {
+            } else {
                 button.setAttribute('aria-selected', 'false');
                 button.setAttribute('tabindex', '-1');
             }
         });
     }
+
     function focusSummaryTabByOffset(currentButton, offset) {
-        var _a;
         if (!summaryTabButtons.length || !offset) {
             return;
         }
@@ -8051,11 +8670,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const nextIndex = (index + offset + summaryTabButtons.length) % summaryTabButtons.length;
         const nextButton = summaryTabButtons[nextIndex];
-        const tabId = (_a = nextButton === null || nextButton === void 0 ? void 0 : nextButton.dataset) === null || _a === void 0 ? void 0 : _a.summaryTab;
+        const tabId = nextButton?.dataset?.summaryTab;
         if (tabId) {
             setActiveSummaryTab(tabId, { focusTab: true });
         }
     }
+
     if (summaryTabButtons.length && activeSummaryTab) {
         setActiveSummaryTab(activeSummaryTab);
         summaryTabButtons.forEach((button) => {
@@ -8069,14 +8689,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
                     event.preventDefault();
                     focusSummaryTabByOffset(button, 1);
-                }
-                else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+                } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
                     event.preventDefault();
                     focusSummaryTabByOffset(button, -1);
                 }
             });
         });
     }
+
     function updatePlayerName(nextName) {
         const sanitized = sanitizePlayerName(nextName) || DEFAULT_PLAYER_NAME;
         if (sanitized === playerName) {
@@ -8103,6 +8723,7 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshOverlayLaunchButton();
         return playerName;
     }
+
     function commitPlayerNameInput() {
         if (!playerNameInput) {
             return updatePlayerName(playerName);
@@ -8118,6 +8739,7 @@ document.addEventListener('DOMContentLoaded', () => {
         revealGameScreenAfterNameEntry();
         return updated;
     }
+
     if (playerNameInput) {
         playerNameInput.value = playerName;
         refreshOverlayLaunchButton();
@@ -8137,36 +8759,42 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
     if (callsignForm) {
         callsignForm.addEventListener('submit', (event) => {
-            var _a;
             event.preventDefault();
-            (_a = event.stopPropagation) === null || _a === void 0 ? void 0 : _a.call(event);
+            event.stopPropagation?.();
             commitPlayerNameInput();
         });
     }
+
     if (leaderboardTabButtons.length) {
         leaderboardTabButtons.forEach((button) => {
             button.addEventListener('click', () => {
-                var _a, _b;
-                const scope = (_b = (_a = button === null || button === void 0 ? void 0 : button.dataset) === null || _a === void 0 ? void 0 : _a.leaderboardScope) !== null && _b !== void 0 ? _b : 'global';
+                const scope = button?.dataset?.leaderboardScope ?? 'global';
                 setActiveLeaderboardScope(scope);
             });
         });
     }
+
     applyLeaderboardSnapshot(cachedLeaderboards, {
         source: cachedLeaderboards.fetchedAt ? 'cache' : 'empty',
         persist: false
     });
+
     const initialOnline = updateNetworkStatus({ announce: true });
+
     if (API_CONFIG.baseUrl) {
         if (initialOnline) {
             refreshLeaderboardsFromApi({ force: true });
         }
+    } else {
+        setLeaderboardStatus(
+            'Leaderboard sync unavailable — set NYAN_ESCAPE_API_BASE_URL to enable syncing.',
+            'warning'
+        );
     }
-    else {
-        setLeaderboardStatus('Leaderboard sync unavailable — set NYAN_ESCAPE_API_BASE_URL to enable syncing.', 'warning');
-    }
+
     if (typeof window !== 'undefined') {
         window.addEventListener('online', () => {
             const online = updateNetworkStatus({ announce: true });
@@ -8178,6 +8806,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateNetworkStatus({ announce: true });
         });
     }
+
     function completeFirstRunExperience() {
         if (!firstRunExperience) {
             return;
@@ -8189,6 +8818,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         writeStorage(STORAGE_KEYS.firstRunComplete, 'true');
     }
+
     function formatTime(milliseconds) {
         const totalSeconds = Math.floor(milliseconds / 1000);
         const minutes = Math.floor(totalSeconds / 60);
@@ -8196,38 +8826,40 @@ document.addEventListener('DOMContentLoaded', () => {
         const tenths = Math.floor((milliseconds % 1000) / 100);
         return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${tenths}`;
     }
+
     function updateTimerDisplay() {
         if (!timerValueEl) {
             return;
         }
+
         let displayMs = 0;
         if (state.gameState === 'running' || state.gameState === 'paused') {
             displayMs = state.elapsedTime;
-        }
-        else if (pendingSubmission && pendingSubmission.timeMs != null) {
+        } else if (pendingSubmission && pendingSubmission.timeMs != null) {
             const pendingMs = Number(pendingSubmission.timeMs);
             if (Number.isFinite(pendingMs)) {
                 displayMs = pendingMs;
             }
-        }
-        else if (Number.isFinite(state.elapsedTime) && state.elapsedTime > 0) {
+        } else if (Number.isFinite(state.elapsedTime) && state.elapsedTime > 0) {
             displayMs = state.elapsedTime;
-        }
-        else if (lastRunSummary && lastRunSummary.timeMs != null) {
+        } else if (lastRunSummary && lastRunSummary.timeMs != null) {
             const summaryMs = Number(lastRunSummary.timeMs);
             if (Number.isFinite(summaryMs)) {
                 displayMs = summaryMs;
             }
         }
+
         if (!Number.isFinite(displayMs)) {
             displayMs = 0;
         }
+
         const safeMs = Math.max(0, displayMs);
         const formatted = formatTime(safeMs);
         if (formatted !== lastFormattedTimer) {
             timerValueEl.textContent = formatted;
             lastFormattedTimer = formatted;
         }
+
         if (survivalTimerEl) {
             const ariaPrefix = state.gameState === 'paused' ? 'Flight time paused' : 'Flight time';
             const ariaLabel = `${ariaPrefix}: ${formatted}`;
@@ -8236,6 +8868,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
     function setRunSummaryStatus(message, type = 'info') {
         const allowedTypes = new Set(['info', 'success', 'warning', 'error']);
         const normalizedMessage = typeof message === 'string' ? message.trim() : '';
@@ -8258,6 +8891,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return runSummaryStatusState;
     }
+
     function describeRunSummaryStatus(summary) {
         if (!summary) {
             return {
@@ -8265,6 +8899,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 type: 'info'
             };
         }
+
         const safeTime = Math.max(0, Math.floor(Number(summary.timeMs) || 0));
         const safeScore = Math.max(0, Math.floor(Number(summary.score) || 0));
         const baseDescriptor = `${formatTime(safeTime)} • ${safeScore.toLocaleString()} pts`;
@@ -8282,6 +8917,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 type: 'success'
             };
         }
+
         switch (summary.reason) {
             case 'tutorial':
                 return {
@@ -8320,6 +8956,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
         }
     }
+
     function setShareButtonEnabled(enabled) {
         if (!shareButton) {
             return;
@@ -8327,18 +8964,20 @@ document.addEventListener('DOMContentLoaded', () => {
         shareButton.disabled = !enabled;
         shareButton.setAttribute('aria-disabled', enabled ? 'false' : 'true');
     }
+
     function detachShareButtonHandler() {
         if (shareButton && typeof shareButtonClickHandler === 'function') {
             shareButton.removeEventListener('click', shareButtonClickHandler);
         }
         shareButtonClickHandler = null;
     }
+
     function buildRunSharePayload(summary) {
-        const safePlayer = sanitizePlayerName(summary === null || summary === void 0 ? void 0 : summary.player) || playerName || DEFAULT_PLAYER_NAME;
-        const safeTime = Math.max(0, Math.floor(Number(summary === null || summary === void 0 ? void 0 : summary.timeMs) || 0));
-        const safeScore = Math.max(0, Math.floor(Number(summary === null || summary === void 0 ? void 0 : summary.score) || 0));
-        const safeNyan = Math.max(0, Math.floor(Number(summary === null || summary === void 0 ? void 0 : summary.nyan) || 0));
-        const safeBestStreak = Math.max(0, Math.floor(Number(summary === null || summary === void 0 ? void 0 : summary.bestStreak) || 0));
+        const safePlayer = sanitizePlayerName(summary?.player) || playerName || DEFAULT_PLAYER_NAME;
+        const safeTime = Math.max(0, Math.floor(Number(summary?.timeMs) || 0));
+        const safeScore = Math.max(0, Math.floor(Number(summary?.score) || 0));
+        const safeNyan = Math.max(0, Math.floor(Number(summary?.nyan) || 0));
+        const safeBestStreak = Math.max(0, Math.floor(Number(summary?.bestStreak) || 0));
         const lines = [
             `${safePlayer} survived ${formatTime(safeTime)} in Flyin' Nyan!`,
             `Score: ${safeScore.toLocaleString()} pts — Pickups: ${safeNyan.toLocaleString()}`
@@ -8346,10 +8985,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (safeBestStreak > 0) {
             lines.push(`Best tail: x${safeBestStreak}`);
         }
-        if (Number.isFinite(summary === null || summary === void 0 ? void 0 : summary.placement) && summary.placement > 0) {
+        if (Number.isFinite(summary?.placement) && summary.placement > 0) {
             lines.push(`Galaxy standings: #${summary.placement}`);
         }
-        const hasRunsToday = typeof (summary === null || summary === void 0 ? void 0 : summary.runsToday) === 'number';
+        const hasRunsToday = typeof summary?.runsToday === 'number';
         if (hasRunsToday) {
             const runsUsed = Math.min(Math.max(summary.runsToday, 0), SUBMISSION_LIMIT);
             lines.push(`Daily log: ${runsUsed}/${SUBMISSION_LIMIT}`);
@@ -8366,10 +9005,12 @@ document.addEventListener('DOMContentLoaded', () => {
             url: shareUrl
         };
     }
+
     function updateRunSummaryOverview() {
         if (!runSummaryTimeEl || !runSummaryScoreEl || !runSummaryStreakEl || !runSummaryNyanEl) {
             return;
         }
+
         if (!lastRunSummary) {
             runSummaryTimeEl.textContent = '—';
             runSummaryScoreEl.textContent = '—';
@@ -8388,6 +9029,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
+
         const summary = lastRunSummary;
         const safeTime = Math.max(0, Math.floor(Number(summary.timeMs) || 0));
         const safeScore = Math.max(0, Math.floor(Number(summary.score) || 0));
@@ -8397,51 +9039,49 @@ document.addEventListener('DOMContentLoaded', () => {
         runSummaryScoreEl.textContent = safeScore.toLocaleString();
         runSummaryStreakEl.textContent = `x${safeBestStreak}`;
         runSummaryNyanEl.textContent = safeNyan.toLocaleString();
+
         if (runSummaryPlacementEl) {
             let placementMessage = '';
             if (Number.isFinite(summary.placement) && summary.placement > 0) {
                 placementMessage = `Galaxy standings: #${summary.placement}`;
-            }
-            else if (summary.recorded) {
+            } else if (summary.recorded) {
                 placementMessage = 'Galaxy standings: Awaiting placement';
-            }
-            else if (summary.reason === 'pending') {
+            } else if (summary.reason === 'pending') {
                 placementMessage = 'Submit this run to enter the galaxy standings.';
-            }
-            else if (summary.reason === 'limit') {
+            } else if (summary.reason === 'limit') {
                 placementMessage = 'Galaxy standings: Daily log limit reached';
-            }
-            else if (summary.reason === 'skipped') {
+            } else if (summary.reason === 'skipped') {
                 placementMessage = 'Galaxy standings: Submission skipped';
-            }
-            else if (summary.reason === 'conflict') {
+            } else if (summary.reason === 'conflict') {
                 placementMessage = 'Galaxy standings: Stronger run already recorded';
-            }
-            else if (summary.reason === 'error') {
+            } else if (summary.reason === 'error') {
                 placementMessage = 'Galaxy standings: Submission error';
             }
             runSummaryPlacementEl.textContent = placementMessage;
             runSummaryPlacementEl.hidden = !placementMessage;
         }
+
         if (runSummaryRunsEl) {
             if (typeof summary.runsToday === 'number') {
                 const runsUsed = Math.min(Math.max(summary.runsToday, 0), SUBMISSION_LIMIT);
                 runSummaryRunsEl.textContent = `Daily logs used: ${runsUsed}/${SUBMISSION_LIMIT}`;
                 runSummaryRunsEl.hidden = false;
-            }
-            else {
+            } else {
                 runSummaryRunsEl.textContent = '';
                 runSummaryRunsEl.hidden = true;
             }
         }
+
         const { message, type } = describeRunSummaryStatus(summary);
         setRunSummaryStatus(message, type);
     }
+
     function updateSharePanel() {
         if (!shareButton || !shareStatusEl) {
             return;
         }
-        const summary = pendingSubmission !== null && pendingSubmission !== void 0 ? pendingSubmission : lastRunSummary;
+
+        const summary = pendingSubmission ?? lastRunSummary;
         const hasSummary = summary && Number.isFinite(Number(summary.timeMs)) && Number.isFinite(Number(summary.score));
         if (!hasSummary) {
             detachShareButtonHandler();
@@ -8449,6 +9089,7 @@ document.addEventListener('DOMContentLoaded', () => {
             shareStatusEl.textContent = 'Complete a ranked run to unlock sharing.';
             return;
         }
+
         const payload = buildRunSharePayload(summary);
         detachShareButtonHandler();
         const handleShareClick = async () => {
@@ -8460,24 +9101,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (canNativeShare && typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
                     await navigator.share({ title: payload.title, text: payload.text, url: payload.url });
                     shareStatusEl.textContent = 'Flight log shared with the fleet!';
-                }
-                else {
+                } else {
                     const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : null;
                     if (clipboard && typeof clipboard.writeText === 'function') {
                         await clipboard.writeText(`${payload.text}\n${payload.url}`);
                         shareStatusEl.textContent = 'Flight log copied to clipboard.';
-                    }
-                    else {
+                    } else {
                         shareStatusEl.textContent = 'Sharing unavailable — copy the flight log manually:';
                         console.info(`${payload.text}\n${payload.url}`);
                     }
                 }
-            }
-            catch (error) {
+            } catch (error) {
                 console.error('Failed to share flight log', error);
                 shareStatusEl.textContent = 'Unable to share flight log right now.';
-            }
-            finally {
+            } finally {
                 setShareButtonEnabled(true);
             }
         };
@@ -8488,6 +9125,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ? 'Share your latest flight log with the fleet.'
             : 'Copy your latest flight log to the clipboard.';
     }
+
     function normalizeHighScoreEntry(entry = {}) {
         const normalized = {
             timeMs: Number.isFinite(entry.timeMs) ? Math.max(0, Math.floor(entry.timeMs)) : 0,
@@ -8502,6 +9140,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         return normalized;
     }
+
     function getPlayerHighScores(name) {
         const key = sanitizePlayerName(name) || DEFAULT_PLAYER_NAME;
         if (!highScoreData[key]) {
@@ -8510,19 +9149,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const entries = Array.isArray(highScoreData[key]) ? highScoreData[key] : [];
         return entries.slice();
     }
+
     function sortHighScores(a, b) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p;
-        if (((_a = b === null || b === void 0 ? void 0 : b.timeMs) !== null && _a !== void 0 ? _a : 0) !== ((_b = a === null || a === void 0 ? void 0 : a.timeMs) !== null && _b !== void 0 ? _b : 0)) {
-            return ((_c = b === null || b === void 0 ? void 0 : b.timeMs) !== null && _c !== void 0 ? _c : 0) - ((_d = a === null || a === void 0 ? void 0 : a.timeMs) !== null && _d !== void 0 ? _d : 0);
+        if ((b?.timeMs ?? 0) !== (a?.timeMs ?? 0)) {
+            return (b?.timeMs ?? 0) - (a?.timeMs ?? 0);
         }
-        if (((_e = b === null || b === void 0 ? void 0 : b.score) !== null && _e !== void 0 ? _e : 0) !== ((_f = a === null || a === void 0 ? void 0 : a.score) !== null && _f !== void 0 ? _f : 0)) {
-            return ((_g = b === null || b === void 0 ? void 0 : b.score) !== null && _g !== void 0 ? _g : 0) - ((_h = a === null || a === void 0 ? void 0 : a.score) !== null && _h !== void 0 ? _h : 0);
+        if ((b?.score ?? 0) !== (a?.score ?? 0)) {
+            return (b?.score ?? 0) - (a?.score ?? 0);
         }
-        if (((_j = b === null || b === void 0 ? void 0 : b.bestStreak) !== null && _j !== void 0 ? _j : 0) !== ((_k = a === null || a === void 0 ? void 0 : a.bestStreak) !== null && _k !== void 0 ? _k : 0)) {
-            return ((_l = b === null || b === void 0 ? void 0 : b.bestStreak) !== null && _l !== void 0 ? _l : 0) - ((_m = a === null || a === void 0 ? void 0 : a.bestStreak) !== null && _m !== void 0 ? _m : 0);
+        if ((b?.bestStreak ?? 0) !== (a?.bestStreak ?? 0)) {
+            return (b?.bestStreak ?? 0) - (a?.bestStreak ?? 0);
         }
-        return ((_o = a === null || a === void 0 ? void 0 : a.recordedAt) !== null && _o !== void 0 ? _o : 0) - ((_p = b === null || b === void 0 ? void 0 : b.recordedAt) !== null && _p !== void 0 ? _p : 0);
+        return (a?.recordedAt ?? 0) - (b?.recordedAt ?? 0);
     }
+
     function describeHighScoreEntry(entry) {
         const parts = [];
         parts.push(`Flight time: ${formatTime(entry.timeMs)}`);
@@ -8539,13 +9179,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!Number.isNaN(recordedDate.getTime())) {
                     parts.push(`Logged: ${recordedDate.toLocaleString()}`);
                 }
-            }
-            catch (_a) {
+            } catch {
                 // Ignore invalid dates
             }
         }
         return parts.join('\n');
     }
+
     function renderHighScoreListForPlayer(name, { preview = false } = {}) {
         if (!highScoreListEl || !highScoreTitleEl) {
             return;
@@ -8560,26 +9200,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? 'No ranked flights logged for this callsign yet.'
                 : 'Log a ranked flight to track your best runs here.';
             highScoreListEl.append(emptyItem);
-        }
-        else {
+        } else {
             entries
                 .slice(0, DISPLAY_HIGH_SCORE_COUNT)
                 .forEach((entry) => {
-                const item = document.createElement('li');
-                const timeSpan = document.createElement('span');
-                timeSpan.className = 'time';
-                timeSpan.textContent = formatTime(entry.timeMs);
-                const separator = document.createTextNode(' — ');
-                const scoreSpan = document.createElement('span');
-                scoreSpan.className = 'score';
-                scoreSpan.textContent = `${entry.score.toLocaleString()} pts`;
-                item.append(timeSpan, separator, scoreSpan);
-                const tooltip = describeHighScoreEntry(entry);
-                if (tooltip) {
-                    item.title = tooltip;
-                }
-                highScoreListEl.append(item);
-            });
+                    const item = document.createElement('li');
+                    const timeSpan = document.createElement('span');
+                    timeSpan.className = 'time';
+                    timeSpan.textContent = formatTime(entry.timeMs);
+                    const separator = document.createTextNode(' — ');
+                    const scoreSpan = document.createElement('span');
+                    scoreSpan.className = 'score';
+                    scoreSpan.textContent = `${entry.score.toLocaleString()} pts`;
+                    item.append(timeSpan, separator, scoreSpan);
+                    const tooltip = describeHighScoreEntry(entry);
+                    if (tooltip) {
+                        item.title = tooltip;
+                    }
+                    highScoreListEl.append(item);
+                });
         }
         const previewLabel = preview && targetName !== playerName ? ' (preview)' : '';
         const heading = `Top Flight Times — ${targetName}${previewLabel}`;
@@ -8589,9 +9228,11 @@ document.addEventListener('DOMContentLoaded', () => {
         highScoreTitleEl.dataset.playerName = targetName;
         highScoreTitleEl.dataset.preview = preview ? 'true' : 'false';
     }
+
     function updateHighScorePanel() {
         renderHighScoreListForPlayer(playerName, { preview: false });
     }
+
     function isOverlayVisible() {
         if (!overlay) {
             return false;
@@ -8601,14 +9242,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return overlay.getAttribute('aria-hidden') !== 'true';
     }
+
     function refreshHighScorePreview() {
         const overlayActive = isOverlayVisible();
         const pendingName = overlayActive ? getPendingPlayerName() : playerName;
         const previewMode = overlayActive && pendingName !== playerName;
         renderHighScoreListForPlayer(pendingName, { preview: previewMode });
     }
+
     function recordLocalHighScore(entry) {
-        const targetName = sanitizePlayerName(entry === null || entry === void 0 ? void 0 : entry.player) || DEFAULT_PLAYER_NAME;
+        const targetName = sanitizePlayerName(entry?.player) || DEFAULT_PLAYER_NAME;
         const normalized = normalizeHighScoreEntry(entry);
         const scores = getPlayerHighScores(targetName);
         scores.push(normalized);
@@ -8622,7 +9265,18 @@ document.addEventListener('DOMContentLoaded', () => {
             refreshHighScorePreview();
         }
     }
-    function buildRunSummaryMessage(baseMessage, summary, { placement = null, runsToday = null, limitReached = false, prompt = false, success = false, skipped = false, offline = false, conflict = false, errorMessage = null } = {}) {
+
+    function buildRunSummaryMessage(baseMessage, summary, {
+        placement = null,
+        runsToday = null,
+        limitReached = false,
+        prompt = false,
+        success = false,
+        skipped = false,
+        offline = false,
+        conflict = false,
+        errorMessage = null
+    } = {}) {
         const lines = [
             baseMessage,
             `Flight Time: ${formatTime(summary.timeMs)}`,
@@ -8657,39 +9311,44 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return lines.join('\n');
     }
+
     function formatRelativeTime(timestamp) {
-        if (!timestamp)
-            return '';
+        if (!timestamp) return '';
         const now = Date.now();
         const diff = Math.max(0, now - timestamp);
         const seconds = Math.floor(diff / 1000);
-        if (seconds < 60)
-            return 'Just now';
+        if (seconds < 60) return 'Just now';
         const minutes = Math.floor(seconds / 60);
-        if (minutes < 60)
-            return `${minutes}m ago`;
+        if (minutes < 60) return `${minutes}m ago`;
         const hours = Math.floor(minutes / 60);
-        if (hours < 24)
-            return `${hours}h ago`;
+        if (hours < 24) return `${hours}h ago`;
         const days = Math.floor(hours / 24);
         return `${days}d ago`;
     }
+
     function createStoryManager() {
         return {
-            prepareForRun() { },
-            beginRun() { },
-            recordEvent() { },
-            completeRun() { },
-            update() { },
-            reset() { }
+            prepareForRun() {},
+            beginRun() {},
+            recordEvent() {},
+            completeRun() {},
+            update() {},
+            reset() {}
         };
     }
+
     const storyManager = createStoryManager();
-    const asteroidImageSources = Array.isArray(assetOverrides.asteroids) && assetOverrides.asteroids.length
-        ? assetOverrides.asteroids
-        : ['assets/asteroid1.png', 'assets/asteroid2.png', 'assets/asteroid3.png'];
-    const asteroidImages = asteroidImageSources.map((entry, index) => loadImageWithFallback(resolveAssetConfig(entry, null), () => createAsteroidFallbackDataUrl(index)));
-    const powerUpOverrides = assetOverrides.powerUps && typeof assetOverrides.powerUps === 'object' ? assetOverrides.powerUps : {};
+
+    const asteroidImageSources =
+        Array.isArray(assetOverrides.asteroids) && assetOverrides.asteroids.length
+            ? assetOverrides.asteroids
+            : ['assets/asteroid1.png', 'assets/asteroid2.png', 'assets/asteroid3.png'];
+    const asteroidImages = asteroidImageSources.map((entry, index) =>
+        loadImageWithFallback(resolveAssetConfig(entry, null), () => createAsteroidFallbackDataUrl(index))
+    );
+
+    const powerUpOverrides =
+        assetOverrides.powerUps && typeof assetOverrides.powerUps === 'object' ? assetOverrides.powerUps : {};
     const powerUpImageSources = {
         powerBomb: 'assets/powerbomb.png',
         bulletSpread: 'assets/powerburger.png',
@@ -8702,14 +9361,21 @@ document.addEventListener('DOMContentLoaded', () => {
         scoreSurge: 'assets/powerdoubler.svg',
         starlightMagnet: 'assets/powermagnet.svg'
     };
+
     const powerUpImages = {};
     for (const [type, defaultSrc] of Object.entries(powerUpImageSources)) {
-        powerUpImages[type] = loadImageWithFallback(resolveAssetConfig(powerUpOverrides[type], defaultSrc), () => defaultSrc);
+        powerUpImages[type] = loadImageWithFallback(
+            resolveAssetConfig(powerUpOverrides[type], defaultSrc),
+            () => defaultSrc
+        );
     }
-    if (typeof getCharacterProfile === 'function' &&
+
+    if (
+        typeof getCharacterProfile === 'function' &&
         typeof setActiveCharacter === 'function' &&
         typeof setPendingCharacter === 'function' &&
-        typeof activeCharacterId !== 'undefined') {
+        typeof activeCharacterId !== 'undefined'
+    ) {
         const initialCharacterProfile = getCharacterProfile(activeCharacterId);
         if (initialCharacterProfile) {
             setActiveCharacter(initialCharacterProfile);
@@ -8719,18 +9385,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!config || typeof config !== 'object') {
         config = {};
     }
+
     const defaultCollectScore = 84;
-    const baseCollectScoreRaw = (_7 = config === null || config === void 0 ? void 0 : config.score) === null || _7 === void 0 ? void 0 : _7.collect;
+    const baseCollectScoreRaw = config?.score?.collect;
     const baseCollectScore = Number.isFinite(Number(baseCollectScoreRaw))
         ? Math.max(1, Number(baseCollectScoreRaw))
         : defaultCollectScore;
-    const fallbackScoreConfig = typeof baseGameConfig !== 'undefined' && baseGameConfig && isPlainObject(baseGameConfig.score)
-        ? baseGameConfig.score
-        : {};
+    const fallbackScoreConfig =
+        typeof baseGameConfig !== 'undefined' && baseGameConfig && isPlainObject(baseGameConfig.score)
+            ? baseGameConfig.score
+            : {};
     if (!config.score || !isPlainObject(config.score)) {
-        config.score = Object.assign({}, fallbackScoreConfig);
+        config.score = { ...fallbackScoreConfig };
     }
     config.score.collect = baseCollectScore;
+
     const collectibleTiers = [
         {
             key: 'point',
@@ -8772,25 +9441,32 @@ document.addEventListener('DOMContentLoaded', () => {
             particleColor: { r: 192, g: 132, b: 252 }
         }
     ];
-    const collectibleOverrides = assetOverrides.collectibles && typeof assetOverrides.collectibles === 'object'
-        ? assetOverrides.collectibles
-        : {};
+
+    const collectibleOverrides =
+        assetOverrides.collectibles && typeof assetOverrides.collectibles === 'object'
+            ? assetOverrides.collectibles
+            : {};
     for (const tier of collectibleTiers) {
-        tier.asset = resolveAssetConfig(collectibleOverrides[tier.key], (_8 = tier.src) !== null && _8 !== void 0 ? _8 : null);
+        tier.asset = resolveAssetConfig(collectibleOverrides[tier.key], tier.src ?? null);
         if (typeof tier.asset === 'string') {
             tier.src = tier.asset;
-        }
-        else if (tier.asset && typeof tier.asset === 'object' && typeof tier.asset.src === 'string') {
+        } else if (tier.asset && typeof tier.asset === 'object' && typeof tier.asset.src === 'string') {
             tier.src = tier.asset.src;
         }
     }
+
     const collectibleImages = {};
     for (const tier of collectibleTiers) {
         const fallbackSrc = createCollectibleFallbackDataUrl(tier);
-        const assetConfig = (_10 = (_9 = tier.asset) !== null && _9 !== void 0 ? _9 : tier.src) !== null && _10 !== void 0 ? _10 : null;
-        collectibleImages[tier.key] = loadImageWithFallback(assetConfig !== null && assetConfig !== void 0 ? assetConfig : fallbackSrc, () => { var _a; return (_a = fallbackSrc !== null && fallbackSrc !== void 0 ? fallbackSrc : tier.src) !== null && _a !== void 0 ? _a : null; });
+        const assetConfig = tier.asset ?? tier.src ?? null;
+        collectibleImages[tier.key] = loadImageWithFallback(
+            assetConfig ?? fallbackSrc,
+            () => fallbackSrc ?? tier.src ?? null
+        );
     }
+
     const totalCollectibleWeight = collectibleTiers.reduce((sum, tier) => sum + tier.weight, 0);
+
     state = {
         score: 0,
         nyan: 0,
@@ -8835,7 +9511,9 @@ document.addEventListener('DOMContentLoaded', () => {
             currentConfig: null
         }
     };
+
     updateTimerDisplay();
+
     const keys = new Set();
     const dashTapTracker = new Map();
     const formControlSelector = 'input, textarea, select, button, [role="button"], [contenteditable="true"]';
@@ -8851,25 +9529,30 @@ document.addEventListener('DOMContentLoaded', () => {
         'input[type="url"]',
         'input[type="number"]'
     ].join(',');
+
     function isFormControlTarget(target) {
         if (!target || typeof target.closest !== 'function') {
             return false;
         }
         return Boolean(target.closest(formControlSelector));
     }
+
     function isTextEntryTarget(target) {
         if (!target || typeof target.closest !== 'function') {
             return false;
         }
         return Boolean(target.closest(textEntrySelector));
     }
+
     const canonicalizeSpaceKey = (value) => {
         if (typeof value !== 'string') {
             return null;
         }
+
         if (value === ' ' || value === '\u00A0') {
             return 'Space';
         }
+
         switch (value) {
             case 'Space':
             case 'Spacebar':
@@ -8880,6 +9563,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return null;
         }
     };
+
     const keyAliasMap = {
         ArrowUp: 'ArrowUp',
         Up: 'ArrowUp',
@@ -8952,7 +9636,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof event.which === 'number' && keyCodeAliasMap[event.which]) {
             return keyCodeAliasMap[event.which];
         }
-        return key !== null && key !== void 0 ? key : code;
+        return key ?? code;
     }
     const dashDirections = {
         ArrowUp: { x: 0, y: -1 },
@@ -8980,7 +9664,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const previousGamepadDirection = { x: 0, y: 0 };
     const lastGamepadMoveVector = { x: 1, y: 0 };
     let activeGamepadIndex = null;
-    const hasGamepadSupport = typeof window !== 'undefined' &&
+    const hasGamepadSupport =
+        typeof window !== 'undefined' &&
         typeof navigator !== 'undefined' &&
         typeof navigator.getGamepads === 'function';
     const GAMEPAD_DEADZONE = 0.2;
@@ -9062,6 +9747,7 @@ document.addEventListener('DOMContentLoaded', () => {
         collectible: 0,
         powerUp: 0
     };
+
     function resetGamepadInput() {
         gamepadInput.moveX = 0;
         gamepadInput.moveY = 0;
@@ -9070,6 +9756,7 @@ document.addEventListener('DOMContentLoaded', () => {
         previousGamepadDirection.x = 0;
         previousGamepadDirection.y = 0;
     }
+
     function resetGamepadCursor({ immediateHide = false } = {}) {
         gamepadCursorState.axisX = 0;
         gamepadCursorState.axisY = 0;
@@ -9081,11 +9768,11 @@ document.addEventListener('DOMContentLoaded', () => {
             gamepadCursorState.lastInputTime = 0;
             setGamepadCursorClickState(false);
             setGamepadCursorVisible(false);
-        }
-        else {
+        } else {
             setGamepadCursorClickState(false);
         }
     }
+
     function setGamepadCursorVisible(visible) {
         if (!controllerCursorEl) {
             return;
@@ -9095,12 +9782,14 @@ document.addEventListener('DOMContentLoaded', () => {
             controllerCursorEl.classList.remove('clicking');
         }
     }
+
     function setGamepadCursorClickState(active) {
         if (!controllerCursorEl) {
             return;
         }
         controllerCursorEl.classList.toggle('clicking', Boolean(active));
     }
+
     function updateGamepadCursorPosition(x, y) {
         if (!controllerCursorEl) {
             return;
@@ -9108,18 +9797,19 @@ document.addEventListener('DOMContentLoaded', () => {
         controllerCursorEl.style.left = `${x}px`;
         controllerCursorEl.style.top = `${y}px`;
     }
+
     function markGamepadCursorActive(timestamp = performance.now()) {
         gamepadCursorState.active = true;
         gamepadCursorState.lastInputTime = timestamp;
         setGamepadCursorVisible(true);
     }
+
     function refreshGamepadCursorBounds({ recenter = false } = {}) {
-        var _a, _b;
         if (typeof window === 'undefined') {
             return;
         }
-        const viewportWidth = window.innerWidth || ((_a = document.documentElement) === null || _a === void 0 ? void 0 : _a.clientWidth) || 0;
-        const viewportHeight = window.innerHeight || ((_b = document.documentElement) === null || _b === void 0 ? void 0 : _b.clientHeight) || 0;
+        const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0;
+        const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || 0;
         const minX = GAMEPAD_CURSOR_HALF_SIZE;
         const minY = GAMEPAD_CURSOR_HALF_SIZE;
         const maxX = Math.max(minX, viewportWidth - GAMEPAD_CURSOR_HALF_SIZE);
@@ -9128,11 +9818,13 @@ document.addEventListener('DOMContentLoaded', () => {
         gamepadCursorBounds.top = minY;
         gamepadCursorBounds.right = maxX;
         gamepadCursorBounds.bottom = maxY;
+
         if (!controllerCursorEl) {
             return;
         }
+
         if (recenter || !gamepadCursorState.active) {
-            const canvasRect = canvas === null || canvas === void 0 ? void 0 : canvas.getBoundingClientRect();
+            const canvasRect = canvas?.getBoundingClientRect();
             const targetX = canvasRect
                 ? clamp(canvasRect.left + canvasRect.width * 0.5, minX, maxX)
                 : clamp(viewportWidth * 0.5, minX, maxX);
@@ -9142,8 +9834,7 @@ document.addEventListener('DOMContentLoaded', () => {
             gamepadCursorState.x = targetX;
             gamepadCursorState.y = targetY;
             updateGamepadCursorPosition(targetX, targetY);
-        }
-        else {
+        } else {
             const clampedX = clamp(gamepadCursorState.x, minX, maxX);
             const clampedY = clamp(gamepadCursorState.y, minY, maxY);
             if (clampedX !== gamepadCursorState.x || clampedY !== gamepadCursorState.y) {
@@ -9153,6 +9844,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateGamepadCursorPosition(gamepadCursorState.x, gamepadCursorState.y);
         }
     }
+
     function updateGamepadCursorAxes(axisX, axisY, digitalX = 0, digitalY = 0) {
         const normalizedX = clamp(axisX, -1, 1);
         const normalizedY = clamp(axisY, -1, 1);
@@ -9166,8 +9858,8 @@ document.addEventListener('DOMContentLoaded', () => {
             markGamepadCursorActive();
         }
     }
+
     function dispatchGamepadPointerEvent(type, target, clientX, clientY, { buttons = 0 } = {}) {
-        var _a, _b;
         if (!target) {
             return true;
         }
@@ -9176,8 +9868,8 @@ document.addEventListener('DOMContentLoaded', () => {
             cancelable: true,
             clientX,
             clientY,
-            screenX: ((_a = window === null || window === void 0 ? void 0 : window.screenX) !== null && _a !== void 0 ? _a : 0) + clientX,
-            screenY: ((_b = window === null || window === void 0 ? void 0 : window.screenY) !== null && _b !== void 0 ? _b : 0) + clientY,
+            screenX: (window?.screenX ?? 0) + clientX,
+            screenY: (window?.screenY ?? 0) + clientY,
             pointerId: GAMEPAD_CURSOR_POINTER_ID,
             pointerType: 'mouse',
             isPrimary: true,
@@ -9191,8 +9883,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const fallback = new MouseEvent(type.replace('pointer', 'mouse'), eventInit);
         return target.dispatchEvent(fallback);
     }
+
     function dispatchGamepadMouseEvent(type, target, clientX, clientY, { buttons = 0 } = {}) {
-        var _a, _b;
         if (!target) {
             return true;
         }
@@ -9201,18 +9893,18 @@ document.addEventListener('DOMContentLoaded', () => {
             cancelable: true,
             clientX,
             clientY,
-            screenX: ((_a = window === null || window === void 0 ? void 0 : window.screenX) !== null && _a !== void 0 ? _a : 0) + clientX,
-            screenY: ((_b = window === null || window === void 0 ? void 0 : window.screenY) !== null && _b !== void 0 ? _b : 0) + clientY,
+            screenX: (window?.screenX ?? 0) + clientX,
+            screenY: (window?.screenY ?? 0) + clientY,
             button: 0,
             buttons
         });
         return target.dispatchEvent(event);
     }
+
     function processGamepadCursorPressDown() {
-        var _a, _b;
         const clientX = gamepadCursorState.x;
         const clientY = gamepadCursorState.y;
-        const target = (_b = (_a = document.elementFromPoint) === null || _a === void 0 ? void 0 : _a.call(document, clientX, clientY)) !== null && _b !== void 0 ? _b : null;
+        const target = document.elementFromPoint?.(clientX, clientY) ?? null;
         markGamepadCursorActive();
         if (!target) {
             gamepadCursorState.pointerDownTarget = null;
@@ -9227,29 +9919,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof target.focus === 'function') {
             try {
                 target.focus({ preventScroll: true });
-            }
-            catch (_c) {
+            } catch {
                 // Ignore focus errors
             }
         }
         return true;
     }
+
     function processGamepadCursorPressUp() {
-        var _a, _b, _c, _d;
         const clientX = gamepadCursorState.x;
         const clientY = gamepadCursorState.y;
-        const upTarget = (_b = (_a = document.elementFromPoint) === null || _a === void 0 ? void 0 : _a.call(document, clientX, clientY)) !== null && _b !== void 0 ? _b : null;
+        const upTarget = document.elementFromPoint?.(clientX, clientY) ?? null;
         const downTarget = gamepadCursorState.pointerDownTarget;
-        dispatchGamepadPointerEvent('pointerup', upTarget !== null && upTarget !== void 0 ? upTarget : downTarget, clientX, clientY, { buttons: 0 });
-        dispatchGamepadMouseEvent('mouseup', upTarget !== null && upTarget !== void 0 ? upTarget : downTarget, clientX, clientY, { buttons: 0 });
+        dispatchGamepadPointerEvent('pointerup', upTarget ?? downTarget, clientX, clientY, { buttons: 0 });
+        dispatchGamepadMouseEvent('mouseup', upTarget ?? downTarget, clientX, clientY, { buttons: 0 });
         if (downTarget && downTarget === upTarget) {
             const clickEvent = new MouseEvent('click', {
                 bubbles: true,
                 cancelable: true,
                 clientX,
                 clientY,
-                screenX: ((_c = window === null || window === void 0 ? void 0 : window.screenX) !== null && _c !== void 0 ? _c : 0) + clientX,
-                screenY: ((_d = window === null || window === void 0 ? void 0 : window.screenY) !== null && _d !== void 0 ? _d : 0) + clientY,
+                screenX: (window?.screenX ?? 0) + clientX,
+                screenY: (window?.screenY ?? 0) + clientY,
                 button: 0
             });
             downTarget.dispatchEvent(clickEvent);
@@ -9258,30 +9949,38 @@ document.addEventListener('DOMContentLoaded', () => {
         gamepadCursorState.buttonHeld = false;
         setGamepadCursorClickState(false);
     }
+
     function handleGamepadCursorPress({ isPressed, justPressed, justReleased }) {
-        const usingCursor = gamepadCursorState.active ||
+        const usingCursor =
+            gamepadCursorState.active ||
             gamepadCursorState.buttonHeld ||
             gamepadCursorState.axisX !== 0 ||
             gamepadCursorState.axisY !== 0;
         let consumed = false;
+
         if (justPressed && usingCursor) {
             consumed = processGamepadCursorPressDown();
         }
+
         if (isPressed && usingCursor) {
             markGamepadCursorActive();
             if (gamepadCursorState.buttonHeld) {
                 consumed = true;
             }
         }
+
         if (justReleased && gamepadCursorState.buttonHeld) {
             consumed = true;
             processGamepadCursorPressUp();
         }
+
         if (justReleased && !gamepadCursorState.buttonHeld) {
             setGamepadCursorClickState(false);
         }
+
         return consumed;
     }
+
     function updateGamepadCursor(timestamp = performance.now()) {
         if (!controllerCursorEl) {
             return;
@@ -9290,16 +9989,17 @@ document.addEventListener('DOMContentLoaded', () => {
             gamepadCursorState.lastUpdate = timestamp;
             if (gamepadCursorState.x === 0 && gamepadCursorState.y === 0) {
                 refreshGamepadCursorBounds({ recenter: true });
-            }
-            else {
+            } else {
                 updateGamepadCursorPosition(gamepadCursorState.x, gamepadCursorState.y);
             }
             return;
         }
         const delta = Math.max(0, Math.min(48, timestamp - gamepadCursorState.lastUpdate));
         gamepadCursorState.lastUpdate = timestamp;
+
         const axisX = gamepadCursorState.axisX;
         const axisY = gamepadCursorState.axisY;
+
         if (axisX !== 0 || axisY !== 0) {
             const distance = (GAMEPAD_CURSOR_SPEED * delta) / 1000;
             const nextX = clamp(gamepadCursorState.x + axisX * distance, gamepadCursorBounds.left, gamepadCursorBounds.right);
@@ -9311,25 +10011,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 markGamepadCursorActive(timestamp);
             }
         }
-        if (gamepadCursorState.active &&
+
+        if (
+            gamepadCursorState.active &&
             !gamepadCursorState.buttonHeld &&
             axisX === 0 &&
             axisY === 0 &&
-            timestamp - gamepadCursorState.lastInputTime > GAMEPAD_CURSOR_INACTIVITY_MS) {
+            timestamp - gamepadCursorState.lastInputTime > GAMEPAD_CURSOR_INACTIVITY_MS
+        ) {
             gamepadCursorState.active = false;
             setGamepadCursorVisible(false);
         }
     }
+
     function handleGamepadDashTap(key, direction, now) {
         const lastTap = dashTapTracker.get(key);
         if (lastTap && now - lastTap <= config.player.dash.doubleTapWindow) {
             dashTapTracker.delete(key);
             triggerDash(direction);
-        }
-        else {
+        } else {
             dashTapTracker.set(key, now);
         }
     }
+
     function processGamepadDashInput(digitalX, digitalY) {
         const now = performance.now();
         if (digitalX !== previousGamepadDirection.x) {
@@ -9347,19 +10051,23 @@ document.addEventListener('DOMContentLoaded', () => {
         previousGamepadDirection.x = digitalX;
         previousGamepadDirection.y = digitalY;
     }
+
     function normalizeDashAssistComponent(value, threshold = GAMEPAD_DASH_ASSIST_ANALOG_THRESHOLD) {
         if (Math.abs(value) < threshold) {
             return 0;
         }
         return value > 0 ? 1 : -1;
     }
+
     function resolveDashAssistDirection(dashX, dashY, axisX, axisY) {
         let directionX = dashX;
         let directionY = dashY;
+
         if (directionX === 0 && directionY === 0) {
             directionX = normalizeDashAssistComponent(axisX);
             directionY = normalizeDashAssistComponent(axisY);
         }
+
         if (directionX === 0 && directionY === 0) {
             const lastMagnitude = Math.hypot(lastGamepadMoveVector.x, lastGamepadMoveVector.y);
             if (lastMagnitude >= 0.3) {
@@ -9367,22 +10075,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 directionY = normalizeDashAssistComponent(lastGamepadMoveVector.y, 0.25);
             }
         }
+
         if (directionX === 0 && directionY === 0) {
             const playerSpeed = Math.hypot(player.vx, player.vy);
             if (playerSpeed >= 40) {
                 if (Math.abs(player.vx) >= Math.abs(player.vy)) {
                     directionX = player.vx >= 0 ? 1 : -1;
-                }
-                else {
+                } else {
                     directionY = player.vy >= 0 ? 1 : -1;
                 }
             }
         }
+
         if (directionX === 0 && directionY === 0) {
             directionX = 1;
         }
+
         return { x: directionX, y: directionY };
     }
+
     function triggerDashAssist(dashX, dashY, axisX, axisY) {
         const direction = resolveDashAssistDirection(dashX, dashY, axisX, axisY);
         if (!direction) {
@@ -9390,6 +10101,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         triggerDash(direction);
     }
+
     function applyGamepadDeadZone(value, threshold = GAMEPAD_DEADZONE) {
         if (Math.abs(value) < threshold) {
             return 0;
@@ -9398,37 +10110,43 @@ document.addEventListener('DOMContentLoaded', () => {
         const sign = value < 0 ? -1 : 1;
         return normalized * sign;
     }
+
     function getGamepadHatDirection(value) {
         if (typeof value !== 'number') {
             return null;
         }
+
         for (const direction of GAMEPAD_STANDARD_HAT_DIRECTIONS) {
             if (Math.abs(value - direction.value) <= GAMEPAD_HAT_TOLERANCE) {
                 return direction;
             }
         }
+
         return null;
     }
+
     function handleGamepadPrimaryAction() {
         if (state.gameState === 'paused') {
             resumeGame();
             return;
         }
+
         if (state.gameState === 'ready') {
             if (preflightReady) {
                 startGame();
-            }
-            else {
-                const mode = (overlayButton === null || overlayButton === void 0 ? void 0 : overlayButton.dataset.launchMode) || 'launch';
+            } else {
+                const mode = overlayButton?.dataset.launchMode || 'launch';
                 handleOverlayAction(mode);
             }
             return;
         }
+
         if (state.gameState === 'gameover') {
-            const mode = (overlayButton === null || overlayButton === void 0 ? void 0 : overlayButton.dataset.launchMode) || (pendingSubmission ? 'submit' : 'retry');
+            const mode = overlayButton?.dataset.launchMode || (pendingSubmission ? 'submit' : 'retry');
             handleOverlayAction(mode);
         }
     }
+
     function handleGamepadMetaActions(buttonStates, { suppressCross = false } = {}) {
         if (!buttonStates) {
             return;
@@ -9436,6 +10154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const wasPressed = (index) => Boolean(previousGamepadButtons[index]);
         const isPressed = (index) => Boolean(buttonStates[index]);
         const justPressed = (index) => isPressed(index) && !wasPressed(index);
+
         if (justPressed(GAMEPAD_BUTTONS.OPTIONS)) {
             if (state.gameState === 'running') {
                 pauseGame({ reason: 'gamepad' });
@@ -9448,24 +10167,27 @@ document.addEventListener('DOMContentLoaded', () => {
             handleGamepadPrimaryAction();
             return;
         }
+
         if (!suppressCross && state.gameState !== 'running' && justPressed(GAMEPAD_BUTTONS.CROSS)) {
             handleGamepadPrimaryAction();
         }
     }
+
     function updateGamepadInput() {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r;
         if (!hasGamepadSupport) {
             return;
         }
-        const getGamepads = (_a = navigator.getGamepads) === null || _a === void 0 ? void 0 : _a.bind(navigator);
+        const getGamepads = navigator.getGamepads?.bind(navigator);
         if (typeof getGamepads !== 'function') {
             return;
         }
         const gamepads = getGamepads() || [];
         let gamepad = null;
+
         if (activeGamepadIndex !== null) {
             gamepad = gamepads[activeGamepadIndex] || null;
         }
+
         if (!gamepad) {
             activeGamepadIndex = null;
             for (const candidate of gamepads) {
@@ -9476,6 +10198,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
+
         if (!gamepad) {
             resetGamepadInput();
             if (previousGamepadButtons.length) {
@@ -9483,14 +10206,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
+
         const axes = gamepad.axes || [];
-        const axisX = applyGamepadDeadZone((_b = axes[0]) !== null && _b !== void 0 ? _b : 0);
-        const axisY = applyGamepadDeadZone((_c = axes[1]) !== null && _c !== void 0 ? _c : 0);
-        const pointerAxisX = applyGamepadDeadZone((_d = axes[2]) !== null && _d !== void 0 ? _d : 0, GAMEPAD_CURSOR_DEADZONE);
-        const pointerAxisY = applyGamepadDeadZone((_e = axes[3]) !== null && _e !== void 0 ? _e : 0, GAMEPAD_CURSOR_DEADZONE);
+        const axisX = applyGamepadDeadZone(axes[0] ?? 0);
+        const axisY = applyGamepadDeadZone(axes[1] ?? 0);
+        const pointerAxisX = applyGamepadDeadZone(axes[2] ?? 0, GAMEPAD_CURSOR_DEADZONE);
+        const pointerAxisY = applyGamepadDeadZone(axes[3] ?? 0, GAMEPAD_CURSOR_DEADZONE);
+
         const buttons = gamepad.buttons || [];
-        const buttonStates = buttons.map((button) => Boolean(button === null || button === void 0 ? void 0 : button.pressed));
-        const crossPressed = Boolean((_f = buttons[GAMEPAD_BUTTONS.CROSS]) === null || _f === void 0 ? void 0 : _f.pressed);
+        const buttonStates = buttons.map((button) => Boolean(button?.pressed));
+
+        const crossPressed = Boolean(buttons[GAMEPAD_BUTTONS.CROSS]?.pressed);
         const previousCross = Boolean(previousGamepadButtons[GAMEPAD_BUTTONS.CROSS]);
         const crossJustPressed = crossPressed && !previousCross;
         const crossJustReleased = !crossPressed && previousCross;
@@ -9499,12 +10225,16 @@ document.addEventListener('DOMContentLoaded', () => {
             justPressed: crossJustPressed,
             justReleased: crossJustReleased
         });
+
         handleGamepadMetaActions(buttonStates, { suppressCross: cursorConsumed });
+
         const dashAssistQueued = state.gameState === 'running' && crossJustPressed && !cursorConsumed;
-        let dpadX = (((_g = buttons[GAMEPAD_BUTTONS.DPAD_RIGHT]) === null || _g === void 0 ? void 0 : _g.pressed) ? 1 : 0) -
-            (((_h = buttons[GAMEPAD_BUTTONS.DPAD_LEFT]) === null || _h === void 0 ? void 0 : _h.pressed) ? 1 : 0);
-        let dpadY = (((_j = buttons[GAMEPAD_BUTTONS.DPAD_DOWN]) === null || _j === void 0 ? void 0 : _j.pressed) ? 1 : 0) -
-            (((_k = buttons[GAMEPAD_BUTTONS.DPAD_UP]) === null || _k === void 0 ? void 0 : _k.pressed) ? 1 : 0);
+
+        let dpadX = (buttons[GAMEPAD_BUTTONS.DPAD_RIGHT]?.pressed ? 1 : 0) -
+            (buttons[GAMEPAD_BUTTONS.DPAD_LEFT]?.pressed ? 1 : 0);
+        let dpadY = (buttons[GAMEPAD_BUTTONS.DPAD_DOWN]?.pressed ? 1 : 0) -
+            (buttons[GAMEPAD_BUTTONS.DPAD_UP]?.pressed ? 1 : 0);
+
         if (dpadX === 0 && dpadY === 0) {
             const hatDirection = getGamepadHatDirection(axes[9]);
             if (hatDirection) {
@@ -9512,15 +10242,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 dpadY = hatDirection.y;
             }
         }
+
         const allowDigitalCursorControl = state.gameState !== 'running';
-        updateGamepadCursorAxes(pointerAxisX, pointerAxisY, allowDigitalCursorControl ? dpadX : 0, allowDigitalCursorControl ? dpadY : 0);
+        updateGamepadCursorAxes(
+            pointerAxisX,
+            pointerAxisY,
+            allowDigitalCursorControl ? dpadX : 0,
+            allowDigitalCursorControl ? dpadY : 0
+        );
+
         gamepadInput.moveX = clamp(axisX + dpadX, -1, 1);
         gamepadInput.moveY = clamp(axisY + dpadY, -1, 1);
+
         const moveMagnitude = Math.hypot(gamepadInput.moveX, gamepadInput.moveY);
         if (moveMagnitude >= 0.3) {
             lastGamepadMoveVector.x = gamepadInput.moveX;
             lastGamepadMoveVector.y = gamepadInput.moveY;
         }
+
         const analogDashX = Math.abs(axisX) >= GAMEPAD_DASH_ACTIVATION_THRESHOLD ? (axisX > 0 ? 1 : -1) : 0;
         const analogDashY = Math.abs(axisY) >= GAMEPAD_DASH_ACTIVATION_THRESHOLD ? (axisY > 0 ? 1 : -1) : 0;
         const dashX = dpadX !== 0 ? dpadX : analogDashX;
@@ -9530,37 +10269,46 @@ document.addEventListener('DOMContentLoaded', () => {
             lastGamepadMoveVector.y = dashY;
         }
         processGamepadDashInput(dashX, dashY);
+
         const rightTrigger = buttons[GAMEPAD_BUTTONS.R2];
         const leftTrigger = buttons[GAMEPAD_BUTTONS.L2];
-        const triggerPressed = Boolean(((_l = rightTrigger === null || rightTrigger === void 0 ? void 0 : rightTrigger.value) !== null && _l !== void 0 ? _l : 0) > GAMEPAD_TRIGGER_THRESHOLD || (rightTrigger === null || rightTrigger === void 0 ? void 0 : rightTrigger.pressed));
-        const altTriggerPressed = Boolean(((_m = leftTrigger === null || leftTrigger === void 0 ? void 0 : leftTrigger.value) !== null && _m !== void 0 ? _m : 0) > GAMEPAD_TRIGGER_THRESHOLD || (leftTrigger === null || leftTrigger === void 0 ? void 0 : leftTrigger.pressed));
-        const faceButtonPressed = Boolean(((_o = buttons[GAMEPAD_BUTTONS.CROSS]) === null || _o === void 0 ? void 0 : _o.pressed) || ((_p = buttons[GAMEPAD_BUTTONS.SQUARE]) === null || _p === void 0 ? void 0 : _p.pressed));
-        const bumperPressed = Boolean(((_q = buttons[GAMEPAD_BUTTONS.R1]) === null || _q === void 0 ? void 0 : _q.pressed) || ((_r = buttons[GAMEPAD_BUTTONS.L1]) === null || _r === void 0 ? void 0 : _r.pressed));
+        const triggerPressed = Boolean((rightTrigger?.value ?? 0) > GAMEPAD_TRIGGER_THRESHOLD || rightTrigger?.pressed);
+        const altTriggerPressed = Boolean((leftTrigger?.value ?? 0) > GAMEPAD_TRIGGER_THRESHOLD || leftTrigger?.pressed);
+        const faceButtonPressed = Boolean(
+            buttons[GAMEPAD_BUTTONS.CROSS]?.pressed || buttons[GAMEPAD_BUTTONS.SQUARE]?.pressed
+        );
+        const bumperPressed = Boolean(
+            buttons[GAMEPAD_BUTTONS.R1]?.pressed || buttons[GAMEPAD_BUTTONS.L1]?.pressed
+        );
+
         gamepadInput.firing = triggerPressed || altTriggerPressed || faceButtonPressed || bumperPressed;
+
         if (dashAssistQueued) {
             triggerDashAssist(dashX, dashY, axisX, axisY);
         }
+
         previousGamepadButtons.length = buttonStates.length;
         for (let i = 0; i < buttonStates.length; i++) {
             previousGamepadButtons[i] = buttonStates[i];
         }
     }
+
     if (hasGamepadSupport) {
         window.addEventListener('gamepadconnected', (event) => {
-            var _a;
-            if (typeof ((_a = event === null || event === void 0 ? void 0 : event.gamepad) === null || _a === void 0 ? void 0 : _a.index) === 'number') {
+            if (typeof event?.gamepad?.index === 'number') {
                 activeGamepadIndex = event.gamepad.index;
             }
         });
         window.addEventListener('gamepaddisconnected', (event) => {
-            var _a;
-            if (typeof ((_a = event === null || event === void 0 ? void 0 : event.gamepad) === null || _a === void 0 ? void 0 : _a.index) === 'number' && event.gamepad.index === activeGamepadIndex) {
+            if (typeof event?.gamepad?.index === 'number' && event.gamepad.index === activeGamepadIndex) {
                 activeGamepadIndex = null;
                 resetGamepadInput();
                 previousGamepadButtons.length = 0;
             }
         });
     }
+
+
     const villainExplosionPalettes = {
         villain1: {
             core: { r: 255, g: 170, b: 255 },
@@ -9583,9 +10331,10 @@ document.addEventListener('DOMContentLoaded', () => {
             spark: { r: 240, g: 255, b: 255 }
         }
     };
+
     const BOSS_ALERT_DURATION = 2000;
-    const bossSizeProfiles = (_11 = balancedSpriteSizing.bosses) !== null && _11 !== void 0 ? _11 : [];
-    const villainSizeProfiles = (_12 = balancedSpriteSizing.villains) !== null && _12 !== void 0 ? _12 : {};
+    const bossSizeProfiles = balancedSpriteSizing.bosses ?? [];
+    const villainSizeProfiles = balancedSpriteSizing.villains ?? {};
     const bossBattleDefinitions = [
         {
             timeMs: 60000,
@@ -9593,8 +10342,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 key: 'bossAlpha',
                 name: 'Celestial Behemoth',
                 imageSrc: 'assets/boss1.png',
-                width: (_14 = (_13 = bossSizeProfiles[0]) === null || _13 === void 0 ? void 0 : _13.width) !== null && _14 !== void 0 ? _14 : Math.round(((_15 = balancedSpriteSizing.referenceWidth) !== null && _15 !== void 0 ? _15 : 96) * 2.3),
-                height: (_17 = (_16 = bossSizeProfiles[0]) === null || _16 === void 0 ? void 0 : _16.height) !== null && _17 !== void 0 ? _17 : Math.round(((_18 = balancedSpriteSizing.referenceWidth) !== null && _18 !== void 0 ? _18 : 96) * 2.3),
+                width: bossSizeProfiles[0]?.width ?? Math.round((balancedSpriteSizing.referenceWidth ?? 96) * 2.3),
+                height: bossSizeProfiles[0]?.height ?? Math.round((balancedSpriteSizing.referenceWidth ?? 96) * 2.3),
                 health: 36,
                 speed: 110,
                 rotation: { min: 0, max: 0 },
@@ -9616,8 +10365,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 key: 'bossBeta',
                 name: 'Solar Basilisk',
                 imageSrc: 'assets/boss1.png',
-                width: (_20 = (_19 = bossSizeProfiles[1]) === null || _19 === void 0 ? void 0 : _19.width) !== null && _20 !== void 0 ? _20 : Math.round(((_21 = balancedSpriteSizing.referenceWidth) !== null && _21 !== void 0 ? _21 : 96) * 2.55),
-                height: (_23 = (_22 = bossSizeProfiles[1]) === null || _22 === void 0 ? void 0 : _22.height) !== null && _23 !== void 0 ? _23 : Math.round(((_24 = balancedSpriteSizing.referenceWidth) !== null && _24 !== void 0 ? _24 : 96) * 2.55),
+                width: bossSizeProfiles[1]?.width ?? Math.round((balancedSpriteSizing.referenceWidth ?? 96) * 2.55),
+                height: bossSizeProfiles[1]?.height ?? Math.round((balancedSpriteSizing.referenceWidth ?? 96) * 2.55),
                 health: 52,
                 speed: 125,
                 rotation: { min: 0, max: 0 },
@@ -9641,8 +10390,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 key: 'bossOmega',
                 name: 'Void Hydra',
                 imageSrc: 'assets/boss1.png',
-                width: (_26 = (_25 = bossSizeProfiles[2]) === null || _25 === void 0 ? void 0 : _25.width) !== null && _26 !== void 0 ? _26 : Math.round(((_27 = balancedSpriteSizing.referenceWidth) !== null && _27 !== void 0 ? _27 : 96) * 2.8),
-                height: (_29 = (_28 = bossSizeProfiles[2]) === null || _28 === void 0 ? void 0 : _28.height) !== null && _29 !== void 0 ? _29 : Math.round(((_30 = balancedSpriteSizing.referenceWidth) !== null && _30 !== void 0 ? _30 : 96) * 2.8),
+                width: bossSizeProfiles[2]?.width ?? Math.round((balancedSpriteSizing.referenceWidth ?? 96) * 2.8),
+                height: bossSizeProfiles[2]?.height ?? Math.round((balancedSpriteSizing.referenceWidth ?? 96) * 2.8),
                 health: 72,
                 speed: 140,
                 rotation: { min: 0, max: 0 },
@@ -9661,12 +10410,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     ];
+
     const villainTypes = [
         {
             key: 'villain1',
             name: 'Void Raider',
             imageSrc: 'assets/villain1.png',
-            size: Object.assign({}, ((_31 = villainSizeProfiles.small) !== null && _31 !== void 0 ? _31 : { min: 59, max: 77 })),
+            size: { ...(villainSizeProfiles.small ?? { min: 59, max: 77 }) },
             speedOffset: { min: 14, max: 34 },
             rotation: { min: -1.8, max: 1.8 },
             baseHealth: 1,
@@ -9677,7 +10427,7 @@ document.addEventListener('DOMContentLoaded', () => {
             key: 'villain2',
             name: 'Nebula Marauder',
             imageSrc: 'assets/villain2.png',
-            size: Object.assign({}, ((_32 = villainSizeProfiles.medium) !== null && _32 !== void 0 ? _32 : { min: 93, max: 126 })),
+            size: { ...(villainSizeProfiles.medium ?? { min: 93, max: 126 }) },
             speedOffset: { min: 8, max: 30 },
             rotation: { min: -1.4, max: 1.4 },
             baseHealth: 2.3,
@@ -9688,7 +10438,7 @@ document.addEventListener('DOMContentLoaded', () => {
             key: 'villain3',
             name: 'Abyss Overlord',
             imageSrc: 'assets/villain3.png',
-            size: Object.assign({}, ((_33 = villainSizeProfiles.large) !== null && _33 !== void 0 ? _33 : { min: 135, max: 183 })),
+            size: { ...(villainSizeProfiles.large ?? { min: 135, max: 183 }) },
             speedOffset: { min: -2, max: 32 },
             rotation: { min: -1, max: 1 },
             baseHealth: 3.4,
@@ -9696,92 +10446,112 @@ document.addEventListener('DOMContentLoaded', () => {
             behavior: { type: 'tracker', acceleration: 200, maxSpeed: 260 }
         }
     ];
-    const villainOverrides = assetOverrides.villains && typeof assetOverrides.villains === 'object'
-        ? assetOverrides.villains
-        : {};
+
+    const villainOverrides =
+        assetOverrides.villains && typeof assetOverrides.villains === 'object'
+            ? assetOverrides.villains
+            : {};
     for (const villain of villainTypes) {
         villain.asset = resolveAssetConfig(villainOverrides[villain.key], villain.imageSrc);
         if (typeof villain.asset === 'string') {
             villain.imageSrc = villain.asset;
-        }
-        else if (villain.asset && typeof villain.asset === 'object' && typeof villain.asset.src === 'string') {
+        } else if (villain.asset && typeof villain.asset === 'object' && typeof villain.asset.src === 'string') {
             villain.imageSrc = villain.asset.src;
         }
     }
+
     function getVillainWeights() {
         const progress = getDifficultyProgress();
         const eased = easeInOutQuad(progress);
         const baseWeights = [0.55, 0.32, 0.13];
         const villain2Boost = lerp(0, 0.12, eased);
         const villain3Boost = lerp(0, 0.07, Math.pow(progress, 1.4));
+
         const weights = [
             Math.max(0.28, baseWeights[0] - (villain2Boost * 0.45 + villain3Boost)),
             baseWeights[1] + villain2Boost,
             Math.max(0.08, baseWeights[2] + villain3Boost)
         ];
+
         const total = weights.reduce((sum, weight) => sum + weight, 0);
         return weights.map((weight) => (total > 0 ? weight / total : 1 / weights.length));
     }
+
     function selectVillainType() {
-        var _a, _b;
         const weights = getVillainWeights();
         const adjustedWeights = [...weights];
+
         if (state.lastVillainKey) {
             const lastIndex = villainTypes.findIndex((villain) => villain.key === state.lastVillainKey);
             if (lastIndex >= 0) {
                 adjustedWeights[lastIndex] *= 0.45;
             }
         }
+
         if (state.recentVillains.length) {
             const recentCounts = {};
             for (const key of state.recentVillains) {
-                recentCounts[key] = ((_a = recentCounts[key]) !== null && _a !== void 0 ? _a : 0) + 1;
+                recentCounts[key] = (recentCounts[key] ?? 0) + 1;
             }
             const historySize = Math.max(1, state.recentVillains.length);
             for (let i = 0; i < villainTypes.length; i++) {
                 const key = villainTypes[i].key;
-                const recentCount = (_b = recentCounts[key]) !== null && _b !== void 0 ? _b : 0;
+                const recentCount = recentCounts[key] ?? 0;
                 if (recentCount > 0) {
                     const dampen = 1 + recentCount / historySize;
                     adjustedWeights[i] /= dampen;
                 }
             }
         }
+
         if (villainTypes.length > 0) {
             adjustedWeights[villainTypes.length - 1] *= 0.85;
         }
+
         const adjustedTotal = adjustedWeights.reduce((sum, weight) => sum + weight, 0);
         const normalizedTotal = adjustedTotal > 0 ? adjustedTotal : 1;
         const roll = Math.random();
         let cumulative = 0;
+
         for (let i = 0; i < villainTypes.length; i++) {
             cumulative += adjustedWeights[i] / normalizedTotal;
             if (roll <= cumulative) {
                 return villainTypes[i];
             }
         }
+
         return villainTypes[villainTypes.length - 1];
     }
+
     const villainImages = {};
     for (const [index, villain] of villainTypes.entries()) {
-        const image = loadImageWithFallback((_34 = villain.asset) !== null && _34 !== void 0 ? _34 : villain.imageSrc, () => { var _a; return (_a = createVillainFallbackDataUrl(index)) !== null && _a !== void 0 ? _a : villain.imageSrc; });
+        const image = loadImageWithFallback(
+            villain.asset ?? villain.imageSrc,
+            () => createVillainFallbackDataUrl(index) ?? villain.imageSrc
+        );
         villainImages[villain.key] = image;
         villain.image = image;
     }
+
     for (const [index, bossDef] of bossBattleDefinitions.entries()) {
         const villain = bossDef.villain;
         villain.asset = resolveAssetConfig(villainOverrides[villain.key], villain.imageSrc);
         if (typeof villain.asset === 'string') {
             villain.imageSrc = villain.asset;
-        }
-        else if (villain.asset &&
+        } else if (
+            villain.asset &&
             typeof villain.asset === 'object' &&
-            typeof villain.asset.src === 'string') {
+            typeof villain.asset.src === 'string'
+        ) {
             villain.imageSrc = villain.asset.src;
         }
-        const image = loadImageWithFallback(villain.imageSrc, () => { var _a; return (_a = createVillainFallbackDataUrl(villainTypes.length + index)) !== null && _a !== void 0 ? _a : villain.imageSrc; });
+        const image = loadImageWithFallback(
+            villain.imageSrc,
+            () => createVillainFallbackDataUrl(villainTypes.length + index) ?? villain.imageSrc
+        );
         villain.image = image;
     }
+
     player = {
         x: viewport.width * 0.18,
         y: viewport.height * 0.5,
@@ -9790,6 +10560,7 @@ document.addEventListener('DOMContentLoaded', () => {
         vx: 0,
         vy: 0
     };
+
     function resetGame() {
         storyManager.prepareForRun();
         state.score = 0;
@@ -9831,23 +10602,25 @@ document.addEventListener('DOMContentLoaded', () => {
         hyperBeamState.wave = 0;
         hyperBeamState.sparkTimer = 0;
         hyperBeamState.bounds = null;
-        const weaponCollection = typeof weaponLoadouts !== 'undefined' && weaponLoadouts ? weaponLoadouts : null;
+        const weaponCollection =
+            typeof weaponLoadouts !== 'undefined' && weaponLoadouts ? weaponLoadouts : null;
         if (weaponCollection && typeof weaponCollection === 'object') {
-            const idsToReset = typeof activeWeaponId === 'string' && activeWeaponId.length > 0
-                ? [activeWeaponId]
-                : Object.keys(weaponCollection);
+            const idsToReset =
+                typeof activeWeaponId === 'string' && activeWeaponId.length > 0
+                    ? [activeWeaponId]
+                    : Object.keys(weaponCollection);
+
             for (const id of idsToReset) {
                 const loadout = weaponCollection[id];
                 if (!loadout || typeof loadout !== 'object') {
                     continue;
                 }
+
                 if (typeof loadout.resetPatternState === 'function') {
                     loadout.resetPatternState();
-                }
-                else if (typeof loadout.createPatternState === 'function') {
+                } else if (typeof loadout.createPatternState === 'function') {
                     loadout.patternState = loadout.createPatternState();
-                }
-                else if ('patternState' in loadout) {
+                } else if ('patternState' in loadout) {
                     loadout.patternState = undefined;
                 }
             }
@@ -9890,6 +10663,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateTimerDisplay();
         resetVirtualControls();
     }
+
     function createInitialStars() {
         stars.length = 0;
         for (let i = 0; i < config.star.count; i++) {
@@ -9902,10 +10676,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     }
+
     function createAsteroid(initial = false) {
-        var _a, _b;
         const settings = config.asteroid;
-        const scale = (_a = settings === null || settings === void 0 ? void 0 : settings.scale) !== null && _a !== void 0 ? _a : 1;
+        const scale = settings?.scale ?? 1;
         const depth = randomBetween(settings.depthRange[0], settings.depthRange[1]);
         const baseSize = lerp(settings.sizeRange[0], settings.sizeRange[1], depth);
         const size = baseSize * scale;
@@ -9917,15 +10691,17 @@ document.addEventListener('DOMContentLoaded', () => {
             mass: Math.max(1, size * size * 0.0004),
             speed: lerp(settings.speedRange[0], settings.speedRange[1], depth),
             rotation: Math.random() * Math.PI * 2,
-            rotationSpeed: randomBetween(settings.rotationSpeedRange[0], settings.rotationSpeedRange[1]) *
+            rotationSpeed:
+                randomBetween(settings.rotationSpeedRange[0], settings.rotationSpeedRange[1]) *
                 (0.4 + depth),
-            drift: randomBetween(settings.driftRange[0], settings.driftRange[1]) *
+            drift:
+                randomBetween(settings.driftRange[0], settings.driftRange[1]) *
                 Math.max(0.12, 1 - depth * 0.6),
             vx: 0,
             vy: 0,
             x: 0,
             y: 0,
-            image: (_b = asteroidImages[Math.floor(Math.random() * asteroidImages.length)]) !== null && _b !== void 0 ? _b : null,
+            image: asteroidImages[Math.floor(Math.random() * asteroidImages.length)] ?? null,
             bobOffset: Math.random() * Math.PI * 2,
             health: Math.max(1, Math.round(size / 32)),
             hitFlash: 0,
@@ -9940,37 +10716,44 @@ document.addEventListener('DOMContentLoaded', () => {
         asteroid.vy = asteroid.drift;
         return asteroid;
     }
+
     function placeAsteroid(asteroid, initial = false) {
-        var _a, _b, _c, _d, _e;
-        const settings = (_a = config.asteroid) !== null && _a !== void 0 ? _a : {};
-        const clusterRadius = (_b = settings.clusterRadius) !== null && _b !== void 0 ? _b : 160;
-        const minSpacing = (_c = settings.minSpacing) !== null && _c !== void 0 ? _c : 12;
-        const spawnOffset = (_d = settings.spawnOffset) !== null && _d !== void 0 ? _d : 140;
-        const attempts = (_e = settings.placementAttempts) !== null && _e !== void 0 ? _e : 24;
+        const settings = config.asteroid ?? {};
+        const clusterRadius = settings.clusterRadius ?? 160;
+        const minSpacing = settings.minSpacing ?? 12;
+        const spawnOffset = settings.spawnOffset ?? 140;
+        const attempts = settings.placementAttempts ?? 24;
+
         for (let attempt = 0; attempt < attempts; attempt++) {
             let anchor = null;
             if (asteroids.length && (initial || Math.random() < 0.85)) {
                 anchor = asteroids[Math.floor(Math.random() * asteroids.length)];
             }
+
             let candidateX;
             let candidateY;
+
             if (anchor) {
                 candidateX = anchor.x + randomBetween(-clusterRadius, clusterRadius);
                 if (!initial) {
                     candidateX = Math.max(candidateX, viewport.width - clusterRadius * 0.8);
                 }
                 candidateY = anchor.y + randomBetween(-clusterRadius * 0.6, clusterRadius * 0.6);
-            }
-            else if (initial) {
+            } else if (initial) {
                 candidateX = Math.random() * viewport.width;
                 candidateY = Math.random() * viewport.height;
-            }
-            else {
+            } else {
                 candidateX = viewport.width + spawnOffset + Math.random() * clusterRadius;
                 candidateY = Math.random() * viewport.height;
             }
+
             candidateX = clamp(candidateX, asteroid.radius + minSpacing, viewport.width + clusterRadius);
-            candidateY = clamp(candidateY, asteroid.radius + minSpacing, viewport.height - asteroid.radius - minSpacing);
+            candidateY = clamp(
+                candidateY,
+                asteroid.radius + minSpacing,
+                viewport.height - asteroid.radius - minSpacing
+            );
+
             let overlaps = false;
             for (const other of asteroids) {
                 const dx = other.x - candidateX;
@@ -9981,22 +10764,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
                 }
             }
+
             if (!overlaps) {
                 asteroid.x = candidateX;
                 asteroid.y = candidateY;
                 return;
             }
         }
+
         asteroid.x = initial ? Math.random() * viewport.width : viewport.width + asteroid.size;
         asteroid.y = clamp(Math.random() * viewport.height, asteroid.radius, viewport.height - asteroid.radius);
     }
+
     function resolveAsteroidCollisions() {
-        var _a, _b, _c, _d, _e;
-        if (asteroids.length < 2)
-            return;
-        const settings = (_a = config.asteroid) !== null && _a !== void 0 ? _a : {};
-        const minSpacing = (_b = settings.minSpacing) !== null && _b !== void 0 ? _b : 12;
-        const restitution = (_c = settings.bounceRestitution) !== null && _c !== void 0 ? _c : 0.9;
+        if (asteroids.length < 2) return;
+        const settings = config.asteroid ?? {};
+        const minSpacing = settings.minSpacing ?? 12;
+        const restitution = settings.bounceRestitution ?? 0.9;
+
         for (let i = 0; i < asteroids.length - 1; i++) {
             const a = asteroids[i];
             for (let j = i + 1; j < asteroids.length; j++) {
@@ -10008,26 +10793,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (distanceSq === 0 || distanceSq >= minDistance * minDistance) {
                     continue;
                 }
+
                 const distance = Math.sqrt(distanceSq);
                 const nx = dx / distance;
                 const ny = dy / distance;
                 const overlap = minDistance - distance;
-                const massA = (_d = a.mass) !== null && _d !== void 0 ? _d : 1;
-                const massB = (_e = b.mass) !== null && _e !== void 0 ? _e : 1;
+                const massA = a.mass ?? 1;
+                const massB = b.mass ?? 1;
                 const totalMass = massA + massB;
+
                 const moveA = overlap * (massB / totalMass);
                 const moveB = overlap * (massA / totalMass);
+
                 a.x -= nx * moveA;
                 a.y -= ny * moveA;
                 b.x += nx * moveB;
                 b.y += ny * moveB;
+
                 const relativeVelocity = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
                 if (relativeVelocity > 0) {
                     continue;
                 }
+
                 const impulse = -(1 + restitution) * relativeVelocity;
                 const impulsePerMassA = impulse * (massB / totalMass);
                 const impulsePerMassB = impulse * (massA / totalMass);
+
                 a.vx += nx * impulsePerMassA;
                 a.vy += ny * impulsePerMassA;
                 b.vx -= nx * impulsePerMassB;
@@ -10035,27 +10826,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
     function createInitialAsteroids() {
-        var _a, _b, _c;
         asteroids.length = 0;
         asteroidSpawnTimer = 0;
-        const settings = (_a = config.asteroid) !== null && _a !== void 0 ? _a : {};
-        const count = (_c = (_b = settings.initialCount) !== null && _b !== void 0 ? _b : settings.maxCount) !== null && _c !== void 0 ? _c : 0;
+        const settings = config.asteroid ?? {};
+        const count = settings.initialCount ?? settings.maxCount ?? 0;
         for (let i = 0; i < count; i++) {
             asteroids.push(createAsteroid(true));
         }
         resolveAsteroidCollisions();
     }
+
     function scheduleNextMeteorShower() {
-        var _a, _b, _c;
-        const settings = (_a = config.asteroid) !== null && _a !== void 0 ? _a : {};
-        const interval = (_b = settings.meteorShowerInterval) !== null && _b !== void 0 ? _b : 0;
+        const settings = config.asteroid ?? {};
+        const interval = settings.meteorShowerInterval ?? 0;
         state.meteorShowerTimer = 0;
         if (!interval || interval <= 0) {
             state.nextMeteorShower = 0;
             return;
         }
-        const variance = (_c = settings.meteorShowerVariance) !== null && _c !== void 0 ? _c : 0;
+        const variance = settings.meteorShowerVariance ?? 0;
         if (!variance) {
             state.nextMeteorShower = interval;
             return;
@@ -10064,24 +10855,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const maxInterval = interval + variance;
         state.nextMeteorShower = randomBetween(minInterval, maxInterval);
     }
+
     function spawnMeteorShower() {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r;
-        const settings = (_a = config.asteroid) !== null && _a !== void 0 ? _a : {};
-        const formation = (_b = settings.meteorShowerFormation) !== null && _b !== void 0 ? _b : [
+        const settings = config.asteroid ?? {};
+        const formation = settings.meteorShowerFormation ?? [
             { x: 0, y: 0 },
             { x: 70, y: -56 },
             { x: 70, y: 56 },
             { x: 140, y: -112 },
             { x: 140, y: 112 }
         ];
-        const desiredCount = (_c = settings.meteorShowerCount) !== null && _c !== void 0 ? _c : formation.length;
+        const desiredCount = settings.meteorShowerCount ?? formation.length;
         if (!desiredCount || desiredCount < 1) {
             return false;
         }
+
         const offsets = formation.slice(0, desiredCount);
         if (!offsets.length) {
             return false;
         }
+
         const required = offsets.length;
         if (settings.maxCount && required > settings.maxCount) {
             return false;
@@ -10100,16 +10893,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
-        const spawnOffset = (_d = settings.spawnOffset) !== null && _d !== void 0 ? _d : 140;
+
+        const spawnOffset = settings.spawnOffset ?? 140;
         const spawnX = viewport.width + spawnOffset;
-        const scale = (_e = settings.scale) !== null && _e !== void 0 ? _e : 1;
-        const minSize = Array.isArray(settings.sizeRange) ? (_f = settings.sizeRange[0]) !== null && _f !== void 0 ? _f : 40 : 40;
+        const scale = settings.scale ?? 1;
+        const minSize = Array.isArray(settings.sizeRange) ? settings.sizeRange[0] ?? 40 : 40;
         const actualSize = minSize * scale;
-        const minSpacing = (_g = settings.minSpacing) !== null && _g !== void 0 ? _g : 12;
+        const minSpacing = settings.minSpacing ?? 12;
         const minY = actualSize * 0.5 + minSpacing;
         const maxY = viewport.height - actualSize * 0.5 - minSpacing;
         const centerY = clamp(Math.random() * (maxY - minY) + minY, minY, maxY);
-        const speedMultiplier = (_h = settings.meteorShowerSpeedMultiplier) !== null && _h !== void 0 ? _h : 1;
+        const speedMultiplier = settings.meteorShowerSpeedMultiplier ?? 1;
+
         let spawnedAny = false;
         for (const offset of offsets) {
             const asteroid = createAsteroid(false);
@@ -10123,9 +10918,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? lerp(settings.speedRange[0], settings.speedRange[1], 1)
                 : asteroid.speed;
             asteroid.speed = baseSpeed * speedMultiplier;
-            asteroid.rotationSpeed = randomBetween((_k = (_j = settings.rotationSpeedRange) === null || _j === void 0 ? void 0 : _j[0]) !== null && _k !== void 0 ? _k : -0.6, (_m = (_l = settings.rotationSpeedRange) === null || _l === void 0 ? void 0 : _l[1]) !== null && _m !== void 0 ? _m : 0.6) * (0.4 + asteroid.depth);
-            const driftRangeMin = (_p = (_o = settings.driftRange) === null || _o === void 0 ? void 0 : _o[0]) !== null && _p !== void 0 ? _p : -18;
-            const driftRangeMax = (_r = (_q = settings.driftRange) === null || _q === void 0 ? void 0 : _q[1]) !== null && _r !== void 0 ? _r : 18;
+            asteroid.rotationSpeed = randomBetween(
+                settings.rotationSpeedRange?.[0] ?? -0.6,
+                settings.rotationSpeedRange?.[1] ?? 0.6
+            ) * (0.4 + asteroid.depth);
+            const driftRangeMin = settings.driftRange?.[0] ?? -18;
+            const driftRangeMax = settings.driftRange?.[1] ?? 18;
             const driftScale = Math.max(0.18, 1 - asteroid.depth * 0.6);
             asteroid.drift = randomBetween(driftRangeMin * 0.4, driftRangeMax * 0.4) * driftScale;
             asteroid.vx = -asteroid.speed * (0.6 + asteroid.depth * 0.8);
@@ -10137,20 +10935,24 @@ document.addEventListener('DOMContentLoaded', () => {
             asteroids.push(asteroid);
             spawnedAny = true;
         }
+
         if (spawnedAny) {
             asteroidSpawnTimer = 0;
         }
+
         return spawnedAny;
     }
+
     function updateAsteroidTrailState(asteroid, scaledDelta) {
-        var _a, _b;
-        const trailConfig = (_b = (_a = config.asteroid) === null || _a === void 0 ? void 0 : _a.trail) !== null && _b !== void 0 ? _b : {};
+        const trailConfig = config.asteroid?.trail ?? {};
         const spacing = Math.max(12, Number(trailConfig.spacing) || 0);
         const maxPoints = Math.max(1, Math.round(Number(trailConfig.maxPoints) || 10));
         const maxLife = Math.max(120, Number(trailConfig.life) || 480);
+
         if (!Array.isArray(asteroid.trail)) {
             asteroid.trail = [];
         }
+
         const points = asteroid.trail;
         for (let i = points.length - 1; i >= 0; i--) {
             const point = points[i];
@@ -10159,9 +10961,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 points.splice(i, 1);
             }
         }
+
         const lastPoint = points[points.length - 1];
-        const needsSample = !lastPoint ||
+        const needsSample =
+            !lastPoint ||
             Math.hypot(asteroid.x - lastPoint.x, asteroid.y - lastPoint.y) >= spacing;
+
         if (needsSample) {
             const velocityX = asteroid.vx !== 0 ? asteroid.vx : -asteroid.speed;
             const velocityY = asteroid.vy !== 0 ? asteroid.vy : asteroid.drift;
@@ -10177,17 +10982,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 seed: Math.random() * Math.PI * 2
             });
         }
+
         while (points.length > maxPoints) {
             points.shift();
         }
     }
+
     function updateAsteroids(delta) {
-        var _a, _b, _c, _d, _e;
-        const settings = (_a = config.asteroid) !== null && _a !== void 0 ? _a : {};
-        const spawnInterval = (_b = settings.spawnInterval) !== null && _b !== void 0 ? _b : 0;
+        const settings = config.asteroid ?? {};
+        const spawnInterval = settings.spawnInterval ?? 0;
         if (state.gameState === 'running') {
             asteroidSpawnTimer += getScaledSpawnDelta(delta);
         }
+
         let spawned = false;
         if (state.gameState === 'running' && settings.maxCount > 0 && spawnInterval > 0) {
             while (asteroidSpawnTimer >= spawnInterval && asteroids.length < settings.maxCount) {
@@ -10195,66 +11002,75 @@ document.addEventListener('DOMContentLoaded', () => {
                 asteroids.push(createAsteroid(false));
                 spawned = true;
             }
+
             if (asteroids.length >= settings.maxCount) {
                 asteroidSpawnTimer = Math.min(asteroidSpawnTimer, spawnInterval);
             }
         }
+
         if (state.gameState !== 'running') {
             state.meteorShowerTimer = 0;
-        }
-        else if (state.nextMeteorShower > 0) {
+        } else if (state.nextMeteorShower > 0) {
             state.meteorShowerTimer += getScaledSpawnDelta(delta);
             if (state.meteorShowerTimer >= state.nextMeteorShower) {
                 const created = spawnMeteorShower();
                 if (created) {
                     spawned = true;
                     scheduleNextMeteorShower();
-                }
-                else {
+                } else {
                     state.meteorShowerTimer = state.nextMeteorShower * 0.6;
                 }
             }
         }
+
         if (spawned) {
             resolveAsteroidCollisions();
         }
-        if (!asteroids.length)
-            return;
+
+        if (!asteroids.length) return;
+
         const scaledDelta = getScaledDelta(delta);
         const deltaSeconds = scaledDelta / 1000;
         const parallaxFactor = 0.4 + state.gameSpeed / 900;
-        const flowLerp = (_c = settings.flowLerp) !== null && _c !== void 0 ? _c : 0.08;
+        const flowLerp = settings.flowLerp ?? 0.08;
+
         for (let i = asteroids.length - 1; i >= 0; i--) {
             const asteroid = asteroids[i];
             const targetVx = -asteroid.speed * parallaxFactor * (0.6 + asteroid.depth * 0.8);
             asteroid.vx += (targetVx - asteroid.vx) * flowLerp;
             const targetVy = asteroid.drift;
             asteroid.vy += (targetVy - asteroid.vy) * flowLerp;
+
             asteroid.x += asteroid.vx * deltaSeconds;
             asteroid.y += asteroid.vy * deltaSeconds;
             asteroid.rotation += asteroid.rotationSpeed * deltaSeconds;
+
             updateAsteroidTrailState(asteroid, scaledDelta);
+
             if (asteroid.hitFlash > 0) {
                 asteroid.hitFlash = Math.max(0, asteroid.hitFlash - scaledDelta);
             }
+
             if (asteroid.shieldCooldown > 0) {
                 asteroid.shieldCooldown = Math.max(0, asteroid.shieldCooldown - scaledDelta);
             }
+
             if (asteroid.y < asteroid.radius) {
                 asteroid.y = asteroid.radius;
                 asteroid.vy = Math.abs(asteroid.vy || targetVy);
-            }
-            else if (asteroid.y > viewport.height - asteroid.radius) {
+            } else if (asteroid.y > viewport.height - asteroid.radius) {
                 asteroid.y = viewport.height - asteroid.radius;
                 asteroid.vy = -Math.abs(asteroid.vy || targetVy);
             }
+
             if (asteroid.x < -asteroid.size) {
                 asteroids.splice(i, 1);
                 asteroidSpawnTimer = 0;
                 continue;
             }
+
             if (state.gameState === 'running') {
-                const collisionRadius = asteroid.radius * ((_d = settings.collisionRadiusMultiplier) !== null && _d !== void 0 ? _d : 1);
+                const collisionRadius = asteroid.radius * (settings.collisionRadiusMultiplier ?? 1);
                 const activePlayers = getActivePlayerEntities();
                 let collidedEntity = null;
                 for (const entity of activePlayers) {
@@ -10271,15 +11087,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     triggerGameOver('An asteroid shattered your shields!');
                     return;
                 }
+
                 if (isPumpTailDamaging()) {
                     if (pumpTailIntersectsCircle({ x: asteroid.x, y: asteroid.y, radius: collisionRadius })) {
                         destroyAsteroid(i);
                         continue;
                     }
-                }
-                else {
+                } else {
                     const evaluateTailCollision = (points, sourceEntity) => {
-                        if (!(points === null || points === void 0 ? void 0 : points.length)) {
+                        if (!points?.length) {
                             return 'none';
                         }
                         for (let j = points.length - 1; j >= 0; j--) {
@@ -10287,7 +11103,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (Math.hypot(asteroid.x - t.x, asteroid.y - t.y) <= collisionRadius + 10) {
                                 if (isShieldActive()) {
                                     if (asteroid.shieldCooldown <= 0) {
-                                        repelAsteroidFromPlayer(asteroid, sourceEntity !== null && sourceEntity !== void 0 ? sourceEntity : player);
+                                        repelAsteroidFromPlayer(asteroid, sourceEntity ?? player);
                                     }
                                     return 'shielded';
                                 }
@@ -10297,6 +11113,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         return 'none';
                     };
+
                     const tailResult = evaluateTailCollision(trail, player);
                     if (tailResult === 'gameOver') {
                         return;
@@ -10304,6 +11121,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (tailResult === 'shielded') {
                         continue;
                     }
+
                     if (isDoubleTeamActive()) {
                         const cloneTailResult = evaluateTailCollision(doubleTeamState.trail, doubleTeamState.clone);
                         if (cloneTailResult === 'gameOver') {
@@ -10316,18 +11134,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
+
         resolveAsteroidCollisions();
-        const maxX = viewport.width + ((_e = settings.clusterRadius) !== null && _e !== void 0 ? _e : 160);
+
+        const maxX = viewport.width + (settings.clusterRadius ?? 160);
         for (const asteroid of asteroids) {
             asteroid.y = clamp(asteroid.y, asteroid.radius, viewport.height - asteroid.radius);
             asteroid.x = Math.min(asteroid.x, maxX);
         }
     }
+
     function getAsteroidScoreValue(asteroid) {
-        var _a, _b, _c;
-        const base = (_b = (_a = config.score) === null || _a === void 0 ? void 0 : _a.asteroid) !== null && _b !== void 0 ? _b : 0;
-        return base + Math.round(((_c = asteroid.size) !== null && _c !== void 0 ? _c : 0) * 0.4);
+        const base = config.score?.asteroid ?? 0;
+        return base + Math.round((asteroid.size ?? 0) * 0.4);
     }
+
     function createAsteroidDebris(asteroid) {
         createParticles({
             x: asteroid.x,
@@ -10339,10 +11160,10 @@ document.addEventListener('DOMContentLoaded', () => {
             lifeRange: [380, 760]
         });
     }
+
     function destroyAsteroid(index, options = {}) {
         const asteroid = asteroids[index];
-        if (!asteroid)
-            return;
+        if (!asteroid) return;
         createAsteroidDebris(asteroid);
         audioManager.playExplosion('asteroid');
         if (options.createSpark !== false) {
@@ -10360,22 +11181,22 @@ document.addEventListener('DOMContentLoaded', () => {
         asteroids.splice(index, 1);
         asteroidSpawnTimer = 0;
     }
+
     function damageAsteroid(asteroid, damage, index) {
         asteroid.health -= damage;
         asteroid.hitFlash = 220;
         if (asteroid.health <= 0) {
             destroyAsteroid(index);
-        }
-        else {
+        } else {
             createHitSpark({ x: asteroid.x, y: asteroid.y, color: { r: 172, g: 184, b: 204 } });
         }
     }
+
     function drawAsteroidTrail(asteroid, time) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j;
-        if (!((_a = asteroid === null || asteroid === void 0 ? void 0 : asteroid.trail) === null || _a === void 0 ? void 0 : _a.length)) {
+        if (!asteroid?.trail?.length) {
             return;
         }
-        const trailConfig = (_c = (_b = config.asteroid) === null || _b === void 0 ? void 0 : _b.trail) !== null && _c !== void 0 ? _c : {};
+        const trailConfig = config.asteroid?.trail ?? {};
         const baseLengthScale = Number(trailConfig.lengthScale) || 0.78;
         const baseWidthScale = Number(trailConfig.widthScale) || 0.42;
         ctx.save();
@@ -10385,15 +11206,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (progress <= 0) {
                 continue;
             }
-            const depthFactor = 1 - clamp((_e = (_d = point.depth) !== null && _d !== void 0 ? _d : asteroid.depth) !== null && _e !== void 0 ? _e : 0.5, 0, 1);
-            const flicker = 0.75 + Math.sin(time * 0.004 + ((_f = point.seed) !== null && _f !== void 0 ? _f : 0)) * 0.25;
-            const length = ((_g = point.size) !== null && _g !== void 0 ? _g : asteroid.size) * baseLengthScale * (0.6 + 0.4 * progress) * flicker;
-            const width = ((_h = point.size) !== null && _h !== void 0 ? _h : asteroid.size) * baseWidthScale * (0.7 + depthFactor * 0.4);
+            const depthFactor = 1 - clamp(point.depth ?? asteroid.depth ?? 0.5, 0, 1);
+            const flicker = 0.75 + Math.sin(time * 0.004 + (point.seed ?? 0)) * 0.25;
+            const length = (point.size ?? asteroid.size) * baseLengthScale * (0.6 + 0.4 * progress) * flicker;
+            const width = (point.size ?? asteroid.size) * baseWidthScale * (0.7 + depthFactor * 0.4);
             const innerRadius = Math.max(2, width * 0.14);
             const outerRadius = Math.max(width, length);
+
             ctx.save();
             ctx.translate(point.x, point.y);
-            ctx.rotate((_j = point.angle) !== null && _j !== void 0 ? _j : 0);
+            ctx.rotate(point.angle ?? 0);
             ctx.globalAlpha = Math.min(0.78, 0.18 + progress * 0.62);
             const gradient = ctx.createRadialGradient(-length * 0.65, 0, innerRadius, -length * 0.65, 0, outerRadius);
             gradient.addColorStop(0, 'rgba(255, 245, 218, 0.92)');
@@ -10408,10 +11230,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         ctx.restore();
     }
+
     function drawAsteroids(time) {
-        var _a, _b, _c, _d;
-        if (!asteroids.length)
-            return;
+        if (!asteroids.length) return;
         ctx.save();
         for (const asteroid of asteroids) {
             drawAsteroidTrail(asteroid, time);
@@ -10423,14 +11244,21 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.rotate(asteroid.rotation);
             ctx.globalAlpha = alpha;
             const image = asteroid.image;
-            const flamePulse = 0.78 + Math.sin(time * 0.004 + ((_a = asteroid.flameSeed) !== null && _a !== void 0 ? _a : 0)) * 0.22;
-            const flameFlicker = 0.5 + Math.sin(time * 0.009 + ((_b = asteroid.flameSeed) !== null && _b !== void 0 ? _b : 0) * 1.7) * 0.5;
-            const flameLength = drawSize * (0.62 + (1 - asteroid.depth) * 0.55) * flamePulse * ((_c = asteroid.flameScale) !== null && _c !== void 0 ? _c : 1);
+            const flamePulse = 0.78 + Math.sin(time * 0.004 + (asteroid.flameSeed ?? 0)) * 0.22;
+            const flameFlicker = 0.5 + Math.sin(time * 0.009 + (asteroid.flameSeed ?? 0) * 1.7) * 0.5;
+            const flameLength = drawSize * (0.62 + (1 - asteroid.depth) * 0.55) * flamePulse * (asteroid.flameScale ?? 1);
             const flameWidth = drawSize * (0.32 + (1 - asteroid.depth) * 0.28) * (0.72 + flameFlicker * 0.4);
             const flameOffset = drawSize * 0.58;
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            const flameGradient = ctx.createRadialGradient(-flameOffset, 0, drawSize * 0.08, -flameOffset, 0, Math.max(flameLength, drawSize * 0.2));
+            const flameGradient = ctx.createRadialGradient(
+                -flameOffset,
+                0,
+                drawSize * 0.08,
+                -flameOffset,
+                0,
+                Math.max(flameLength, drawSize * 0.2)
+            );
             flameGradient.addColorStop(0, 'rgba(255, 247, 206, 0.92)');
             flameGradient.addColorStop(0.35, 'rgba(255, 196, 104, 0.8)');
             flameGradient.addColorStop(0.7, 'rgba(255, 132, 48, 0.55)');
@@ -10439,20 +11267,20 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.beginPath();
             ctx.ellipse(-flameOffset, 0, flameLength, flameWidth, 0, 0, Math.PI * 2);
             ctx.fill();
+
             const coreAlpha = 0.28 + flameFlicker * 0.22;
             ctx.fillStyle = `rgba(255, 244, 214, ${coreAlpha.toFixed(3)})`;
             ctx.beginPath();
             ctx.ellipse(-flameOffset * 0.78, 0, flameLength * 0.42, flameWidth * 0.52, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
-            const flashStrength = clamp(((_d = asteroid.hitFlash) !== null && _d !== void 0 ? _d : 0) / 220, 0, 1);
+            const flashStrength = clamp((asteroid.hitFlash ?? 0) / 220, 0, 1);
             if (flashStrength > 0) {
                 ctx.filter = `brightness(${1 + flashStrength * 0.6}) saturate(${1 + flashStrength * 0.3})`;
             }
             if (image && image.complete && image.naturalWidth > 0) {
                 ctx.drawImage(image, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
-            }
-            else {
+            } else {
                 ctx.fillStyle = `rgba(94, 106, 134, ${alpha})`;
                 ctx.beginPath();
                 ctx.arc(0, 0, drawSize / 2, 0, Math.PI * 2);
@@ -10465,9 +11293,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         ctx.restore();
     }
+
     function clamp(value, min, max) {
         return Math.max(min, Math.min(max, value));
     }
+
     function normalizeColor(color) {
         if (!color) {
             return null;
@@ -10516,6 +11346,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return null;
     }
+
     function moveTowards(value, target, maxDelta) {
         if (value < target) {
             return Math.min(target, value + maxDelta);
@@ -10525,15 +11356,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return value;
     }
+
     function randomBetween(min, max) {
         return Math.random() * (max - min) + min;
     }
+
     function lerp(a, b, t) {
         return a + (b - a) * t;
     }
+
     function easeInOutQuad(t) {
         return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     }
+
     const tutorialDifficultyTuning = {
         baseSpeedScale: 0.72,
         speedRampScale: 0.65,
@@ -10544,15 +11379,14 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         healthScale: 0.6
     };
+
     function getDifficultyProgress() {
-        if (!config.difficulty)
-            return 1;
+        if (!config.difficulty) return 1;
         return clamp(state.elapsedTime / config.difficulty.rampDuration, 0, 1);
     }
+
     function getSpeedRampMultiplier() {
-        var _a;
-        if (!((_a = config.difficulty) === null || _a === void 0 ? void 0 : _a.speedRamp))
-            return 1;
+        if (!config.difficulty?.speedRamp) return 1;
         const eased = easeInOutQuad(getDifficultyProgress());
         const base = lerp(config.difficulty.speedRamp.start, config.difficulty.speedRamp.end, eased);
         if (tutorialFlightActive) {
@@ -10560,24 +11394,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return base;
     }
+
     function getSpawnIntensity(type) {
-        var _a, _b, _c;
-        const settings = (_b = (_a = config.difficulty) === null || _a === void 0 ? void 0 : _a.spawnIntensity) === null || _b === void 0 ? void 0 : _b[type];
-        if (!settings)
-            return 1;
+        const settings = config.difficulty?.spawnIntensity?.[type];
+        if (!settings) return 1;
         const eased = easeInOutQuad(getDifficultyProgress());
         const base = lerp(settings.start, settings.end, eased);
         if (tutorialFlightActive) {
-            const scale = (_c = tutorialDifficultyTuning.spawnScale[type]) !== null && _c !== void 0 ? _c : 1;
+            const scale = tutorialDifficultyTuning.spawnScale[type] ?? 1;
             return Math.max(0.12, base * scale);
         }
         return base;
     }
+
     function getHealthRampMultiplier() {
-        var _a;
-        const settings = (_a = config.difficulty) === null || _a === void 0 ? void 0 : _a.healthRamp;
-        if (!settings)
-            return 1;
+        const settings = config.difficulty?.healthRamp;
+        if (!settings) return 1;
         const eased = easeInOutQuad(getDifficultyProgress());
         const base = lerp(settings.start, settings.end, eased);
         if (tutorialFlightActive) {
@@ -10585,6 +11417,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return base;
     }
+
     function setPreflightPromptVisibility(visible) {
         if (preflightBar) {
             preflightBar.hidden = !visible;
@@ -10614,19 +11447,22 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSwapPilotButton();
         updateSwapWeaponButtons();
     }
+
     function showPreflightPrompt() {
         setPreflightPromptVisibility(true);
     }
+
     function hidePreflightPrompt() {
         setPreflightPromptVisibility(false);
     }
+
     function enterPreflightReadyState({ focusCanvas = true } = {}) {
         preflightOverlayDismissed = true;
         state.gameState = 'ready';
         updateSwapPilotButton();
         updateSwapWeaponButtons();
-        bodyElement === null || bodyElement === void 0 ? void 0 : bodyElement.classList.remove('paused');
-        survivalTimerEl === null || survivalTimerEl === void 0 ? void 0 : survivalTimerEl.classList.remove('paused');
+        bodyElement?.classList.remove('paused');
+        survivalTimerEl?.classList.remove('paused');
         hidePauseOverlay();
         preflightReady = true;
         if (overlayButton) {
@@ -10639,6 +11475,7 @@ document.addEventListener('DOMContentLoaded', () => {
             focusGameCanvas();
         }
     }
+
     function revealGameScreenAfterNameEntry() {
         if (preflightOverlayDismissed) {
             return;
@@ -10646,36 +11483,37 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!overlay || overlay.classList.contains('hidden')) {
             return;
         }
-        const mode = overlayButton === null || overlayButton === void 0 ? void 0 : overlayButton.dataset.launchMode;
+        const mode = overlayButton?.dataset.launchMode;
         if (mode !== 'prepare' && mode !== 'launch') {
             return;
         }
         enterPreflightReadyState();
     }
+
     function showOverlay(message, buttonText = getLaunchControlText(), options = {}) {
-        var _a, _b, _c;
         hidePauseOverlay();
-        bodyElement === null || bodyElement === void 0 ? void 0 : bodyElement.classList.remove('paused');
-        survivalTimerEl === null || survivalTimerEl === void 0 ? void 0 : survivalTimerEl.classList.remove('paused');
+        bodyElement?.classList.remove('paused');
+        survivalTimerEl?.classList.remove('paused');
         hidePreflightPrompt();
         preflightOverlayDismissed = false;
         preflightReady = false;
         overlayMessage.textContent = message;
         const resolvedButtonText = buttonText || getLaunchControlText();
         if (overlayButton) {
-            const enableButton = (_a = options.enableButton) !== null && _a !== void 0 ? _a : false;
+            const enableButton = options.enableButton ?? false;
             overlayButton.textContent = resolvedButtonText;
             overlayButton.disabled = !enableButton;
             overlayButton.setAttribute('aria-disabled', enableButton ? 'false' : 'true');
             if (enableButton && options.launchMode) {
                 overlayButton.dataset.launchMode = options.launchMode;
-                if (options.launchMode === 'launch' ||
+                if (
+                    options.launchMode === 'launch' ||
                     options.launchMode === 'retry' ||
-                    options.launchMode === 'prepare') {
+                    options.launchMode === 'prepare'
+                ) {
                     refreshOverlayLaunchButton();
                 }
-            }
-            else if (overlayButton.dataset.launchMode) {
+            } else if (overlayButton.dataset.launchMode) {
                 overlayButton.textContent = resolvedButtonText;
                 delete overlayButton.dataset.launchMode;
             }
@@ -10685,11 +11523,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (secondaryConfig && secondaryConfig.text && secondaryConfig.launchMode) {
                 overlaySecondaryButton.hidden = false;
                 overlaySecondaryButton.disabled = Boolean(secondaryConfig.disabled);
-                overlaySecondaryButton.setAttribute('aria-disabled', secondaryConfig.disabled ? 'true' : 'false');
+                overlaySecondaryButton.setAttribute(
+                    'aria-disabled',
+                    secondaryConfig.disabled ? 'true' : 'false'
+                );
                 overlaySecondaryButton.textContent = secondaryConfig.text;
                 overlaySecondaryButton.dataset.launchMode = secondaryConfig.launchMode;
-            }
-            else {
+            } else {
                 overlaySecondaryButton.hidden = true;
                 overlaySecondaryButton.disabled = true;
                 overlaySecondaryButton.setAttribute('aria-disabled', 'true');
@@ -10699,10 +11539,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         if (overlayTitle) {
-            const titleText = (_b = options.title) !== null && _b !== void 0 ? _b : overlayDefaultTitle;
+            const titleText = options.title ?? overlayDefaultTitle;
             overlayTitle.textContent = titleText;
         }
-        const shouldShowComic = (_c = options.showComic) !== null && _c !== void 0 ? _c : firstRunExperience;
+        const shouldShowComic = options.showComic ?? firstRunExperience;
         if (comicIntro) {
             comicIntro.hidden = !shouldShowComic;
         }
@@ -10714,34 +11554,30 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshHighScorePreview();
         refreshFlyNowButton();
         window.requestAnimationFrame(() => {
-            var _a;
             try {
                 if (playerNameInput) {
                     playerNameInput.focus({ preventScroll: true });
-                    (_a = playerNameInput.select) === null || _a === void 0 ? void 0 : _a.call(playerNameInput);
-                }
-                else if (overlayButton) {
+                    playerNameInput.select?.();
+                } else if (overlayButton) {
                     overlayButton.focus({ preventScroll: true });
                 }
-            }
-            catch (_b) {
+            } catch {
                 // Ignore focus errors (e.g., if element is detached)
             }
         });
     }
+
     function setOverlaySubmittingState(isSubmitting) {
-        var _a, _b;
         if (overlayButton) {
             if (isSubmitting && !overlayButton.dataset.originalLabel) {
-                overlayButton.dataset.originalLabel = (_a = overlayButton.textContent) !== null && _a !== void 0 ? _a : '';
+                overlayButton.dataset.originalLabel = overlayButton.textContent ?? '';
             }
             overlayButton.disabled = isSubmitting;
             overlayButton.setAttribute('aria-disabled', isSubmitting ? 'true' : 'false');
             if (isSubmitting) {
                 overlayButton.textContent = 'Submitting…';
-            }
-            else if (overlayButton.dataset.originalLabel) {
-                if (((_b = overlayButton.textContent) !== null && _b !== void 0 ? _b : '') === 'Submitting…') {
+            } else if (overlayButton.dataset.originalLabel) {
+                if ((overlayButton.textContent ?? '') === 'Submitting…') {
                     overlayButton.textContent = overlayButton.dataset.originalLabel;
                 }
                 delete overlayButton.dataset.originalLabel;
@@ -10753,6 +11589,7 @@ document.addEventListener('DOMContentLoaded', () => {
             overlaySecondaryButton.setAttribute('aria-disabled', shouldDisable ? 'true' : 'false');
         }
     }
+
     function hideOverlay() {
         if (overlay) {
             overlay.classList.add('hidden');
@@ -10777,14 +11614,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         refreshHighScorePreview();
     }
+
     function setJoystickThumbPosition(dx, dy) {
-        if (!joystickThumb)
-            return;
+        if (!joystickThumb) return;
         const xValue = typeof dx === 'number' ? `${dx}px` : dx;
         const yValue = typeof dy === 'number' ? `${dy}px` : dy;
         joystickThumb.style.setProperty('--thumb-x', xValue);
         joystickThumb.style.setProperty('--thumb-y', yValue);
     }
+
     function resetMotionInput() {
         motionInput.moveX = 0;
         motionInput.moveY = 0;
@@ -10792,13 +11630,18 @@ document.addEventListener('DOMContentLoaded', () => {
         motionInput.smoothedY = 0;
         motionInput.lastUpdate = getTimestamp();
     }
+
     function updateMotionBodyClasses() {
         if (!bodyElement) {
             return;
         }
         bodyElement.classList.toggle('motion-controls-enabled', motionInput.enabled);
-        bodyElement.classList.toggle('motion-controls-landscape', motionInput.enabled && motionInput.active);
+        bodyElement.classList.toggle(
+            'motion-controls-landscape',
+            motionInput.enabled && motionInput.active
+        );
     }
+
     function normalizeOrientationAngle(angle) {
         if (!Number.isFinite(angle)) {
             return 0;
@@ -10818,12 +11661,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return 270;
     }
+
     function getOrientationAngle() {
-        var _a;
         if (typeof window === 'undefined') {
             return 0;
         }
-        const orientation = (_a = window.screen) === null || _a === void 0 ? void 0 : _a.orientation;
+        const orientation = window.screen?.orientation;
         if (orientation && typeof orientation.angle === 'number') {
             return normalizeOrientationAngle(orientation.angle);
         }
@@ -10832,10 +11675,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return 0;
     }
+
     function isLandscapeOrientation() {
         const angle = getOrientationAngle();
         return angle === 90 || angle === 270;
     }
+
     function applyMotionVector(xTilt, yTilt) {
         const normalizedX = clamp(xTilt / MOTION_MAX_TILT, -1, 1);
         const normalizedY = clamp(yTilt / MOTION_MAX_TILT, -1, 1);
@@ -10843,6 +11688,7 @@ document.addEventListener('DOMContentLoaded', () => {
         motionInput.moveY = Math.abs(normalizedY) < MOTION_DEADZONE ? 0 : normalizedY;
         motionInput.lastUpdate = getTimestamp();
     }
+
     function updateMotionOrientationState() {
         motionInput.active = isLandscapeOrientation();
         if (!motionInput.active) {
@@ -10850,12 +11696,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateMotionBodyClasses();
     }
+
     function handleOrientationChange() {
         if (!motionInput.enabled) {
             return;
         }
         updateMotionOrientationState();
     }
+
     function handleDeviceOrientation(event) {
         if (!motionInput.enabled) {
             return;
@@ -10878,22 +11726,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (angle === 90) {
             xTilt = gamma;
             yTilt = -beta;
-        }
-        else if (angle === 270) {
+        } else if (angle === 270) {
             xTilt = -gamma;
             yTilt = beta;
-        }
-        else if (angle === 180) {
+        } else if (angle === 180) {
             xTilt = -gamma;
             yTilt = beta;
-        }
-        else {
+        } else {
             xTilt = gamma;
             yTilt = beta;
         }
         applyMotionVector(xTilt, yTilt);
         updateMotionBodyClasses();
     }
+
     function enableMotionControls() {
         if (motionInput.enabled) {
             return;
@@ -10905,9 +11751,11 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('deviceorientation', handleDeviceOrientation);
         window.addEventListener('orientationchange', handleOrientationChange);
     }
+
     function shouldAttemptMotionControls() {
         return isTouchInterface && hasDeviceOrientationSupport;
     }
+
     async function tryEnableMotionControls() {
         if (!shouldAttemptMotionControls()) {
             return;
@@ -10922,16 +11770,16 @@ document.addEventListener('DOMContentLoaded', () => {
         motionInput.permissionState = 'pending';
         let granted = false;
         try {
-            if (typeof DeviceOrientationEvent !== 'undefined' &&
-                typeof DeviceOrientationEvent.requestPermission === 'function') {
+            if (
+                typeof DeviceOrientationEvent !== 'undefined' &&
+                typeof DeviceOrientationEvent.requestPermission === 'function'
+            ) {
                 const result = await DeviceOrientationEvent.requestPermission();
                 granted = result === 'granted';
-            }
-            else {
+            } else {
                 granted = true;
             }
-        }
-        catch (_a) {
+        } catch {
             granted = false;
         }
         motionInput.permissionState = granted ? 'granted' : 'denied';
@@ -10941,10 +11789,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         enableMotionControls();
     }
+
     function resetJoystick() {
-        var _a;
         const pointerId = joystickState.pointerId;
-        if (pointerId !== null && ((_a = joystickZone === null || joystickZone === void 0 ? void 0 : joystickZone.hasPointerCapture) === null || _a === void 0 ? void 0 : _a.call(joystickZone, pointerId))) {
+        if (pointerId !== null && joystickZone?.hasPointerCapture?.(pointerId)) {
             joystickZone.releasePointerCapture(pointerId);
         }
         joystickState.pointerId = null;
@@ -10955,10 +11803,10 @@ document.addEventListener('DOMContentLoaded', () => {
         virtualInput.smoothedY = 0;
         setJoystickThumbPosition('0px', '0px');
     }
+
     function resetFiring() {
-        var _a;
         const pointerId = firePointerId;
-        if (pointerId !== null && ((_a = fireButton === null || fireButton === void 0 ? void 0 : fireButton.hasPointerCapture) === null || _a === void 0 ? void 0 : _a.call(fireButton, pointerId))) {
+        if (pointerId !== null && fireButton?.hasPointerCapture?.(pointerId)) {
             fireButton.releasePointerCapture(pointerId);
         }
         firePointerId = null;
@@ -10968,6 +11816,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fireButton.classList.remove('active');
         }
     }
+
     function resetVirtualControls() {
         resetJoystick();
         resetFiring();
@@ -10975,9 +11824,9 @@ document.addEventListener('DOMContentLoaded', () => {
             resetMotionInput();
         }
     }
+
     function updateJoystickFromPointer(event) {
-        if (!joystickZone)
-            return;
+        if (!joystickZone) return;
         const rect = joystickZone.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
@@ -10990,47 +11839,52 @@ document.addEventListener('DOMContentLoaded', () => {
             dx *= scale;
             dy *= scale;
         }
+
         setJoystickThumbPosition(dx, dy);
+
         const normalizedX = clamp(dx / maxDistance, -1, 1);
         const normalizedY = clamp(dy / maxDistance, -1, 1);
         const deadZone = 0.14;
         virtualInput.moveX = Math.abs(normalizedX) < deadZone ? 0 : normalizedX;
         virtualInput.moveY = Math.abs(normalizedY) < deadZone ? 0 : normalizedY;
     }
+
     function endJoystickControl() {
         resetJoystick();
     }
+
     function handleJoystickPointerEnd(event) {
-        var _a;
         if (joystickState.pointerId !== event.pointerId) {
             return;
         }
-        if ((_a = joystickZone === null || joystickZone === void 0 ? void 0 : joystickZone.hasPointerCapture) === null || _a === void 0 ? void 0 : _a.call(joystickZone, event.pointerId)) {
+        if (joystickZone?.hasPointerCapture?.(event.pointerId)) {
             joystickZone.releasePointerCapture(event.pointerId);
         }
         endJoystickControl();
     }
+
     function getTouchById(touchList, identifier) {
         if (!touchList || identifier == null) {
             return null;
         }
         for (let i = 0; i < touchList.length; i++) {
             const touch = touchList.item ? touchList.item(i) : touchList[i];
-            if ((touch === null || touch === void 0 ? void 0 : touch.identifier) === identifier) {
+            if (touch?.identifier === identifier) {
                 return touch;
             }
         }
         return null;
     }
+
     function handleJoystickTouchEnd(identifier) {
         if (joystickState.touchId !== identifier) {
             return;
         }
         endJoystickControl();
     }
+
     function engageFireControl(event, options = {}) {
-        var _a, _b;
-        const pointerId = (_a = event === null || event === void 0 ? void 0 : event.pointerId) !== null && _a !== void 0 ? _a : null;
+        const pointerId = event?.pointerId ?? null;
         const { pointerCapture = true } = options;
         firePointerId = pointerId;
         fireTouchId = null;
@@ -11038,10 +11892,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fireButton) {
             fireButton.classList.add('active');
             if (pointerCapture && pointerId !== null) {
-                (_b = fireButton.setPointerCapture) === null || _b === void 0 ? void 0 : _b.call(fireButton, pointerId);
+                fireButton.setPointerCapture?.(pointerId);
             }
         }
     }
+
     function engageFireTouchControl(identifier) {
         firePointerId = null;
         fireTouchId = identifier;
@@ -11050,32 +11905,33 @@ document.addEventListener('DOMContentLoaded', () => {
             fireButton.classList.add('active');
         }
     }
+
     function handleFirePointerEnd(event) {
-        var _a;
         if (firePointerId !== event.pointerId) {
             return;
         }
-        if ((_a = fireButton === null || fireButton === void 0 ? void 0 : fireButton.hasPointerCapture) === null || _a === void 0 ? void 0 : _a.call(fireButton, event.pointerId)) {
+        if (fireButton?.hasPointerCapture?.(event.pointerId)) {
             fireButton.releasePointerCapture(event.pointerId);
         }
         resetFiring();
     }
+
     function handleFireTouchEnd(identifier) {
         if (fireTouchId !== identifier) {
             return;
         }
         resetFiring();
     }
+
     function focusGameCanvas() {
-        if (!canvas)
-            return;
+        if (!canvas) return;
         try {
             canvas.focus({ preventScroll: true });
-        }
-        catch (_a) {
+        } catch {
             canvas.focus();
         }
     }
+
     async function startGame(options = {}) {
         const { skipCommit = false, tutorial = false, tutorialCallsign: callSignOverride = null } = options;
         hidePreflightPrompt();
@@ -11089,8 +11945,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof callSignOverride === 'string' && callSignOverride.length) {
                 tutorialCallsign = callSignOverride;
             }
-        }
-        else {
+        } else {
             tutorialFlightActive = false;
             tutorialCallsign = null;
             completeFirstRunExperience();
@@ -11099,8 +11954,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentCallsign = tutorial ? tutorialCallsign || playerName : playerName;
         storyManager.beginRun({ callSign: currentCallsign, tutorial });
         mascotAnnouncer.reset({ immediate: true });
-        bodyElement === null || bodyElement === void 0 ? void 0 : bodyElement.classList.remove('paused');
-        survivalTimerEl === null || survivalTimerEl === void 0 ? void 0 : survivalTimerEl.classList.remove('paused');
+        bodyElement?.classList.remove('paused');
+        survivalTimerEl?.classList.remove('paused');
         hidePauseOverlay();
         if (tutorial) {
             state.gameSpeed = config.baseGameSpeed * tutorialDifficultyTuning.baseSpeedScale;
@@ -11109,18 +11964,14 @@ document.addEventListener('DOMContentLoaded', () => {
         invalidateRunToken();
         try {
             await ensureRunToken();
-        }
-        catch (error) {
-            if ((error === null || error === void 0 ? void 0 : error.code) === 'unconfigured') {
+        } catch (error) {
+            if (error?.code === 'unconfigured') {
                 // No remote leaderboard configured; continue without a token.
-            }
-            else if ((error === null || error === void 0 ? void 0 : error.code) === 'timeout') {
+            } else if (error?.code === 'timeout') {
                 console.warn('Run token request timed out before launch', error);
-            }
-            else if ((error === null || error === void 0 ? void 0 : error.code) === 'network') {
+            } else if (error?.code === 'network') {
                 console.warn('Unable to fetch run token before launch', error);
-            }
-            else {
+            } else {
                 console.error('Run token request failed before launch', error);
             }
         }
@@ -11134,6 +11985,7 @@ document.addEventListener('DOMContentLoaded', () => {
         audioManager.playGameplayMusic();
         focusGameCanvas();
     }
+
     if (flyNowButton) {
         flyNowButton.addEventListener('click', (event) => {
             event.preventDefault();
@@ -11143,27 +11995,27 @@ document.addEventListener('DOMContentLoaded', () => {
             startTutorialFlight();
         });
     }
+
     overlayButton.addEventListener('click', (event) => {
-        var _a;
         event.preventDefault();
         if (overlayButton.disabled) {
             if (playerNameInput) {
                 playerNameInput.focus({ preventScroll: true });
-                (_a = playerNameInput.select) === null || _a === void 0 ? void 0 : _a.call(playerNameInput);
+                playerNameInput.select?.();
             }
             return;
         }
         const mode = overlayButton.dataset.launchMode || (state.gameState === 'ready' ? 'launch' : 'retry');
         handleOverlayAction(mode);
     });
+
     if (!supportsPointerEvents && overlayButton) {
         overlayButton.addEventListener('touchstart', (event) => {
-            var _a;
             event.preventDefault();
             if (overlayButton.disabled) {
                 if (playerNameInput) {
                     playerNameInput.focus({ preventScroll: true });
-                    (_a = playerNameInput.select) === null || _a === void 0 ? void 0 : _a.call(playerNameInput);
+                    playerNameInput.select?.();
                 }
                 return;
             }
@@ -11171,6 +12023,7 @@ document.addEventListener('DOMContentLoaded', () => {
             handleOverlayAction(mode);
         }, { passive: false });
     }
+
     if (overlaySecondaryButton) {
         overlaySecondaryButton.addEventListener('click', (event) => {
             event.preventDefault();
@@ -11191,11 +12044,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }, { passive: false });
         }
     }
+
     if (resumeButton) {
         resumeButton.addEventListener('click', () => {
             resumeGame();
         });
     }
+
     if (pauseOverlay) {
         pauseOverlay.addEventListener('click', (event) => {
             if (event.target === pauseOverlay) {
@@ -11203,28 +12058,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
     if (pauseSettingsButton) {
         pauseSettingsButton.addEventListener('click', () => {
             openSettingsDrawer();
         });
     }
+
     if (mobilePreflightButton) {
         mobilePreflightButton.addEventListener('click', () => {
             if (state.gameState === 'ready') {
                 if (preflightReady) {
                     startGame();
-                }
-                else {
-                    const mode = (overlayButton === null || overlayButton === void 0 ? void 0 : overlayButton.dataset.launchMode) || 'launch';
+                } else {
+                    const mode = overlayButton?.dataset.launchMode || 'launch';
                     handleOverlayAction(mode);
                 }
-            }
-            else if (state.gameState === 'gameover') {
-                const mode = (overlayButton === null || overlayButton === void 0 ? void 0 : overlayButton.dataset.launchMode) || (pendingSubmission ? 'submit' : 'retry');
+            } else if (state.gameState === 'gameover') {
+                const mode = overlayButton?.dataset.launchMode || (pendingSubmission ? 'submit' : 'retry');
                 handleOverlayAction(mode);
             }
         });
     }
+
     function shouldUseMotionFire(pointerType = null) {
         if (!motionInput.enabled || !motionInput.active) {
             return false;
@@ -11240,6 +12096,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return true;
     }
+
     if (canvas) {
         canvas.addEventListener('pointerdown', (event) => {
             focusGameCanvas();
@@ -11257,51 +12114,62 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         if (!supportsPointerEvents) {
-            canvas.addEventListener('touchstart', (event) => {
-                var _a, _b, _c, _d;
-                focusGameCanvas();
-                if (!isTouchInterface) {
-                    isTouchInterface = true;
-                    refreshInteractionHints();
-                }
-                tryEnableMotionControls();
-                if (!shouldUseMotionFire()) {
-                    return;
-                }
-                const touch = (_c = (_b = (_a = event.changedTouches) === null || _a === void 0 ? void 0 : _a.item) === null || _b === void 0 ? void 0 : _b.call(_a, 0)) !== null && _c !== void 0 ? _c : (_d = event.changedTouches) === null || _d === void 0 ? void 0 : _d[0];
-                if (!touch) {
-                    return;
-                }
-                event.preventDefault();
-                engageFireTouchControl(touch.identifier);
-            }, { passive: false });
+            canvas.addEventListener(
+                'touchstart',
+                (event) => {
+                    focusGameCanvas();
+                    if (!isTouchInterface) {
+                        isTouchInterface = true;
+                        refreshInteractionHints();
+                    }
+                    tryEnableMotionControls();
+                    if (!shouldUseMotionFire()) {
+                        return;
+                    }
+                    const touch = event.changedTouches?.item?.(0) ?? event.changedTouches?.[0];
+                    if (!touch) {
+                        return;
+                    }
+                    event.preventDefault();
+                    engageFireTouchControl(touch.identifier);
+                },
+                { passive: false }
+            );
         }
     }
+
     if (supportsPointerEvents) {
-        window.addEventListener('pointerdown', (event) => {
-            const pointerType = typeof event.pointerType === 'string' ? event.pointerType.toLowerCase() : null;
-            if (pointerType === 'touch') {
+        window.addEventListener(
+            'pointerdown',
+            (event) => {
+                const pointerType = typeof event.pointerType === 'string' ? event.pointerType.toLowerCase() : null;
+                if (pointerType === 'touch') {
+                    if (!isTouchInterface) {
+                        isTouchInterface = true;
+                        refreshInteractionHints();
+                    }
+                    tryEnableMotionControls();
+                }
+            },
+            { passive: true }
+        );
+    } else if (typeof window !== 'undefined') {
+        window.addEventListener(
+            'touchstart',
+            () => {
                 if (!isTouchInterface) {
                     isTouchInterface = true;
                     refreshInteractionHints();
                 }
                 tryEnableMotionControls();
-            }
-        }, { passive: true });
+            },
+            { passive: true }
+        );
     }
-    else if (typeof window !== 'undefined') {
-        window.addEventListener('touchstart', () => {
-            if (!isTouchInterface) {
-                isTouchInterface = true;
-                refreshInteractionHints();
-            }
-            tryEnableMotionControls();
-        }, { passive: true });
-    }
+
     if (joystickZone) {
         if (supportsPointerEvents) {
             joystickZone.addEventListener('pointerdown', (event) => {
-                var _a;
                 if (typeof event.pointerType === 'string' && event.pointerType.toLowerCase() === 'touch') {
                     if (!isTouchInterface) {
                         isTouchInterface = true;
@@ -11312,27 +12180,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 joystickState.touchId = null;
                 focusGameCanvas();
                 event.preventDefault();
-                (_a = joystickZone.setPointerCapture) === null || _a === void 0 ? void 0 : _a.call(joystickZone, event.pointerId);
+                joystickZone.setPointerCapture?.(event.pointerId);
                 updateJoystickFromPointer(event);
             });
+
             joystickZone.addEventListener('pointermove', (event) => {
-                if (joystickState.pointerId !== event.pointerId)
-                    return;
+                if (joystickState.pointerId !== event.pointerId) return;
                 updateJoystickFromPointer(event);
             });
+
             joystickZone.addEventListener('pointerup', (event) => {
                 handleJoystickPointerEnd(event);
             });
+
             joystickZone.addEventListener('pointercancel', (event) => {
                 handleJoystickPointerEnd(event);
             });
+
             joystickZone.addEventListener('lostpointercapture', (event) => {
                 if (joystickState.pointerId === event.pointerId) {
                     endJoystickControl();
                 }
             });
-        }
-        else {
+        } else {
             const handleTouchMove = (event) => {
                 const touch = getTouchById(event.changedTouches, joystickState.touchId);
                 if (!touch) {
@@ -11341,6 +12211,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 event.preventDefault();
                 updateJoystickFromPointer(touch);
             };
+
             const handleTouchEnd = (event) => {
                 const touch = getTouchById(event.changedTouches, joystickState.touchId);
                 if (!touch) {
@@ -11349,6 +12220,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 event.preventDefault();
                 handleJoystickTouchEnd(touch.identifier);
             };
+
             joystickZone.addEventListener('touchstart', (event) => {
                 if (joystickState.touchId !== null) {
                     return;
@@ -11367,11 +12239,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 event.preventDefault();
                 updateJoystickFromPointer(touch);
             }, { passive: false });
+
             joystickZone.addEventListener('touchmove', handleTouchMove, { passive: false });
             joystickZone.addEventListener('touchend', handleTouchEnd, { passive: false });
             joystickZone.addEventListener('touchcancel', handleTouchEnd, { passive: false });
         }
     }
+
     if (fireButton) {
         if (supportsPointerEvents) {
             fireButton.addEventListener('pointerdown', (event) => {
@@ -11385,19 +12259,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 event.preventDefault();
                 engageFireControl(event);
             });
+
             fireButton.addEventListener('pointerup', (event) => {
                 handleFirePointerEnd(event);
             });
+
             fireButton.addEventListener('pointercancel', (event) => {
                 handleFirePointerEnd(event);
             });
+
             fireButton.addEventListener('lostpointercapture', (event) => {
                 if (firePointerId === event.pointerId) {
                     resetFiring();
                 }
             });
-        }
-        else {
+        } else {
             const handleTouchEnd = (event) => {
                 const touch = getTouchById(event.changedTouches, fireTouchId);
                 if (!touch) {
@@ -11406,6 +12282,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 event.preventDefault();
                 handleFireTouchEnd(touch.identifier);
             };
+
             fireButton.addEventListener('touchstart', (event) => {
                 if (fireTouchId !== null) {
                     return;
@@ -11422,10 +12299,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 event.preventDefault();
                 engageFireTouchControl(touch.identifier);
             }, { passive: false });
+
             fireButton.addEventListener('touchend', handleTouchEnd, { passive: false });
             fireButton.addEventListener('touchcancel', handleTouchEnd, { passive: false });
         }
     }
+
     if (supportsPointerEvents) {
         window.addEventListener('pointerup', (event) => {
             if (firePointerId !== null && event.pointerId === firePointerId) {
@@ -11437,36 +12316,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 resetFiring();
             }
         });
-    }
-    else {
-        window.addEventListener('touchend', (event) => {
-            if (fireTouchId === null) {
-                return;
-            }
-            const touch = getTouchById(event.changedTouches, fireTouchId);
-            if (!touch) {
-                return;
-            }
-            event.preventDefault();
-            handleFireTouchEnd(touch.identifier);
-        }, { passive: false });
-        window.addEventListener('touchcancel', (event) => {
-            if (fireTouchId === null) {
-                return;
-            }
-            const touch = getTouchById(event.changedTouches, fireTouchId);
-            if (!touch) {
-                return;
-            }
-            event.preventDefault();
-            handleFireTouchEnd(touch.identifier);
-        }, { passive: false });
+    } else {
+        window.addEventListener(
+            'touchend',
+            (event) => {
+                if (fireTouchId === null) {
+                    return;
+                }
+                const touch = getTouchById(event.changedTouches, fireTouchId);
+                if (!touch) {
+                    return;
+                }
+                event.preventDefault();
+                handleFireTouchEnd(touch.identifier);
+            },
+            { passive: false }
+        );
+        window.addEventListener(
+            'touchcancel',
+            (event) => {
+                if (fireTouchId === null) {
+                    return;
+                }
+                const touch = getTouchById(event.changedTouches, fireTouchId);
+                if (!touch) {
+                    return;
+                }
+                event.preventDefault();
+                handleFireTouchEnd(touch.identifier);
+            },
+            { passive: false }
+        );
         window.addEventListener('mouseup', () => {
             if (virtualInput.firing) {
                 resetFiring();
             }
         });
     }
+
     window.addEventListener('keydown', (event) => {
         const normalizedKey = normalizeKey(event);
         if (!normalizedKey) {
@@ -11529,8 +12416,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (lastTap && now - lastTap <= config.player.dash.doubleTapWindow) {
                     dashTapTracker.delete(normalizedKey);
                     triggerDash(dashDirection);
-                }
-                else {
+                } else {
                     dashTapTracker.set(normalizedKey, now);
                 }
             }
@@ -11540,18 +12426,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (preflightReady) {
                     event.preventDefault();
                     startGame();
-                }
-                else {
-                    const mode = (overlayButton === null || overlayButton === void 0 ? void 0 : overlayButton.dataset.launchMode) || 'launch';
+                } else {
+                    const mode = overlayButton?.dataset.launchMode || 'launch';
                     handleOverlayAction(mode);
                 }
-            }
-            else if (state.gameState === 'gameover') {
-                const mode = (overlayButton === null || overlayButton === void 0 ? void 0 : overlayButton.dataset.launchMode) || (pendingSubmission ? 'submit' : 'retry');
+            } else if (state.gameState === 'gameover') {
+                const mode = overlayButton?.dataset.launchMode || (pendingSubmission ? 'submit' : 'retry');
                 handleOverlayAction(mode);
             }
         }
     });
+
     window.addEventListener('keyup', (event) => {
         const normalizedKey = normalizeKey(event);
         if (!normalizedKey) {
@@ -11559,6 +12444,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         keys.delete(normalizedKey);
     });
+
     window.addEventListener('blur', () => {
         if (state.gameState === 'running') {
             pauseGame({ reason: 'blur' });
@@ -11568,6 +12454,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resetVirtualControls();
         resetGamepadInput();
     });
+
     function triggerDash(direction) {
         const dashConfig = config.player.dash;
         state.dashTimer = dashConfig.duration;
@@ -11578,40 +12465,45 @@ document.addEventListener('DOMContentLoaded', () => {
             player.vy = direction.y * dashConfig.boostSpeed;
         }
     }
+
     function isPowerUpActive(type) {
         return state.powerUpTimers[type] > 0;
     }
+
     function getWorldTimeScale() {
-        var _a;
         if (!isPowerUpActive(TIME_DILATION_POWER)) {
             return 1;
         }
-        const configured = Number((_a = config.timeDilationPower) === null || _a === void 0 ? void 0 : _a.worldSpeedMultiplier);
+        const configured = Number(config.timeDilationPower?.worldSpeedMultiplier);
         if (Number.isFinite(configured)) {
             return clamp(configured, 0.2, 1);
         }
         return 0.6;
     }
+
     function getSpawnTimeScale() {
-        var _a;
         if (!isPowerUpActive(TIME_DILATION_POWER)) {
             return 1;
         }
-        const configured = Number((_a = config.timeDilationPower) === null || _a === void 0 ? void 0 : _a.spawnRateMultiplier);
+        const configured = Number(config.timeDilationPower?.spawnRateMultiplier);
         if (Number.isFinite(configured)) {
             return clamp(configured, 0.2, 1);
         }
         return 0.65;
     }
+
     function getScaledDelta(delta) {
         return delta * getWorldTimeScale();
     }
+
     function getScaledSpawnDelta(delta) {
         return delta * getSpawnTimeScale();
     }
+
     function isDoubleTeamActive() {
         return Boolean(doubleTeamState.clone && state.powerUpTimers[DOUBLE_TEAM_POWER] > 0);
     }
+
     function getActivePlayerEntities() {
         activePlayerBuffer.length = 0;
         activePlayerBuffer.push(player);
@@ -11620,26 +12512,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return activePlayerBuffer;
     }
+
     function ensureDoubleTeamCloneDimensions() {
         if (doubleTeamState.clone) {
             doubleTeamState.clone.width = config.player.width;
             doubleTeamState.clone.height = config.player.height;
         }
     }
+
     function getScoreSurgeMultiplier() {
-        var _a;
         if (!isPowerUpActive(SCORE_SURGE_POWER)) {
             return 1;
         }
-        const configured = Number((_a = config.scoreSurgePower) === null || _a === void 0 ? void 0 : _a.scoreMultiplier);
+        const configured = Number(config.scoreSurgePower?.scoreMultiplier);
         if (Number.isFinite(configured)) {
             return Math.max(1, configured);
         }
         return 1.5;
     }
+
     function isShieldActive() {
         return isPowerUpActive(SHIELD_POWER);
     }
+
     function getPlayerCenter(entity = null) {
         if (entity) {
             return {
@@ -11649,11 +12544,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const players = getActivePlayerEntities();
         if (players.length > 1) {
-            const sum = players.reduce((acc, current) => {
-                acc.x += current.x + current.width * 0.5;
-                acc.y += current.y + current.height * 0.5;
-                return acc;
-            }, { x: 0, y: 0 });
+            const sum = players.reduce(
+                (acc, current) => {
+                    acc.x += current.x + current.width * 0.5;
+                    acc.y += current.y + current.height * 0.5;
+                    return acc;
+                },
+                { x: 0, y: 0 }
+            );
             return {
                 x: sum.x / players.length,
                 y: sum.y / players.length
@@ -11664,10 +12562,10 @@ document.addEventListener('DOMContentLoaded', () => {
             y: player.y + player.height * 0.5
         };
     }
+
     function triggerShieldImpact(x, y, normalX = 0, normalY = 0) {
-        var _a, _b, _c;
-        const shieldConfig = (_a = config.defensePower) !== null && _a !== void 0 ? _a : {};
-        const color = (_b = shieldConfig.particleColor) !== null && _b !== void 0 ? _b : { r: 148, g: 210, b: 255 };
+        const shieldConfig = config.defensePower ?? {};
+        const color = shieldConfig.particleColor ?? { r: 148, g: 210, b: 255 };
         const offsetX = x + normalX * 12;
         const offsetY = y + normalY * 12;
         createParticles({
@@ -11679,11 +12577,11 @@ document.addEventListener('DOMContentLoaded', () => {
             sizeRange: [1.2, 3.2],
             lifeRange: [320, 640]
         });
-        state.shieldHitPulse = Math.min(1.2, ((_c = state.shieldHitPulse) !== null && _c !== void 0 ? _c : 0) + 0.5);
+        state.shieldHitPulse = Math.min(1.2, (state.shieldHitPulse ?? 0) + 0.5);
     }
+
     function repelObstacleFromPlayer(obstacle, source = player) {
-        var _a, _b, _c, _d, _e, _f;
-        const shieldConfig = (_a = config.defensePower) !== null && _a !== void 0 ? _a : {};
+        const shieldConfig = config.defensePower ?? {};
         const { x: playerCenterX, y: playerCenterY } = getPlayerCenter(source);
         const obstacleCenterX = obstacle.x + obstacle.width * 0.5;
         const obstacleCenterY = obstacle.y + obstacle.height * 0.5;
@@ -11692,58 +12590,65 @@ document.addEventListener('DOMContentLoaded', () => {
         const distance = Math.max(Math.hypot(dx, dy), 1);
         const normalX = dx / distance;
         const normalY = dy / distance;
-        const clearance = (_b = shieldConfig.clearance) !== null && _b !== void 0 ? _b : 12;
+        const clearance = shieldConfig.clearance ?? 12;
         const playerHalfWidth = source.width * 0.5;
         const playerHalfHeight = source.height * 0.5;
         const obstacleHalfWidth = obstacle.width * 0.5;
         const obstacleHalfHeight = obstacle.height * 0.5;
         const targetCenterX = playerCenterX + normalX * (playerHalfWidth + obstacleHalfWidth + clearance);
         const targetCenterY = playerCenterY + normalY * (playerHalfHeight + obstacleHalfHeight + clearance);
+
         obstacle.x = targetCenterX - obstacleHalfWidth;
         obstacle.y = clamp(targetCenterY - obstacleHalfHeight, 16, viewport.height - obstacle.height - 16);
-        const knockback = (_c = shieldConfig.obstacleKnockback) !== null && _c !== void 0 ? _c : 520;
+
+        const knockback = shieldConfig.obstacleKnockback ?? 520;
         obstacle.vx = normalX * knockback;
         obstacle.vy = normalY * (knockback * 0.7);
-        obstacle.bounceTimer = (_d = shieldConfig.obstacleBounceDuration) !== null && _d !== void 0 ? _d : 520;
-        const speedMultiplier = (_e = shieldConfig.obstacleSpeedMultiplier) !== null && _e !== void 0 ? _e : 1.1;
+        obstacle.bounceTimer = shieldConfig.obstacleBounceDuration ?? 520;
+        const speedMultiplier = shieldConfig.obstacleSpeedMultiplier ?? 1.1;
         obstacle.speed = -Math.max(Math.abs(obstacle.speed), state.gameSpeed) * speedMultiplier;
-        obstacle.shieldCooldown = (_f = shieldConfig.hitCooldown) !== null && _f !== void 0 ? _f : 400;
+        obstacle.shieldCooldown = shieldConfig.hitCooldown ?? 400;
         obstacle.hitFlash = 160;
+
         triggerShieldImpact(targetCenterX, targetCenterY, normalX, normalY);
     }
+
     function repelAsteroidFromPlayer(asteroid, source = player) {
-        var _a, _b, _c, _d;
-        const shieldConfig = (_a = config.defensePower) !== null && _a !== void 0 ? _a : {};
+        const shieldConfig = config.defensePower ?? {};
         const { x: playerCenterX, y: playerCenterY } = getPlayerCenter(source);
         const dx = asteroid.x - playerCenterX;
         const dy = asteroid.y - playerCenterY;
         const distance = Math.max(Math.hypot(dx, dy), 1);
         const normalX = dx / distance;
         const normalY = dy / distance;
-        const clearance = (_b = shieldConfig.clearance) !== null && _b !== void 0 ? _b : 12;
+        const clearance = shieldConfig.clearance ?? 12;
         const playerRadius = Math.max(source.width, source.height) * 0.5;
         const targetDistance = playerRadius + asteroid.radius + clearance;
         asteroid.x = playerCenterX + normalX * targetDistance;
         asteroid.y = clamp(playerCenterY + normalY * targetDistance, asteroid.radius, viewport.height - asteroid.radius);
-        const knockback = (_c = shieldConfig.asteroidKnockback) !== null && _c !== void 0 ? _c : 420;
+
+        const knockback = shieldConfig.asteroidKnockback ?? 420;
         asteroid.vx = normalX * knockback;
         asteroid.vy = normalY * (knockback * 0.75);
-        asteroid.shieldCooldown = (_d = shieldConfig.hitCooldown) !== null && _d !== void 0 ? _d : 400;
+        asteroid.shieldCooldown = shieldConfig.hitCooldown ?? 400;
         asteroid.hitFlash = 180;
+
         triggerShieldImpact(asteroid.x, asteroid.y, normalX, normalY);
     }
+
+
     function attemptShoot(delta) {
-        var _a, _b;
         state.timeSinceLastShot += delta;
         const loadout = getActiveWeaponLoadout();
-        const cooldownMultiplier = (_a = loadout === null || loadout === void 0 ? void 0 : loadout.cooldownMultiplier) !== null && _a !== void 0 ? _a : 1;
-        const cooldownOffset = (_b = loadout === null || loadout === void 0 ? void 0 : loadout.cooldownOffset) !== null && _b !== void 0 ? _b : 0;
+        const cooldownMultiplier = loadout?.cooldownMultiplier ?? 1;
+        const cooldownOffset = loadout?.cooldownOffset ?? 0;
         const cooldown = Math.max(60, config.projectileCooldown * cooldownMultiplier + cooldownOffset);
         if ((keys.has('Space') || virtualInput.firing || gamepadInput.firing) && state.timeSinceLastShot >= cooldown) {
             spawnProjectiles();
             state.timeSinceLastShot = 0;
         }
     }
+
     function spawnProjectiles() {
         const firedTypes = new Set();
         const shooters = getActivePlayerEntities();
@@ -11754,68 +12659,60 @@ document.addEventListener('DOMContentLoaded', () => {
             audioManager.playProjectile(type);
         }
     }
+
     function spawnProjectilesFromEntity(entity, firedTypes) {
-        var _a, _b;
         if (!entity) {
             return;
         }
         const originX = entity.x + entity.width - 12;
         const originY = entity.y + entity.height * 0.5 - 6;
         const loadout = getActiveWeaponLoadout();
-        const weaponId = getActiveWeaponId((_a = loadout === null || loadout === void 0 ? void 0 : loadout.id) !== null && _a !== void 0 ? _a : null);
+        const weaponId = getActiveWeaponId(loadout?.id ?? null);
         const patternState = getWeaponPatternState(weaponId);
-        const loadoutSpeedMultiplier = (_b = loadout === null || loadout === void 0 ? void 0 : loadout.speedMultiplier) !== null && _b !== void 0 ? _b : 1;
+        const loadoutSpeedMultiplier = loadout?.speedMultiplier ?? 1;
         const createProjectile = (angle, type = 'standard', overrides = {}) => {
-            var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z;
-            const archetype = (_a = projectileArchetypes[type]) !== null && _a !== void 0 ? _a : projectileArchetypes.standard;
+            const archetype = projectileArchetypes[type] ?? projectileArchetypes.standard;
             const applyLoadoutSpeed = overrides.applyLoadoutSpeed !== false;
-            const speedMultiplier = ((_c = (_b = overrides.speedMultiplier) !== null && _b !== void 0 ? _b : archetype === null || archetype === void 0 ? void 0 : archetype.speedMultiplier) !== null && _c !== void 0 ? _c : 1) *
+            const speedMultiplier =
+                (overrides.speedMultiplier ?? archetype?.speedMultiplier ?? 1) *
                 (applyLoadoutSpeed ? loadoutSpeedMultiplier : 1);
             const speed = config.projectileSpeed * speedMultiplier;
             const vx = Math.cos(angle) * speed;
             const vy = Math.sin(angle) * speed;
             const projectile = {
-                x: originX + ((_d = overrides.offsetX) !== null && _d !== void 0 ? _d : 0),
-                y: originY + ((_e = overrides.offsetY) !== null && _e !== void 0 ? _e : 0),
-                width: (_g = (_f = overrides.width) !== null && _f !== void 0 ? _f : archetype === null || archetype === void 0 ? void 0 : archetype.width) !== null && _g !== void 0 ? _g : 24,
-                height: (_j = (_h = overrides.height) !== null && _h !== void 0 ? _h : archetype === null || archetype === void 0 ? void 0 : archetype.height) !== null && _j !== void 0 ? _j : 12,
+                x: originX + (overrides.offsetX ?? 0),
+                y: originY + (overrides.offsetY ?? 0),
+                width: overrides.width ?? archetype?.width ?? 24,
+                height: overrides.height ?? archetype?.height ?? 12,
                 vx,
                 vy,
-                life: (_l = (_k = overrides.life) !== null && _k !== void 0 ? _k : archetype === null || archetype === void 0 ? void 0 : archetype.life) !== null && _l !== void 0 ? _l : 2000,
+                life: overrides.life ?? archetype?.life ?? 2000,
                 type,
-                damage: (_o = (_m = overrides.damage) !== null && _m !== void 0 ? _m : archetype === null || archetype === void 0 ? void 0 : archetype.damage) !== null && _o !== void 0 ? _o : 1,
-                gradient: (_q = (_p = overrides.gradient) !== null && _p !== void 0 ? _p : archetype === null || archetype === void 0 ? void 0 : archetype.gradient) !== null && _q !== void 0 ? _q : null,
-                glow: (_s = (_r = overrides.glow) !== null && _r !== void 0 ? _r : archetype === null || archetype === void 0 ? void 0 : archetype.glow) !== null && _s !== void 0 ? _s : null,
-                shape: (_u = (_t = overrides.shape) !== null && _t !== void 0 ? _t : archetype === null || archetype === void 0 ? void 0 : archetype.shape) !== null && _u !== void 0 ? _u : null,
-                shadowBlur: (_w = (_v = overrides.shadowBlur) !== null && _v !== void 0 ? _v : archetype === null || archetype === void 0 ? void 0 : archetype.shadowBlur) !== null && _w !== void 0 ? _w : 0,
-                shadowColor: (_y = (_x = overrides.shadowColor) !== null && _x !== void 0 ? _x : archetype === null || archetype === void 0 ? void 0 : archetype.shadowColor) !== null && _y !== void 0 ? _y : null
+                damage: overrides.damage ?? archetype?.damage ?? 1,
+                gradient: overrides.gradient ?? archetype?.gradient ?? null,
+                glow: overrides.glow ?? archetype?.glow ?? null,
+                shape: overrides.shape ?? archetype?.shape ?? null,
+                shadowBlur: overrides.shadowBlur ?? archetype?.shadowBlur ?? 0,
+                shadowColor: overrides.shadowColor ?? archetype?.shadowColor ?? null
             };
-            if (overrides.wavePhase !== undefined)
-                projectile.wavePhase = overrides.wavePhase;
-            if (overrides.waveFrequency !== undefined)
-                projectile.waveFrequency = overrides.waveFrequency;
-            if (overrides.waveAmplitude !== undefined)
-                projectile.waveAmplitude = overrides.waveAmplitude;
-            if (overrides.waveDrift !== undefined)
-                projectile.waveDrift = overrides.waveDrift;
-            if (overrides.sparkInterval !== undefined)
-                projectile.sparkInterval = overrides.sparkInterval;
-            if (overrides.segmentIndex !== undefined)
-                projectile.segmentIndex = overrides.segmentIndex;
-            if (overrides.segmentCount !== undefined)
-                projectile.segmentCount = overrides.segmentCount;
-            if (overrides.curve !== undefined)
-                projectile.curve = overrides.curve;
+            if (overrides.wavePhase !== undefined) projectile.wavePhase = overrides.wavePhase;
+            if (overrides.waveFrequency !== undefined) projectile.waveFrequency = overrides.waveFrequency;
+            if (overrides.waveAmplitude !== undefined) projectile.waveAmplitude = overrides.waveAmplitude;
+            if (overrides.waveDrift !== undefined) projectile.waveDrift = overrides.waveDrift;
+            if (overrides.sparkInterval !== undefined) projectile.sparkInterval = overrides.sparkInterval;
+            if (overrides.segmentIndex !== undefined) projectile.segmentIndex = overrides.segmentIndex;
+            if (overrides.segmentCount !== undefined) projectile.segmentCount = overrides.segmentCount;
+            if (overrides.curve !== undefined) projectile.curve = overrides.curve;
             projectiles.push(projectile);
             if (firedTypes) {
-                firedTypes.add((_z = overrides.audioType) !== null && _z !== void 0 ? _z : type);
+                firedTypes.add(overrides.audioType ?? type);
             }
             return projectile;
         };
+
         const spawnFlameWhipBurst = () => {
-            var _a;
             const segmentCount = reducedEffectsMode ? 4 : 6;
-            const basePhase = ((_a = state.elapsedTime) !== null && _a !== void 0 ? _a : 0) * 0.008;
+            const basePhase = (state.elapsedTime ?? 0) * 0.008;
             for (let i = 0; i < segmentCount; i++) {
                 const t = segmentCount > 1 ? i / (segmentCount - 1) : 0;
                 const amplitude = 12 + t * 22;
@@ -11847,6 +12744,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     audioType: 'flameWhip'
                 });
             }
+
             const emberColor = { r: 255, g: 120, b: 78 };
             createParticles({
                 x: originX,
@@ -11858,70 +12756,77 @@ document.addEventListener('DOMContentLoaded', () => {
                 lifeRange: [260, 520]
             });
         };
+
         if (isPowerUpActive(FLAME_WHIP_POWER)) {
             spawnFlameWhipBurst();
-        }
-        else if (isPowerUpActive('missiles')) {
+        } else if (isPowerUpActive('missiles')) {
             createProjectile(0, 'missile', { applyLoadoutSpeed: false });
             createProjectile(0.12, 'missile', { applyLoadoutSpeed: false, offsetY: 10 });
-        }
-        else if (isPowerUpActive('bulletSpread')) {
+        } else if (isPowerUpActive('bulletSpread')) {
             const spread = 0.22;
             createProjectile(-spread, 'spread', { applyLoadoutSpeed: false });
             createProjectile(0, 'spread', { applyLoadoutSpeed: false });
             createProjectile(spread, 'spread', { applyLoadoutSpeed: false });
-        }
-        else if (typeof (loadout === null || loadout === void 0 ? void 0 : loadout.pattern) === 'function') {
+        } else if (typeof loadout?.pattern === 'function') {
             loadout.pattern(createProjectile, { originX, originY, state: patternState, weaponId });
-        }
-        else {
+        } else {
             createProjectile(0, 'standard');
         }
     }
+
     function updateTailLength(delta) {
         const deltaSeconds = delta / 1000;
         if (state.tailLength < state.tailTarget) {
-            state.tailLength = Math.min(state.tailTarget, state.tailLength + config.tailSmoothing.growth * deltaSeconds);
-        }
-        else if (state.tailLength > state.tailTarget) {
-            state.tailLength = Math.max(state.tailTarget, state.tailLength - config.tailSmoothing.shrink * deltaSeconds);
+            state.tailLength = Math.min(
+                state.tailTarget,
+                state.tailLength + config.tailSmoothing.growth * deltaSeconds
+            );
+        } else if (state.tailLength > state.tailTarget) {
+            state.tailLength = Math.max(
+                state.tailTarget,
+                state.tailLength - config.tailSmoothing.shrink * deltaSeconds
+            );
         }
     }
+
     function updateDoubleTeamTrail(deltaSeconds) {
-        var _a, _b, _c;
         if (!doubleTeamState.clone) {
             if (doubleTeamState.trail.length) {
                 doubleTeamState.trail.length = 0;
             }
             return;
         }
+
         const clone = doubleTeamState.clone;
         const centerX = clone.x + clone.width * 0.45;
         const centerY = clone.y + clone.height * 0.55;
-        const powerConfig = (_a = config.doubleTeamPower) !== null && _a !== void 0 ? _a : {};
-        const spacing = Math.max(6, config.trailSpacing * ((_b = powerConfig.trailSpacingScale) !== null && _b !== void 0 ? _b : 0.85));
+        const powerConfig = config.doubleTeamPower ?? {};
+        const spacing = Math.max(6, config.trailSpacing * (powerConfig.trailSpacingScale ?? 0.85));
         const last = doubleTeamState.trail[doubleTeamState.trail.length - 1];
         if (!last || Math.hypot(centerX - last.x, centerY - last.y) > spacing) {
             doubleTeamState.trail.push({ x: centerX, y: centerY });
         }
-        const maxLength = Math.max(4, Math.round(state.tailLength * ((_c = powerConfig.trailSpacingScale) !== null && _c !== void 0 ? _c : 0.85)));
+
+        const maxLength = Math.max(4, Math.round(state.tailLength * (powerConfig.trailSpacingScale ?? 0.85)));
         while (doubleTeamState.trail.length > maxLength) {
             doubleTeamState.trail.shift();
         }
     }
+
     function updateDoubleTeamFormation(deltaSeconds) {
-        var _a, _b, _c, _d, _e;
         if (!doubleTeamState.clone) {
             doubleTeamState.linkPulse = Math.max(0, doubleTeamState.linkPulse - deltaSeconds);
             doubleTeamState.wobble = 0;
             return;
         }
-        const powerConfig = (_a = config.doubleTeamPower) !== null && _a !== void 0 ? _a : {};
+
+        const powerConfig = config.doubleTeamPower ?? {};
         const clone = doubleTeamState.clone;
         ensureDoubleTeamCloneDimensions();
-        const separation = (_b = powerConfig.separation) !== null && _b !== void 0 ? _b : Math.max(120, player.height * 0.9);
-        const catchUpRate = Math.max(0, (_c = powerConfig.catchUpRate) !== null && _c !== void 0 ? _c : 6.5);
-        const wobbleAmplitude = (_d = powerConfig.wobbleAmplitude) !== null && _d !== void 0 ? _d : 6.5;
+
+        const separation = powerConfig.separation ?? Math.max(120, player.height * 0.9);
+        const catchUpRate = Math.max(0, powerConfig.catchUpRate ?? 6.5);
+        const wobbleAmplitude = powerConfig.wobbleAmplitude ?? 6.5;
         const playerCenter = getPlayerCenter(player);
         const cloneCenter = getPlayerCenter(clone);
         const offsetX = cloneCenter.x - playerCenter.x;
@@ -11933,9 +12838,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const diffX = targetOffsetX - offsetX;
         const diffY = targetOffsetY - offsetY;
         const catchUpFactor = clamp(catchUpRate * deltaSeconds, 0, 0.92);
+
         if (catchUpFactor > 0) {
             clone.x += diffX * catchUpFactor;
             clone.y += diffY * catchUpFactor;
+
             if (deltaSeconds > 0) {
                 const invDelta = 1 / deltaSeconds;
                 const velocityBlend = Math.min(1, catchUpRate * deltaSeconds) * 0.45;
@@ -11943,45 +12850,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 clone.vy += (diffY * invDelta) * velocityBlend;
             }
         }
+
         const cloneVerticalBleed = getVerticalBleedForHeight(clone.height);
         clone.x = clamp(clone.x, 0, viewport.width - clone.width);
         clone.y = clamp(clone.y, -cloneVerticalBleed, viewport.height - clone.height + cloneVerticalBleed);
-        const wobbleSpeed = (_e = powerConfig.wobbleSpeed) !== null && _e !== void 0 ? _e : 3.2;
+
+        const wobbleSpeed = powerConfig.wobbleSpeed ?? 3.2;
         doubleTeamState.wobble += deltaSeconds * wobbleSpeed;
         if (doubleTeamState.wobble > Math.PI * 2) {
             doubleTeamState.wobble %= Math.PI * 2;
         }
         doubleTeamState.linkPulse = Math.max(0, doubleTeamState.linkPulse - deltaSeconds * 0.6);
     }
+
     function createDoubleTeamClone() {
-        var _a, _b;
         return {
             x: player.x,
             y: player.y,
             width: config.player.width,
             height: config.player.height,
-            vx: (_a = player.vx) !== null && _a !== void 0 ? _a : 0,
-            vy: (_b = player.vy) !== null && _b !== void 0 ? _b : 0
+            vx: player.vx ?? 0,
+            vy: player.vy ?? 0
         };
     }
+
     function startDoubleTeam() {
-        var _a, _b, _c;
         ensureDoubleTeamCloneDimensions();
         if (!doubleTeamState.clone) {
             doubleTeamState.clone = createDoubleTeamClone();
-        }
-        else {
+        } else {
             doubleTeamState.clone.x = player.x;
             doubleTeamState.clone.y = player.y;
         }
         const clone = doubleTeamState.clone;
         clone.vx = player.vx;
         clone.vy = player.vy;
-        const powerConfig = (_a = config.doubleTeamPower) !== null && _a !== void 0 ? _a : {};
-        const separation = (_b = powerConfig.separation) !== null && _b !== void 0 ? _b : Math.max(120, player.height * 0.9);
+        const powerConfig = config.doubleTeamPower ?? {};
+        const separation = powerConfig.separation ?? Math.max(120, player.height * 0.9);
         const verticalBleed = getVerticalBleedForHeight(player.height);
         player.x = clamp(player.x, 0, viewport.width - player.width);
         player.y = clamp(player.y, -verticalBleed, viewport.height - player.height + verticalBleed);
+
         clone.x = clamp(player.x, 0, viewport.width - clone.width);
         let targetCloneY = player.y - separation;
         const cloneVerticalBleed = getVerticalBleedForHeight(clone.height);
@@ -11991,8 +12900,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const diff = minCloneY - targetCloneY;
             targetCloneY = minCloneY;
             player.y = clamp(player.y + diff, -verticalBleed, viewport.height - player.height + verticalBleed);
-        }
-        else if (targetCloneY > maxCloneY) {
+        } else if (targetCloneY > maxCloneY) {
             const diff = targetCloneY - maxCloneY;
             targetCloneY = maxCloneY;
             player.y = clamp(player.y - diff, -verticalBleed, viewport.height - player.height + verticalBleed);
@@ -12001,7 +12909,8 @@ document.addEventListener('DOMContentLoaded', () => {
         doubleTeamState.trail.length = 0;
         doubleTeamState.linkPulse = 1.1;
         doubleTeamState.wobble = 0;
-        const color = (_c = powerUpColors[DOUBLE_TEAM_POWER]) !== null && _c !== void 0 ? _c : { r: 188, g: 224, b: 255 };
+
+        const color = powerUpColors[DOUBLE_TEAM_POWER] ?? { r: 188, g: 224, b: 255 };
         const center = getPlayerCenter();
         createParticles({
             x: center.x,
@@ -12013,8 +12922,8 @@ document.addEventListener('DOMContentLoaded', () => {
             lifeRange: [320, 560]
         });
     }
+
     function endDoubleTeam(force = false) {
-        var _a;
         if (!doubleTeamState.clone) {
             doubleTeamState.trail.length = 0;
             if (force) {
@@ -12022,8 +12931,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
+
         if (!force) {
-            const color = (_a = powerUpColors[DOUBLE_TEAM_POWER]) !== null && _a !== void 0 ? _a : { r: 188, g: 224, b: 255 };
+            const color = powerUpColors[DOUBLE_TEAM_POWER] ?? { r: 188, g: 224, b: 255 };
             const center = getPlayerCenter(doubleTeamState.clone);
             createParticles({
                 x: center.x,
@@ -12035,11 +12945,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 lifeRange: [280, 520]
             });
         }
+
         doubleTeamState.clone = null;
         doubleTeamState.trail.length = 0;
         doubleTeamState.wobble = 0;
         doubleTeamState.linkPulse = force ? 0 : Math.max(doubleTeamState.linkPulse, 0.5);
     }
+
     function updatePlayer(delta) {
         const deltaSeconds = delta / 1000;
         const keyboardX = (keys.has('ArrowRight') || keys.has('KeyD') ? 1 : 0) - (keys.has('ArrowLeft') || keys.has('KeyA') ? 1 : 0);
@@ -12052,8 +12964,7 @@ document.addEventListener('DOMContentLoaded', () => {
             virtualInput.smoothedY += (virtualInput.moveY - virtualInput.smoothedY) * smoothingFactor;
             virtualX = virtualInput.smoothedX;
             virtualY = virtualInput.smoothedY;
-        }
-        else {
+        } else {
             virtualInput.smoothedX = virtualInput.moveX;
             virtualInput.smoothedY = virtualInput.moveY;
         }
@@ -12073,14 +12984,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 motionInput.smoothedY += (motionInput.moveY - motionInput.smoothedY) * motionSmoothing;
                 motionX = motionInput.smoothedX;
                 motionY = motionInput.smoothedY;
-            }
-            else {
+            } else {
                 motionInput.smoothedX = motionInput.moveX;
                 motionInput.smoothedY = motionInput.moveY;
             }
         }
         const inputX = clamp(keyboardX + virtualX + gamepadInput.moveX + motionX, -1, 1);
         const inputY = clamp(keyboardY + virtualY + gamepadInput.moveY + motionY, -1, 1);
+
         const accel = config.player.acceleration;
         const drag = config.player.drag;
         const dashConfig = config.player.dash;
@@ -12101,26 +13012,31 @@ document.addEventListener('DOMContentLoaded', () => {
             entity.x = clamp(entity.x, 0, viewport.width - entity.width);
             entity.y = clamp(entity.y, -verticalBleed, viewport.height - entity.height + verticalBleed);
         };
+
         const players = getActivePlayerEntities();
         for (const entity of players) {
             moveEntity(entity);
         }
+
         if (state.dashTimer > 0) {
             state.dashTimer = Math.max(0, state.dashTimer - delta);
         }
+
         attemptShoot(delta);
+
         updateTailLength(delta);
         if (isPowerUpActive(PUMP_POWER) || pumpTailState.fade > 0.001) {
             if (isPowerUpActive(PUMP_POWER)) {
                 ensurePumpTailInitialized();
             }
-        }
-        else {
+        } else {
             updateTrail();
         }
+
         updateDoubleTeamFormation(deltaSeconds);
         updateDoubleTeamTrail(deltaSeconds);
     }
+
     function updateTrail() {
         const centerX = player.x + player.width * 0.45;
         const centerY = player.y + player.height * 0.55;
@@ -12135,6 +13051,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
     function ensurePumpTailInitialized() {
         if (pumpTailState.active) {
             return;
@@ -12147,7 +13064,10 @@ document.addEventListener('DOMContentLoaded', () => {
         pumpTailState.centerX = player.x + player.width * 0.3;
         pumpTailState.spread = Math.min(viewport.width * 0.85, Math.max(180, barCount * 26));
         const lengthFactor = state.tailLength / Math.max(1, config.baseTrailLength);
-        pumpTailState.baseHeight = Math.min(viewport.height * 0.52, viewport.height * (0.16 + Math.min(0.32, lengthFactor * 0.26)));
+        pumpTailState.baseHeight = Math.min(
+            viewport.height * 0.52,
+            viewport.height * (0.16 + Math.min(0.32, lengthFactor * 0.26))
+        );
         pumpTailState.amplitude = 0.38 + Math.min(1.1, lengthFactor * 0.5);
         pumpTailState.frequency = 1.6 + Math.min(1.6, lengthFactor * 0.35);
         pumpTailState.bars = Array.from({ length: barCount }, (_, index) => ({
@@ -12159,32 +13079,45 @@ document.addEventListener('DOMContentLoaded', () => {
         trail.length = 0;
         updatePumpTailSegments();
     }
+
     function stopPumpTailEffect() {
         pumpTailState.active = false;
         pumpTailState.releasePending = true;
     }
+
     function updatePumpTailSegments() {
         const segments = pumpTailState.segments;
         segments.length = 0;
+
         if (!pumpTailState.bars.length || pumpTailState.fade <= 0) {
             return;
         }
+
         const baseY = viewport.height - 28;
         const barCount = pumpTailState.bars.length;
         const spacing = barCount > 1 ? pumpTailState.spread / (barCount - 1) : 0;
         const startX = pumpTailState.centerX - (barCount > 1 ? pumpTailState.spread / 2 : 0);
         const baseWidth = barCount > 0 ? Math.min(48, Math.max(10, spacing * 0.52)) : 16;
+
         for (let i = 0; i < barCount; i++) {
             const bar = pumpTailState.bars[i];
             const normalizedIndex = barCount > 1 ? i / (barCount - 1) : 0;
-            const x = clamp(startX + i * spacing, baseWidth * 0.5, viewport.width - baseWidth * 0.5);
+            const x = clamp(
+                startX + i * spacing,
+                baseWidth * 0.5,
+                viewport.width - baseWidth * 0.5
+            );
             const wave = Math.sin(pumpTailState.waveTime + normalizedIndex * 1.6 + bar.phase);
             const normalizedWave = wave * 0.5 + 0.5;
-            const height = pumpTailState.baseHeight * (0.3 + pumpTailState.amplitude * bar.weight * normalizedWave);
+            const height = pumpTailState.baseHeight * (
+                0.3 + pumpTailState.amplitude * bar.weight * normalizedWave
+            );
             const scaledHeight = height * pumpTailState.fade;
+
             if (scaledHeight <= 0) {
                 continue;
             }
+
             const topY = baseY - scaledHeight;
             segments.push({
                 x: x - baseWidth / 2,
@@ -12197,18 +13130,20 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     }
+
     function updatePumpTail(delta) {
         const deltaSeconds = delta / 1000;
         const isActive = isPowerUpActive(PUMP_POWER);
         if (isActive) {
             ensurePumpTailInitialized();
-        }
-        else if (pumpTailState.active) {
+        } else if (pumpTailState.active) {
             stopPumpTailEffect();
         }
+
         const fadeTarget = isActive ? 1 : 0;
         const fadeSpeed = isActive ? 2.6 : 3.5;
         pumpTailState.fade = moveTowards(pumpTailState.fade, fadeTarget, deltaSeconds * fadeSpeed);
+
         if (pumpTailState.fade <= 0.001 && !isActive) {
             pumpTailState.fade = 0;
             if (pumpTailState.releasePending) {
@@ -12216,33 +13151,62 @@ document.addEventListener('DOMContentLoaded', () => {
                 pumpTailState.releasePending = false;
             }
         }
+
         if (pumpTailState.fade <= 0 && !isActive) {
             pumpTailState.segments.length = 0;
             return;
         }
+
         const waveAdvance = pumpTailState.frequency * Math.PI * 2 * (isActive ? 1 : 0.6);
         pumpTailState.waveTime += deltaSeconds * waveAdvance;
         if (pumpTailState.bars.length) {
             const targetX = player.x + player.width * 0.3;
-            pumpTailState.centerX = moveTowards(pumpTailState.centerX, targetX, deltaSeconds * 420);
+            pumpTailState.centerX = moveTowards(
+                pumpTailState.centerX,
+                targetX,
+                deltaSeconds * 420
+            );
             const lengthFactor = state.tailLength / Math.max(1, config.baseTrailLength);
             const targetAmplitude = 0.38 + Math.min(1.1, lengthFactor * 0.5);
-            pumpTailState.amplitude = moveTowards(pumpTailState.amplitude, targetAmplitude, deltaSeconds * 2.4);
-            const targetBaseHeight = Math.min(viewport.height * 0.52, viewport.height * (0.16 + Math.min(0.32, lengthFactor * 0.26)));
-            pumpTailState.baseHeight = moveTowards(pumpTailState.baseHeight, targetBaseHeight, deltaSeconds * viewport.height * 0.6);
-            const targetSpread = Math.min(viewport.width * 0.85, Math.max(180, Math.round(state.tailLength) * 26));
-            pumpTailState.spread = moveTowards(pumpTailState.spread, targetSpread, deltaSeconds * 260);
+            pumpTailState.amplitude = moveTowards(
+                pumpTailState.amplitude,
+                targetAmplitude,
+                deltaSeconds * 2.4
+            );
+            const targetBaseHeight = Math.min(
+                viewport.height * 0.52,
+                viewport.height * (0.16 + Math.min(0.32, lengthFactor * 0.26))
+            );
+            pumpTailState.baseHeight = moveTowards(
+                pumpTailState.baseHeight,
+                targetBaseHeight,
+                deltaSeconds * viewport.height * 0.6
+            );
+            const targetSpread = Math.min(
+                viewport.width * 0.85,
+                Math.max(180, Math.round(state.tailLength) * 26)
+            );
+            pumpTailState.spread = moveTowards(
+                pumpTailState.spread,
+                targetSpread,
+                deltaSeconds * 260
+            );
         }
+
         updatePumpTailSegments();
     }
+
     function drawPumpTail() {
         if (!pumpTailState.segments.length || pumpTailState.fade <= 0) {
             return;
         }
+
         const time = performance.now();
+
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         ctx.shadowBlur = 24 * pumpTailState.fade;
+
         for (const segment of pumpTailState.segments) {
             const hue = (segment.normalizedIndex * 280 + time * 0.08) % 360;
             const gradient = ctx.createLinearGradient(segment.centerX, segment.y, segment.centerX, segment.baseY);
@@ -12251,16 +13215,20 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillStyle = gradient;
             ctx.shadowColor = `hsla(${hue}, 100%, 70%, ${0.45 * pumpTailState.fade})`;
             ctx.fillRect(segment.x, segment.y, segment.width, segment.height);
+
             if (segment.height > 12) {
                 ctx.fillStyle = `hsla(${(hue + 60) % 360}, 100%, 85%, ${0.35 * pumpTailState.fade})`;
                 ctx.fillRect(segment.x, segment.y - 6, segment.width, 6);
             }
         }
+
         ctx.restore();
     }
+
     function isPumpTailDamaging() {
         return pumpTailState.segments.length > 0 && pumpTailState.fade > 0;
     }
+
     function pumpTailIntersectsRect(rect) {
         if (!isPumpTailDamaging()) {
             return false;
@@ -12272,6 +13240,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return false;
     }
+
     function pumpTailIntersectsCircle(circle) {
         if (!isPumpTailDamaging()) {
             return false;
@@ -12283,8 +13252,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return false;
     }
+
     function findNearestObstacle(projectile) {
-        var _a;
         let closest = null;
         let closestDistSq = Infinity;
         const projCenterX = projectile.x + projectile.width * 0.5;
@@ -12300,13 +13269,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 closestDistSq = distSq;
             }
         }
-        return (_a = closest === null || closest === void 0 ? void 0 : closest.obstacle) !== null && _a !== void 0 ? _a : null;
+        return closest?.obstacle ?? null;
     }
+
     function updateProjectiles(delta) {
-        var _a, _b, _c, _d, _e, _f, _g;
         const deltaSeconds = delta / 1000;
         for (let i = projectiles.length - 1; i >= 0; i--) {
             const projectile = projectiles[i];
+
             if (projectile.type === 'missile') {
                 const target = findNearestObstacle(projectile);
                 if (target) {
@@ -12323,17 +13293,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     projectile.vy += (desiredVy - projectile.vy) * turnStrength;
                 }
             }
+
             if (projectile.type === 'flameWhip') {
-                projectile.waveTime = ((_a = projectile.waveTime) !== null && _a !== void 0 ? _a : 0) + delta;
-                const phase = (_b = projectile.wavePhase) !== null && _b !== void 0 ? _b : 0;
-                const frequency = (_c = projectile.waveFrequency) !== null && _c !== void 0 ? _c : 9;
-                const amplitude = (_d = projectile.waveAmplitude) !== null && _d !== void 0 ? _d : 18;
-                const drift = (_e = projectile.waveDrift) !== null && _e !== void 0 ? _e : 28;
+                projectile.waveTime = (projectile.waveTime ?? 0) + delta;
+                const phase = projectile.wavePhase ?? 0;
+                const frequency = projectile.waveFrequency ?? 9;
+                const amplitude = projectile.waveAmplitude ?? 18;
+                const drift = projectile.waveDrift ?? 28;
                 const waveSeconds = projectile.waveTime / 1000;
                 projectile.curve = Math.sin(waveSeconds * frequency + phase) * amplitude;
                 projectile.y += Math.cos(waveSeconds * (frequency * 0.55) + phase * 1.1) * drift * deltaSeconds * 0.12;
-                const interval = (_f = projectile.sparkInterval) !== null && _f !== void 0 ? _f : (reducedEffectsMode ? 150 : 95);
-                projectile.sparkTimer = ((_g = projectile.sparkTimer) !== null && _g !== void 0 ? _g : interval) - delta;
+
+                const interval = projectile.sparkInterval ?? (reducedEffectsMode ? 150 : 95);
+                projectile.sparkTimer = (projectile.sparkTimer ?? interval) - delta;
                 if (projectile.sparkTimer <= 0) {
                     projectile.sparkTimer += interval;
                     if (!reducedEffectsMode) {
@@ -12353,18 +13325,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
+
             projectile.x += projectile.vx * deltaSeconds;
             projectile.y += projectile.vy * deltaSeconds;
             projectile.life -= delta;
-            if (projectile.x > viewport.width + 80 ||
+
+            if (
+                projectile.x > viewport.width + 80 ||
                 projectile.x + projectile.width < -80 ||
                 projectile.y < -120 ||
                 projectile.y > viewport.height + 120 ||
-                projectile.life <= 0) {
+                projectile.life <= 0
+            ) {
                 projectiles.splice(i, 1);
             }
         }
     }
+
     function getVillainHealth(size, villainType) {
         const range = villainType.size.max - villainType.size.min;
         const normalized = range > 0 ? (size - villainType.size.min) / range : 0;
@@ -12372,20 +13349,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const scaled = base * getHealthRampMultiplier();
         return Math.max(1, Math.round(scaled));
     }
+
     function createVillainBehaviorState(villainType, size) {
-        var _a, _b, _c, _d, _e, _f, _g, _h;
-        const behavior = (_a = villainType.behavior) !== null && _a !== void 0 ? _a : { type: 'none' };
+        const behavior = villainType.behavior ?? { type: 'none' };
         const state = { type: behavior.type };
+
         switch (behavior.type) {
             case 'sine': {
-                const amplitude = (_b = behavior.amplitude) !== null && _b !== void 0 ? _b : 40;
+                const amplitude = behavior.amplitude ?? 40;
                 const available = Math.max(0, viewport.height - size - amplitude * 2);
                 const baseY = available > 0 ? Math.random() * available + amplitude : Math.random() * (viewport.height - size);
                 const phase = Math.random() * Math.PI * 2;
                 const initialY = clamp(baseY + Math.sin(phase) * amplitude, 0, viewport.height - size);
                 Object.assign(state, {
                     amplitude,
-                    speed: (_c = behavior.speed) !== null && _c !== void 0 ? _c : 3,
+                    speed: behavior.speed ?? 3,
                     phase,
                     baseY,
                     initialY
@@ -12393,7 +13371,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             }
             case 'hover': {
-                const amplitude = (_d = behavior.amplitude) !== null && _d !== void 0 ? _d : 40;
+                const amplitude = behavior.amplitude ?? 40;
                 const center = Math.random() * (viewport.height - size);
                 const lowerBound = 16;
                 const upperBound = Math.max(lowerBound, viewport.height - size - lowerBound);
@@ -12407,7 +13385,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 Object.assign(state, {
                     minY,
                     maxY,
-                    speed: (_e = behavior.verticalSpeed) !== null && _e !== void 0 ? _e : 60,
+                    speed: behavior.verticalSpeed ?? 60,
                     direction: Math.random() < 0.5 ? -1 : 1,
                     initialY: clamp(center, minY, maxY)
                 });
@@ -12415,7 +13393,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             case 'drift': {
                 const initialY = Math.random() * (viewport.height - size);
-                const maxVertical = (_f = behavior.verticalSpeed) !== null && _f !== void 0 ? _f : 120;
+                const maxVertical = behavior.verticalSpeed ?? 120;
                 Object.assign(state, {
                     vy: randomBetween(-maxVertical, maxVertical),
                     verticalSpeed: maxVertical,
@@ -12427,8 +13405,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const initialY = Math.random() * (viewport.height - size);
                 Object.assign(state, {
                     vy: 0,
-                    acceleration: (_g = behavior.acceleration) !== null && _g !== void 0 ? _g : 120,
-                    maxSpeed: (_h = behavior.maxSpeed) !== null && _h !== void 0 ? _h : 180,
+                    acceleration: behavior.acceleration ?? 120,
+                    maxSpeed: behavior.maxSpeed ?? 180,
                     initialY
                 });
                 break;
@@ -12438,12 +13416,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             }
         }
+
         return state;
     }
+
     function isBossObstacle(obstacle) {
-        var _a;
-        return Boolean((_a = obstacle === null || obstacle === void 0 ? void 0 : obstacle.villainType) === null || _a === void 0 ? void 0 : _a.isBoss);
+        return Boolean(obstacle?.villainType?.isBoss);
     }
+
     function completeBossBattle() {
         state.bossBattle.active = false;
         state.bossBattle.bossSpawned = false;
@@ -12452,7 +13432,10 @@ document.addEventListener('DOMContentLoaded', () => {
         state.bossBattle.alertTimer = 0;
         state.bossBattle.triggered = false;
         if (typeof state.bossBattle.currentIndex === 'number') {
-            state.bossBattle.nextEventIndex = Math.max(state.bossBattle.nextEventIndex, state.bossBattle.currentIndex + 1);
+            state.bossBattle.nextEventIndex = Math.max(
+                state.bossBattle.nextEventIndex,
+                state.bossBattle.currentIndex + 1
+            );
         }
         state.bossBattle.currentIndex = null;
         state.bossBattle.currentConfig = null;
@@ -12461,15 +13444,15 @@ document.addEventListener('DOMContentLoaded', () => {
         spawnTimers.collectible = 0;
         spawnTimers.powerUp = 0;
     }
+
     function createBossBehaviorState(villainType, spawnY, bounds) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
-        const behavior = (_a = villainType === null || villainType === void 0 ? void 0 : villainType.behavior) !== null && _a !== void 0 ? _a : { type: 'hover' };
-        const lowerBound = (_b = bounds === null || bounds === void 0 ? void 0 : bounds.lowerBound) !== null && _b !== void 0 ? _b : 16;
-        const upperBound = (_c = bounds === null || bounds === void 0 ? void 0 : bounds.upperBound) !== null && _c !== void 0 ? _c : Math.max(lowerBound, viewport.height - ((_d = villainType === null || villainType === void 0 ? void 0 : villainType.height) !== null && _d !== void 0 ? _d : 0) - lowerBound);
+        const behavior = villainType?.behavior ?? { type: 'hover' };
+        const lowerBound = bounds?.lowerBound ?? 16;
+        const upperBound = bounds?.upperBound ?? Math.max(lowerBound, viewport.height - (villainType?.height ?? 0) - lowerBound);
         const clampedSpawn = clamp(spawnY, lowerBound, upperBound);
         switch (behavior.type) {
             case 'hover': {
-                const amplitude = (_e = behavior.amplitude) !== null && _e !== void 0 ? _e : 0;
+                const amplitude = behavior.amplitude ?? 0;
                 let minY = clamp(clampedSpawn - amplitude, lowerBound, upperBound);
                 let maxY = clamp(clampedSpawn + amplitude, lowerBound, upperBound);
                 if (minY > maxY) {
@@ -12479,7 +13462,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 return {
                     type: 'hover',
-                    speed: (_f = behavior.verticalSpeed) !== null && _f !== void 0 ? _f : 60,
+                    speed: behavior.verticalSpeed ?? 60,
                     minY,
                     maxY,
                     direction: 1
@@ -12489,49 +13472,54 @@ document.addEventListener('DOMContentLoaded', () => {
                 return {
                     type: 'sweep',
                     phase: 0,
-                    speed: (_g = behavior.speed) !== null && _g !== void 0 ? _g : 1.6,
-                    amplitude: (_h = behavior.amplitude) !== null && _h !== void 0 ? _h : 160,
+                    speed: behavior.speed ?? 1.6,
+                    amplitude: behavior.amplitude ?? 160,
                     centerY: clampedSpawn,
-                    followSpeed: (_j = behavior.followSpeed) !== null && _j !== void 0 ? _j : 1.2
+                    followSpeed: behavior.followSpeed ?? 1.2
                 };
             }
             case 'tracker': {
                 return {
                     type: 'tracker',
                     vy: 0,
-                    acceleration: (_k = behavior.acceleration) !== null && _k !== void 0 ? _k : 240,
-                    maxSpeed: (_l = behavior.maxSpeed) !== null && _l !== void 0 ? _l : 280,
+                    acceleration: behavior.acceleration ?? 240,
+                    maxSpeed: behavior.maxSpeed ?? 280,
                     initialY: clampedSpawn
                 };
             }
             default:
-                return { type: (_m = behavior.type) !== null && _m !== void 0 ? _m : 'hover' };
+                return { type: behavior.type ?? 'hover' };
         }
     }
+
     function spawnBoss() {
-        var _a, _b, _c, _d, _e;
         const bossConfig = state.bossBattle.currentConfig;
         if (!bossConfig) {
             return;
         }
         const villainType = bossConfig.villain;
         const width = villainType.width;
-        const height = (_a = villainType.height) !== null && _a !== void 0 ? _a : width;
-        const spawnY = clamp(viewport.height * 0.5 - height * 0.5, 32, viewport.height - height - 32);
+        const height = villainType.height ?? width;
+        const spawnY = clamp(
+            viewport.height * 0.5 - height * 0.5,
+            32,
+            viewport.height - height - 32
+        );
         const lowerBound = 16;
         const upperBound = Math.max(lowerBound, viewport.height - height - lowerBound);
         const behaviorState = createBossBehaviorState(villainType, spawnY, { lowerBound, upperBound });
-        const attackConfig = (_b = bossConfig.attack) !== null && _b !== void 0 ? _b : null;
-        const cooldown = (_c = attackConfig === null || attackConfig === void 0 ? void 0 : attackConfig.cooldown) !== null && _c !== void 0 ? _c : 2000;
+        const attackConfig = bossConfig.attack ?? null;
+        const cooldown = attackConfig?.cooldown ?? 2000;
         const initialDelay = attackConfig
-            ? (_d = attackConfig.initialDelay) !== null && _d !== void 0 ? _d : Math.max(400, cooldown * 0.5)
+            ? attackConfig.initialDelay ?? Math.max(400, cooldown * 0.5)
             : 0;
+
         obstacles.push({
             x: viewport.width + width,
             y: clamp(spawnY, lowerBound, upperBound),
             width,
             height,
-            speed: (_e = villainType.speed) !== null && _e !== void 0 ? _e : Math.max(60, state.gameSpeed * 0.22),
+            speed: villainType.speed ?? Math.max(60, state.gameSpeed * 0.22),
             rotation: 0,
             rotationSpeed: 0,
             health: villainType.health,
@@ -12554,8 +13542,8 @@ document.addEventListener('DOMContentLoaded', () => {
         state.bossBattle.bossSpawned = true;
         state.lastVillainKey = villainType.key;
     }
+
     function startBossBattle() {
-        var _a, _b, _c, _d;
         if (state.bossBattle.active) {
             return;
         }
@@ -12574,8 +13562,8 @@ document.addEventListener('DOMContentLoaded', () => {
         state.bossBattle.defeated = false;
         storyManager.recordEvent('boss', {
             status: 'engaged',
-            boss: (_b = (_a = bossConfig === null || bossConfig === void 0 ? void 0 : bossConfig.villain) === null || _a === void 0 ? void 0 : _a.key) !== null && _b !== void 0 ? _b : null,
-            name: (_d = (_c = bossConfig === null || bossConfig === void 0 ? void 0 : bossConfig.villain) === null || _c === void 0 ? void 0 : _c.name) !== null && _d !== void 0 ? _d : null
+            boss: bossConfig?.villain?.key ?? null,
+            name: bossConfig?.villain?.name ?? null
         });
         enemyProjectiles.length = 0;
         obstacles.length = 0;
@@ -12587,8 +13575,8 @@ document.addEventListener('DOMContentLoaded', () => {
         spawnBoss();
         spawnBossSupportPowerUp();
     }
+
     function spawnObstacle() {
-        var _a;
         if (state.bossBattle.active) {
             if (!state.bossBattle.bossSpawned) {
                 spawnBoss();
@@ -12599,7 +13587,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const size = randomBetween(villainType.size.min, villainType.size.max);
         const health = getVillainHealth(size, villainType);
         const behaviorState = createVillainBehaviorState(villainType, size);
-        const spawnY = (_a = behaviorState.initialY) !== null && _a !== void 0 ? _a : Math.random() * (viewport.height - size);
+        const spawnY = behaviorState.initialY ?? Math.random() * (viewport.height - size);
         delete behaviorState.initialY;
         const rotationSpeed = randomBetween(villainType.rotation.min, villainType.rotation.max);
         obstacles.push({
@@ -12630,12 +13618,12 @@ document.addEventListener('DOMContentLoaded', () => {
             behaviorState.baseY = spawnY;
         }
     }
+
     function spawnCollectible() {
-        var _a, _b, _c;
         const tier = selectCollectibleTier();
-        const baseSize = (_a = config.collectible.size) !== null && _a !== void 0 ? _a : 32;
-        const size = baseSize * ((_b = tier.sizeMultiplier) !== null && _b !== void 0 ? _b : 1);
-        const verticalPadding = (_c = config.collectible.verticalPadding) !== null && _c !== void 0 ? _c : 48;
+        const baseSize = config.collectible.size ?? 32;
+        const size = baseSize * (tier.sizeMultiplier ?? 1);
+        const verticalPadding = config.collectible.verticalPadding ?? 48;
         const spawnRange = Math.max(viewport.height - size - verticalPadding * 2, 0);
         const spawnY = verticalPadding + Math.random() * spawnRange;
         collectibles.push({
@@ -12653,6 +13641,7 @@ document.addEventListener('DOMContentLoaded', () => {
             label: tier.label
         });
     }
+
     function selectCollectibleTier() {
         if (collectibleTiers.length === 0) {
             return {
@@ -12666,6 +13655,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 particleColor: { r: 255, g: 215, b: 0 }
             };
         }
+
         const roll = Math.random() * (totalCollectibleWeight || 1);
         let cumulative = 0;
         for (const tier of collectibleTiers) {
@@ -12676,10 +13666,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return collectibleTiers[collectibleTiers.length - 1];
     }
+
     function spawnPowerUp(forcedType) {
-        var _a;
-        const now = (_a = state === null || state === void 0 ? void 0 : state.elapsedTime) !== null && _a !== void 0 ? _a : 0;
-        const type = forcedType !== null && forcedType !== void 0 ? forcedType : powerUpSpawnDirector.chooseType(now);
+        const now = state?.elapsedTime ?? 0;
+        const type = forcedType ?? powerUpSpawnDirector.chooseType(now);
         if (!type) {
             return null;
         }
@@ -12696,6 +13686,7 @@ document.addEventListener('DOMContentLoaded', () => {
         powerUpSpawnDirector.recordSpawn(type, now);
         return powerUps[powerUps.length - 1];
     }
+
     function spawnBossSupportPowerUp() {
         if (state.bossBattle.powerUpSpawned) {
             return;
@@ -12706,11 +13697,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         state.bossBattle.powerUpSpawned = true;
         spawnTimers.powerUp = 0;
-        const plannedInterval = powerUpSpawnDirector.planNextInterval(config === null || config === void 0 ? void 0 : config.powerUpSpawnInterval);
+        const plannedInterval = powerUpSpawnDirector.planNextInterval(config?.powerUpSpawnInterval);
         if (Number.isFinite(plannedInterval) && plannedInterval > 0) {
             nextPowerUpSpawnInterval = plannedInterval;
         }
     }
+
     function getBossProjectileOrigin(obstacle) {
         if (!obstacle) {
             return { x: 0, y: 0 };
@@ -12719,11 +13711,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const originY = obstacle.y + obstacle.height * 0.5;
         return { x: originX, y: originY };
     }
-    function spawnBossProjectile({ originX, originY, angle, speed, size, color, onHitMessage, ownerKey }) {
-        var _a, _b;
-        const width = (_a = size === null || size === void 0 ? void 0 : size.width) !== null && _a !== void 0 ? _a : 24;
-        const height = (_b = size === null || size === void 0 ? void 0 : size.height) !== null && _b !== void 0 ? _b : 12;
-        const velocity = speed !== null && speed !== void 0 ? speed : 360;
+
+    function spawnBossProjectile({
+        originX,
+        originY,
+        angle,
+        speed,
+        size,
+        color,
+        onHitMessage,
+        ownerKey
+    }) {
+        const width = size?.width ?? 24;
+        const height = size?.height ?? 12;
+        const velocity = speed ?? 360;
         const vx = Math.cos(angle) * velocity;
         const vy = Math.sin(angle) * velocity;
         enemyProjectiles.push({
@@ -12734,13 +13735,13 @@ document.addEventListener('DOMContentLoaded', () => {
             vx,
             vy,
             life: 8000,
-            color: color !== null && color !== void 0 ? color : '#f87171',
-            onHitMessage: onHitMessage !== null && onHitMessage !== void 0 ? onHitMessage : null,
-            ownerKey: ownerKey !== null && ownerKey !== void 0 ? ownerKey : null
+            color: color ?? '#f87171',
+            onHitMessage: onHitMessage ?? null,
+            ownerKey: ownerKey ?? null
         });
     }
+
     function fireBossProjectiles(obstacle, attackConfig) {
-        var _a, _b, _c, _d, _e, _f, _g;
         if (!attackConfig || !player) {
             return;
         }
@@ -12750,10 +13751,10 @@ document.addEventListener('DOMContentLoaded', () => {
             y: player.y + player.height * 0.5
         };
         const baseAngle = Math.atan2(target.y - origin.y, target.x - origin.x);
-        const speed = (_a = attackConfig.projectileSpeed) !== null && _a !== void 0 ? _a : 360;
-        const size = (_b = attackConfig.projectileSize) !== null && _b !== void 0 ? _b : { width: 28, height: 12 };
-        const color = (_c = attackConfig.color) !== null && _c !== void 0 ? _c : '#f87171';
-        const ownerKey = (_e = (_d = obstacle === null || obstacle === void 0 ? void 0 : obstacle.villainType) === null || _d === void 0 ? void 0 : _d.key) !== null && _e !== void 0 ? _e : null;
+        const speed = attackConfig.projectileSpeed ?? 360;
+        const size = attackConfig.projectileSize ?? { width: 28, height: 12 };
+        const color = attackConfig.color ?? '#f87171';
+        const ownerKey = obstacle?.villainType?.key ?? null;
         const message = attackConfig.onHitMessage;
         const spawnShot = (angle) => {
             spawnBossProjectile({
@@ -12767,10 +13768,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 ownerKey
             });
         };
+
         switch (attackConfig.type) {
             case 'spread': {
-                const count = Math.max(1, (_f = attackConfig.count) !== null && _f !== void 0 ? _f : 3);
-                const spreadAngle = (_g = attackConfig.spreadAngle) !== null && _g !== void 0 ? _g : Math.PI / 10;
+                const count = Math.max(1, attackConfig.count ?? 3);
+                const spreadAngle = attackConfig.spreadAngle ?? Math.PI / 10;
                 if (count === 1) {
                     spawnShot(baseAngle);
                     break;
@@ -12787,8 +13789,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
         }
     }
+
     function handleBossAttack(obstacle, deltaMs) {
-        var _a, _b, _c, _d, _e, _f;
         if (!isBossObstacle(obstacle) || !state.bossBattle.active) {
             return;
         }
@@ -12797,84 +13799,89 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const attackConfig = bossState.attackConfig;
+
         if (bossState.burstShotsRemaining > 0) {
             bossState.burstTimer -= deltaMs;
             if (bossState.burstTimer <= 0) {
                 fireBossProjectiles(obstacle, attackConfig);
                 bossState.burstShotsRemaining -= 1;
-                bossState.burstTimer = (_a = attackConfig.burstInterval) !== null && _a !== void 0 ? _a : 160;
+                bossState.burstTimer = attackConfig.burstInterval ?? 160;
                 if (bossState.burstShotsRemaining <= 0) {
-                    bossState.attackTimer = (_b = attackConfig.cooldown) !== null && _b !== void 0 ? _b : 2000;
+                    bossState.attackTimer = attackConfig.cooldown ?? 2000;
                 }
             }
             return;
         }
+
         bossState.attackTimer -= deltaMs;
         if (bossState.attackTimer > 0) {
             return;
         }
+
         if (attackConfig.type === 'barrage') {
-            bossState.burstShotsRemaining = Math.max(1, (_c = attackConfig.burstCount) !== null && _c !== void 0 ? _c : 3);
+            bossState.burstShotsRemaining = Math.max(1, attackConfig.burstCount ?? 3);
             bossState.burstTimer = 0;
             fireBossProjectiles(obstacle, attackConfig);
             bossState.burstShotsRemaining -= 1;
-            bossState.burstTimer = (_d = attackConfig.burstInterval) !== null && _d !== void 0 ? _d : 160;
-            bossState.attackTimer = (_e = attackConfig.cooldown) !== null && _e !== void 0 ? _e : 2000;
+            bossState.burstTimer = attackConfig.burstInterval ?? 160;
+            bossState.attackTimer = attackConfig.cooldown ?? 2000;
             return;
         }
+
         fireBossProjectiles(obstacle, attackConfig);
-        bossState.attackTimer = (_f = attackConfig.cooldown) !== null && _f !== void 0 ? _f : 2000;
+        bossState.attackTimer = attackConfig.cooldown ?? 2000;
     }
+
     function applyVillainBehavior(obstacle, deltaSeconds) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z;
         const behaviorState = obstacle.behaviorState;
-        const villainBehavior = (_a = obstacle.villainType) === null || _a === void 0 ? void 0 : _a.behavior;
+        const villainBehavior = obstacle.villainType?.behavior;
         if (!behaviorState || !villainBehavior) {
             return;
         }
+
         switch (villainBehavior.type) {
             case 'sine': {
-                behaviorState.phase += deltaSeconds * ((_c = (_b = behaviorState.speed) !== null && _b !== void 0 ? _b : villainBehavior.speed) !== null && _c !== void 0 ? _c : 3);
-                const amplitude = (_e = (_d = behaviorState.amplitude) !== null && _d !== void 0 ? _d : villainBehavior.amplitude) !== null && _e !== void 0 ? _e : 40;
+                behaviorState.phase += deltaSeconds * (behaviorState.speed ?? villainBehavior.speed ?? 3);
+                const amplitude = behaviorState.amplitude ?? villainBehavior.amplitude ?? 40;
                 const targetY = behaviorState.baseY + Math.sin(behaviorState.phase) * amplitude;
                 obstacle.y = clamp(targetY, 0, viewport.height - obstacle.height);
                 break;
             }
             case 'hover': {
-                const speed = (_g = (_f = behaviorState.speed) !== null && _f !== void 0 ? _f : villainBehavior.verticalSpeed) !== null && _g !== void 0 ? _g : 60;
-                const minY = (_h = behaviorState.minY) !== null && _h !== void 0 ? _h : clamp(obstacle.y - ((_j = villainBehavior.amplitude) !== null && _j !== void 0 ? _j : 0), 16, viewport.height - obstacle.height - 16);
-                const maxY = (_k = behaviorState.maxY) !== null && _k !== void 0 ? _k : clamp(obstacle.y + ((_l = villainBehavior.amplitude) !== null && _l !== void 0 ? _l : 0), 16, viewport.height - obstacle.height - 16);
+                const speed = behaviorState.speed ?? villainBehavior.verticalSpeed ?? 60;
+                const minY =
+                    behaviorState.minY ?? clamp(obstacle.y - (villainBehavior.amplitude ?? 0), 16, viewport.height - obstacle.height - 16);
+                const maxY =
+                    behaviorState.maxY ?? clamp(obstacle.y + (villainBehavior.amplitude ?? 0), 16, viewport.height - obstacle.height - 16);
                 if (behaviorState.minY === undefined) {
                     behaviorState.minY = minY;
                 }
                 if (behaviorState.maxY === undefined) {
                     behaviorState.maxY = maxY;
                 }
-                const direction = (_m = behaviorState.direction) !== null && _m !== void 0 ? _m : 1;
+                const direction = behaviorState.direction ?? 1;
                 obstacle.y += speed * direction * deltaSeconds;
                 if (obstacle.y <= behaviorState.minY) {
                     obstacle.y = behaviorState.minY;
                     behaviorState.direction = 1;
-                }
-                else if (obstacle.y >= behaviorState.maxY) {
+                } else if (obstacle.y >= behaviorState.maxY) {
                     obstacle.y = behaviorState.maxY;
                     behaviorState.direction = -1;
-                }
-                else {
+                } else {
                     behaviorState.direction = direction;
                 }
                 break;
             }
             case 'sweep': {
-                behaviorState.phase = ((_o = behaviorState.phase) !== null && _o !== void 0 ? _o : 0) +
-                    deltaSeconds * ((_q = (_p = behaviorState.speed) !== null && _p !== void 0 ? _p : villainBehavior.speed) !== null && _q !== void 0 ? _q : 1.6);
-                const amplitude = (_s = (_r = behaviorState.amplitude) !== null && _r !== void 0 ? _r : villainBehavior.amplitude) !== null && _s !== void 0 ? _s : 140;
+                behaviorState.phase = (behaviorState.phase ?? 0) +
+                    deltaSeconds * (behaviorState.speed ?? villainBehavior.speed ?? 1.6);
+                const amplitude = behaviorState.amplitude ?? villainBehavior.amplitude ?? 140;
                 const halfHeight = obstacle.height * 0.5;
                 const minCenter = 16 + halfHeight;
                 const maxCenter = viewport.height - halfHeight - 16;
-                const baseCenter = clamp((_t = behaviorState.centerY) !== null && _t !== void 0 ? _t : obstacle.y + halfHeight, minCenter, maxCenter);
+                const baseCenter = clamp(behaviorState.centerY ?? obstacle.y + halfHeight, minCenter, maxCenter);
                 const playerCenterY = clamp(getPlayerCenter().y, minCenter, maxCenter);
-                const followRate = Math.min(3.5, (_v = (_u = behaviorState.followSpeed) !== null && _u !== void 0 ? _u : villainBehavior.followSpeed) !== null && _v !== void 0 ? _v : 1.2);
+                const followRate = Math.min(3.5, behaviorState.followSpeed ?? villainBehavior.followSpeed ?? 1.2);
                 const updatedCenter = baseCenter + (playerCenterY - baseCenter) * Math.min(1, deltaSeconds * followRate);
                 behaviorState.centerY = clamp(updatedCenter, minCenter, maxCenter);
                 const offset = Math.sin(behaviorState.phase) * amplitude;
@@ -12887,8 +13894,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (obstacle.y < 24) {
                     obstacle.y = 24;
                     behaviorState.vy = Math.abs(behaviorState.vy);
-                }
-                else if (obstacle.y + obstacle.height > viewport.height - 24) {
+                } else if (obstacle.y + obstacle.height > viewport.height - 24) {
                     obstacle.y = viewport.height - 24 - obstacle.height;
                     behaviorState.vy = -Math.abs(behaviorState.vy);
                 }
@@ -12898,9 +13904,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const { y: trackerY } = getPlayerCenter();
                 const targetY = trackerY - obstacle.height * 0.5;
                 const direction = targetY - obstacle.y;
-                const accel = Math.sign(direction) * ((_x = (_w = behaviorState.acceleration) !== null && _w !== void 0 ? _w : villainBehavior.acceleration) !== null && _x !== void 0 ? _x : 120);
+                const accel = Math.sign(direction) * (behaviorState.acceleration ?? villainBehavior.acceleration ?? 120);
                 behaviorState.vy += accel * deltaSeconds;
-                const maxSpeed = (_z = (_y = behaviorState.maxSpeed) !== null && _y !== void 0 ? _y : villainBehavior.maxSpeed) !== null && _z !== void 0 ? _z : 180;
+                const maxSpeed = behaviorState.maxSpeed ?? villainBehavior.maxSpeed ?? 180;
                 behaviorState.vy = clamp(behaviorState.vy, -maxSpeed, maxSpeed);
                 obstacle.y += behaviorState.vy * deltaSeconds;
                 obstacle.y = clamp(obstacle.y, 16, viewport.height - obstacle.height - 16);
@@ -12910,8 +13916,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
         }
     }
+
     function updateObstacles(delta) {
-        var _a, _b;
         const scaledDelta = getScaledDelta(delta);
         const deltaSeconds = scaledDelta / 1000;
         for (let i = obstacles.length - 1; i >= 0; i--) {
@@ -12922,12 +13928,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (obstacle.hitFlash > 0) {
                 obstacle.hitFlash = Math.max(0, obstacle.hitFlash - scaledDelta);
             }
+
             if (obstacle.shieldCooldown > 0) {
                 obstacle.shieldCooldown = Math.max(0, obstacle.shieldCooldown - scaledDelta);
             }
+
             if (obstacle.bounceTimer > 0) {
                 obstacle.bounceTimer = Math.max(0, obstacle.bounceTimer - scaledDelta);
-                const damping = Math.exp(-((_b = (_a = config.defensePower) === null || _a === void 0 ? void 0 : _a.bounceDrag) !== null && _b !== void 0 ? _b : 3.4) * deltaSeconds);
+                const damping = Math.exp(-(config.defensePower?.bounceDrag ?? 3.4) * deltaSeconds);
                 obstacle.x += obstacle.vx * deltaSeconds;
                 obstacle.y += obstacle.vy * deltaSeconds;
                 obstacle.vx *= damping;
@@ -12938,10 +13946,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     obstacle.vy = 0;
                 }
             }
+
             applyVillainBehavior(obstacle, deltaSeconds);
+
             if (isBoss) {
                 handleBossAttack(obstacle, scaledDelta);
             }
+
             if (obstacle.x + obstacle.width < 0) {
                 obstacles.splice(i, 1);
                 if (isBoss) {
@@ -12950,13 +13961,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 handleVillainEscape(obstacle);
                 continue;
             }
+
             obstacle.y = clamp(obstacle.y, 16, viewport.height - obstacle.height - 16);
+
             if (isPumpTailDamaging() && pumpTailIntersectsRect(obstacle)) {
                 obstacles.splice(i, 1);
                 awardDestroy(obstacle);
                 createVillainExplosion(obstacle);
                 continue;
             }
+
             const activePlayers = getActivePlayerEntities();
             let collidedEntity = null;
             for (const entity of activePlayers) {
@@ -12975,9 +13989,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 return triggerGameOver('Your rainbow ship took a direct hit!');
             }
+
             if (!isPumpTailDamaging()) {
                 const evaluateTailCollision = (points, sourceEntity) => {
-                    if (!(points === null || points === void 0 ? void 0 : points.length)) {
+                    if (!points?.length) {
                         return 'none';
                     }
                     for (let j = points.length - 1; j >= 0; j--) {
@@ -12985,7 +14000,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (circleRectOverlap({ x: t.x, y: t.y, radius: 10 }, obstacle)) {
                             if (isShieldActive() && !isBoss) {
                                 if (obstacle.shieldCooldown <= 0) {
-                                    repelObstacleFromPlayer(obstacle, sourceEntity !== null && sourceEntity !== void 0 ? sourceEntity : player);
+                                    repelObstacleFromPlayer(obstacle, sourceEntity ?? player);
                                 }
                                 return 'shielded';
                             }
@@ -12994,38 +14009,44 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     return 'none';
                 };
+
                 const tailResult = evaluateTailCollision(trail, player);
                 if (tailResult === 'shielded') {
                     continue;
                 }
                 if (tailResult === 'hit') {
-                    return triggerGameOver(isBoss
-                        ? 'The boss shattered your tail formation!'
-                        : 'Your tail tangled with space junk!');
+                    return triggerGameOver(
+                        isBoss
+                            ? 'The boss shattered your tail formation!'
+                            : 'Your tail tangled with space junk!'
+                    );
                 }
+
                 if (isDoubleTeamActive()) {
                     const cloneTailResult = evaluateTailCollision(doubleTeamState.trail, doubleTeamState.clone);
                     if (cloneTailResult === 'shielded') {
                         continue;
                     }
                     if (cloneTailResult === 'hit') {
-                        return triggerGameOver(isBoss
-                            ? 'The boss shattered your tail formation!'
-                            : 'Your tail tangled with space junk!');
+                        return triggerGameOver(
+                            isBoss
+                                ? 'The boss shattered your tail formation!'
+                                : 'Your tail tangled with space junk!'
+                        );
                     }
                 }
             }
         }
     }
+
     function updateCollectibles(delta) {
-        var _a, _b, _c, _d, _e, _f;
         const scaledDelta = getScaledDelta(delta);
         const deltaSeconds = scaledDelta / 1000;
         const magnetActive = isPowerUpActive(MAGNET_POWER);
-        const magnetConfig = (_a = config.magnetPower) !== null && _a !== void 0 ? _a : {};
-        const magnetRadius = magnetActive ? Math.max(0, (_b = magnetConfig.pullRadius) !== null && _b !== void 0 ? _b : 0) : 0;
-        const magnetStrength = (_c = magnetConfig.pullStrength) !== null && _c !== void 0 ? _c : 0;
-        const magnetMaxSpeed = (_d = magnetConfig.maxSpeed) !== null && _d !== void 0 ? _d : 0;
+        const magnetConfig = config.magnetPower ?? {};
+        const magnetRadius = magnetActive ? Math.max(0, magnetConfig.pullRadius ?? 0) : 0;
+        const magnetStrength = magnetConfig.pullStrength ?? 0;
+        const magnetMaxSpeed = magnetConfig.maxSpeed ?? 0;
         const playerCenter = magnetActive ? getPlayerCenter() : null;
         for (let i = collectibles.length - 1; i >= 0; i--) {
             const collectible = collectibles[i];
@@ -13049,13 +14070,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     collectible.y += normalY * step;
                 }
             }
-            const verticalPadding = (_e = config.collectible.verticalPadding) !== null && _e !== void 0 ? _e : 48;
+            const verticalPadding = config.collectible.verticalPadding ?? 48;
             collectible.y = clamp(collectible.y, verticalPadding, viewport.height - collectible.height - verticalPadding);
+
             if (collectible.x + collectible.width < 0) {
                 collectibles.splice(i, 1);
                 resetStreak();
                 continue;
             }
+
             const activePlayers = getActivePlayerEntities();
             let collected = false;
             for (const entity of activePlayers) {
@@ -13070,11 +14093,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 createParticles({
                     x: collectible.x + collectible.width * 0.5,
                     y: collectible.y + collectible.height * 0.5,
-                    color: (_f = collectible.particleColor) !== null && _f !== void 0 ? _f : { r: 255, g: 215, b: 0 }
+                    color: collectible.particleColor ?? { r: 255, g: 215, b: 0 }
                 });
             }
         }
     }
+
     function triggerPowerBombPulse() {
         const { x: centerX, y: centerY } = getPlayerCenter();
         const burst = {
@@ -13094,8 +14118,8 @@ document.addEventListener('DOMContentLoaded', () => {
             color: { r: 255, g: 196, b: 128 }
         });
     }
+
     function activatePowerUp(type) {
-        var _a, _b, _c;
         const duration = config.powerUp.duration[type];
         if (duration) {
             state.powerUpTimers[type] = duration;
@@ -13103,24 +14127,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (type === 'powerBomb') {
             triggerPowerBombPulse();
             state.powerBombPulseTimer = 900;
-        }
-        else if (type === SHIELD_POWER) {
+        } else if (type === SHIELD_POWER) {
             state.shieldHitPulse = Math.max(state.shieldHitPulse, 0.6);
             const { x, y } = getPlayerCenter();
             triggerShieldImpact(x, y);
-        }
-        else if (type === HYPER_BEAM_POWER) {
+        } else if (type === HYPER_BEAM_POWER) {
             hyperBeamState.sparkTimer = 0;
             hyperBeamState.intensity = Math.max(hyperBeamState.intensity, 0.25);
             audioManager.playHyperBeam();
-        }
-        else if (type === PUMP_POWER) {
+        } else if (type === PUMP_POWER) {
             ensurePumpTailInitialized();
-        }
-        else if (type === FLAME_WHIP_POWER) {
+        } else if (type === FLAME_WHIP_POWER) {
             triggerScreenShake(3, 160);
             const { x, y } = getPlayerCenter();
-            const color = (_a = powerUpColors[FLAME_WHIP_POWER]) !== null && _a !== void 0 ? _a : { r: 214, g: 64, b: 56 };
+            const color = powerUpColors[FLAME_WHIP_POWER] ?? { r: 214, g: 64, b: 56 };
             createParticles({
                 x,
                 y,
@@ -13130,11 +14150,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 sizeRange: [1.1, 3.2],
                 lifeRange: [320, 520]
             });
-        }
-        else if (type === TIME_DILATION_POWER) {
+        } else if (type === TIME_DILATION_POWER) {
             triggerScreenShake(4, 220);
             const { x, y } = getPlayerCenter();
-            const color = (_b = powerUpColors[TIME_DILATION_POWER]) !== null && _b !== void 0 ? _b : { r: 120, g: 233, b: 255 };
+            const color = powerUpColors[TIME_DILATION_POWER] ?? { r: 120, g: 233, b: 255 };
             createParticles({
                 x,
                 y,
@@ -13144,8 +14163,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sizeRange: [1.2, 3.4],
                 lifeRange: [320, 620]
             });
-        }
-        else if (type === SCORE_SURGE_POWER) {
+        } else if (type === SCORE_SURGE_POWER) {
             const { x, y } = getPlayerCenter();
             spawnFloatingText({
                 text: 'Score Surge!',
@@ -13156,13 +14174,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 variant: 'score',
                 multiplier: getScoreSurgeMultiplier()
             });
-        }
-        else if (type === DOUBLE_TEAM_POWER) {
+        } else if (type === DOUBLE_TEAM_POWER) {
             startDoubleTeam();
-        }
-        else if (type === MAGNET_POWER) {
+        } else if (type === MAGNET_POWER) {
             const { x, y } = getPlayerCenter();
-            const color = (_c = powerUpColors[MAGNET_POWER]) !== null && _c !== void 0 ? _c : { r: 156, g: 220, b: 255 };
+            const color = powerUpColors[MAGNET_POWER] ?? { r: 156, g: 220, b: 255 };
             createParticles({
                 x,
                 y,
@@ -13174,8 +14190,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     }
+
     function updatePowerUps(delta) {
-        var _a;
         const scaledDelta = getScaledDelta(delta);
         const deltaSeconds = scaledDelta / 1000;
         for (let i = powerUps.length - 1; i >= 0; i--) {
@@ -13184,10 +14200,12 @@ document.addEventListener('DOMContentLoaded', () => {
             powerUp.wobbleTime += deltaSeconds * config.powerUp.wobbleSpeed;
             powerUp.y += Math.sin(powerUp.wobbleTime) * config.powerUp.wobbleAmplitude * deltaSeconds;
             powerUp.y = clamp(powerUp.y, 32, viewport.height - 32 - powerUp.height);
+
             if (powerUp.x + powerUp.width < 0) {
                 powerUps.splice(i, 1);
                 continue;
             }
+
             const activePlayers = getActivePlayerEntities();
             let collected = false;
             for (const entity of activePlayers) {
@@ -13204,7 +14222,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     activeChallengeManager.recordEvent('powerUp', { type: powerUp.type });
                 }
                 storyManager.recordEvent('powerUp', { type: powerUp.type });
-                const color = (_a = powerUpColors[powerUp.type]) !== null && _a !== void 0 ? _a : { r: 200, g: 200, b: 255 };
+                const color = powerUpColors[powerUp.type] ?? { r: 200, g: 200, b: 255 };
                 createParticles({
                     x: powerUp.x + powerUp.width * 0.5,
                     y: powerUp.y + powerUp.height * 0.5,
@@ -13213,6 +14231,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
     function updatePowerUpTimers(delta) {
         for (const type of powerUpTypes) {
             if (state.powerUpTimers[type] > 0) {
@@ -13236,57 +14255,58 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
     function updatePowerBomb(delta) {
-        if (!isPowerUpActive('powerBomb'))
-            return;
+        if (!isPowerUpActive('powerBomb')) return;
         state.powerBombPulseTimer -= delta;
         if (state.powerBombPulseTimer <= 0) {
             triggerPowerBombPulse();
             state.powerBombPulseTimer = 900;
         }
     }
+
     function computeHyperBeamBounds(hyperConfig) {
-        var _a, _b;
         const startX = player.x + player.width * 0.55;
-        const width = Math.max(0, viewport.width - startX + ((_a = hyperConfig.extraLength) !== null && _a !== void 0 ? _a : 40));
+        const width = Math.max(0, viewport.width - startX + (hyperConfig.extraLength ?? 40));
         if (width <= 0) {
             return null;
         }
         const { y: centerY } = getPlayerCenter();
-        const height = Math.min((_b = hyperConfig.beamHeight) !== null && _b !== void 0 ? _b : 180, viewport.height);
+        const height = Math.min(hyperConfig.beamHeight ?? 180, viewport.height);
         let top = centerY - height / 2;
         if (top < 0) {
             top = 0;
-        }
-        else if (top + height > viewport.height) {
+        } else if (top + height > viewport.height) {
             top = Math.max(0, viewport.height - height);
         }
         return { x: startX, y: top, width, height };
     }
+
     function applyHyperBeamDamage(bounds, delta, hyperConfig) {
-        var _a, _b, _c, _d, _e, _f, _g;
-        if (!bounds)
-            return;
+        if (!bounds) return;
         const intensity = hyperBeamState.intensity;
-        if (intensity <= 0)
-            return;
+        if (intensity <= 0) return;
+
         const deltaSeconds = delta / 1000;
-        const sparkColor = (_a = powerUpColors[HYPER_BEAM_POWER]) !== null && _a !== void 0 ? _a : { r: 147, g: 197, b: 253 };
-        const hitSparkRate = (_b = hyperConfig.hitSparkRate) !== null && _b !== void 0 ? _b : 7;
-        const damage = ((_c = hyperConfig.damagePerSecond) !== null && _c !== void 0 ? _c : 20) * deltaSeconds * intensity;
-        const asteroidDamage = ((_d = hyperConfig.asteroidDamagePerSecond) !== null && _d !== void 0 ? _d : damage) * deltaSeconds * intensity;
+        const sparkColor = powerUpColors[HYPER_BEAM_POWER] ?? { r: 147, g: 197, b: 253 };
+        const hitSparkRate = hyperConfig.hitSparkRate ?? 7;
+        const damage = (hyperConfig.damagePerSecond ?? 20) * deltaSeconds * intensity;
+        const asteroidDamage = (hyperConfig.asteroidDamagePerSecond ?? damage) * deltaSeconds * intensity;
+
         for (let i = obstacles.length - 1; i >= 0; i--) {
             const obstacle = obstacles[i];
-            if (!rectOverlap(bounds, obstacle))
-                continue;
+            if (!rectOverlap(bounds, obstacle)) continue;
+
             obstacle.health -= damage;
-            obstacle.hitFlash = Math.max((_e = obstacle.hitFlash) !== null && _e !== void 0 ? _e : 0, 180 * intensity);
+            obstacle.hitFlash = Math.max(obstacle.hitFlash ?? 0, 180 * intensity);
+
             if (obstacle.health <= 0) {
                 obstacles.splice(i, 1);
                 awardDestroy(obstacle);
                 createVillainExplosion(obstacle);
                 continue;
             }
+
             if (Math.random() < deltaSeconds * hitSparkRate * intensity) {
                 createHitSpark({
                     x: obstacle.x + obstacle.width * randomBetween(0.4, 0.9),
@@ -13295,30 +14315,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         }
+
         for (let i = asteroids.length - 1; i >= 0; i--) {
             const asteroid = asteroids[i];
-            const radius = asteroid.radius * ((_g = (_f = config.asteroid) === null || _f === void 0 ? void 0 : _f.collisionRadiusMultiplier) !== null && _g !== void 0 ? _g : 1);
-            if (!circleRectOverlap({ x: asteroid.x, y: asteroid.y, radius }, bounds))
-                continue;
+            const radius = asteroid.radius * (config.asteroid?.collisionRadiusMultiplier ?? 1);
+            if (!circleRectOverlap({ x: asteroid.x, y: asteroid.y, radius }, bounds)) continue;
             damageAsteroid(asteroid, asteroidDamage, i);
         }
     }
+
     function spawnHyperBeamParticles(bounds, delta, hyperConfig) {
-        var _a, _b;
-        if (!bounds)
-            return;
+        if (!bounds) return;
         const intensity = hyperBeamState.intensity;
-        if (intensity <= 0)
-            return;
+        if (intensity <= 0) return;
+
         hyperBeamState.sparkTimer -= delta;
         if (hyperBeamState.sparkTimer > 0) {
             return;
         }
-        const baseInterval = (_a = hyperConfig.sparkInterval) !== null && _a !== void 0 ? _a : 140;
+
+        const baseInterval = hyperConfig.sparkInterval ?? 140;
         const intervalScale = reducedEffectsMode ? 1.4 : 1;
         const scaledInterval = (baseInterval / Math.max(0.45, intensity)) * intervalScale;
         hyperBeamState.sparkTimer = randomBetween(scaledInterval * 0.6, scaledInterval * 1.4);
-        const color = (_b = powerUpColors[HYPER_BEAM_POWER]) !== null && _b !== void 0 ? _b : { r: 147, g: 197, b: 253 };
+
+        const color = powerUpColors[HYPER_BEAM_POWER] ?? { r: 147, g: 197, b: 253 };
         const particleScale = reducedEffectsMode ? 0.6 : 1;
         const count = Math.max(1, Math.round((1 + intensity * 2) * particleScale));
         const velocityScale = reducedEffectsMode ? 0.7 : 1;
@@ -13339,18 +14360,19 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     }
+
     function updateHyperBeam(delta) {
-        var _a, _b, _c, _d;
-        const hyperConfig = (_a = config.hyperBeam) !== null && _a !== void 0 ? _a : {};
+        const hyperConfig = config.hyperBeam ?? {};
         const isActive = isPowerUpActive(HYPER_BEAM_POWER);
-        const rampUp = Math.max(1, (_b = hyperConfig.rampUp) !== null && _b !== void 0 ? _b : 240);
-        const fadeOut = Math.max(1, (_c = hyperConfig.fadeOut) !== null && _c !== void 0 ? _c : 240);
+        const rampUp = Math.max(1, hyperConfig.rampUp ?? 240);
+        const fadeOut = Math.max(1, hyperConfig.fadeOut ?? 240);
+
         if (isActive) {
             hyperBeamState.intensity = Math.min(1, hyperBeamState.intensity + (delta / rampUp));
-        }
-        else {
+        } else {
             hyperBeamState.intensity = Math.max(0, hyperBeamState.intensity - (delta / fadeOut));
         }
+
         if (hyperBeamState.intensity <= 0) {
             hyperBeamState.sparkTimer = 0;
             hyperBeamState.bounds = null;
@@ -13358,32 +14380,37 @@ document.addEventListener('DOMContentLoaded', () => {
             audioManager.stopHyperBeam();
             return;
         }
+
         const bounds = computeHyperBeamBounds(hyperConfig);
         hyperBeamState.bounds = bounds;
-        hyperBeamState.wave = (hyperBeamState.wave + delta * ((_d = hyperConfig.waveSpeed) !== null && _d !== void 0 ? _d : 0.006)) % (Math.PI * 2);
+        hyperBeamState.wave = (hyperBeamState.wave + delta * (hyperConfig.waveSpeed ?? 0.006)) % (Math.PI * 2);
+
         if (!bounds) {
             return;
         }
+
         if (state.gameState === 'running' && isActive) {
             applyHyperBeamDamage(bounds, delta, hyperConfig);
             spawnHyperBeamParticles(bounds, delta, hyperConfig);
         }
     }
+
     function updateShieldEffects(delta) {
         if (state.shieldHitPulse > 0) {
             state.shieldHitPulse = Math.max(0, state.shieldHitPulse - delta / 900);
         }
     }
+
     function updateAreaBursts(delta) {
         const deltaSeconds = delta / 1000;
         for (let i = areaBursts.length - 1; i >= 0; i--) {
             const burst = areaBursts[i];
             burst.radius = Math.min(burst.maxRadius, burst.radius + burst.speed * deltaSeconds);
             burst.life -= delta;
+
             for (let j = obstacles.length - 1; j >= 0; j--) {
                 const obstacle = obstacles[j];
-                if (burst.hitSet.has(obstacle))
-                    continue;
+                if (burst.hitSet.has(obstacle)) continue;
                 const centerX = obstacle.x + obstacle.width * 0.5;
                 const centerY = obstacle.y + obstacle.height * 0.5;
                 const distance = Math.hypot(centerX - burst.x, centerY - burst.y);
@@ -13395,10 +14422,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     createVillainExplosion(obstacle);
                 }
             }
+
             for (let j = asteroids.length - 1; j >= 0; j--) {
                 const asteroid = asteroids[j];
-                if (burst.hitSet.has(asteroid))
-                    continue;
+                if (burst.hitSet.has(asteroid)) continue;
                 const distance = Math.hypot(asteroid.x - burst.x, asteroid.y - burst.y);
                 const hitRadius = burst.radius + asteroid.radius;
                 if (distance <= hitRadius) {
@@ -13406,26 +14433,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     destroyAsteroid(j);
                 }
             }
+
             if (burst.life <= 0) {
                 areaBursts.splice(i, 1);
             }
         }
     }
+
     function updateVillainExplosions(delta) {
-        var _a, _b;
         const deltaSeconds = delta / 1000;
         for (let i = villainExplosions.length - 1; i >= 0; i--) {
             const explosion = villainExplosions[i];
+
             if (typeof explosion.expansionSpeed === 'number' && typeof explosion.maxRadius === 'number') {
-                explosion.radius = Math.min(explosion.maxRadius, explosion.radius + explosion.expansionSpeed * deltaSeconds);
+                explosion.radius = Math.min(
+                    explosion.maxRadius,
+                    explosion.radius + explosion.expansionSpeed * deltaSeconds
+                );
             }
+
             if (typeof explosion.ringRadius === 'number' && typeof explosion.ringGrowth === 'number') {
-                const maxRing = (_a = explosion.maxRingRadius) !== null && _a !== void 0 ? _a : Number.POSITIVE_INFINITY;
+                const maxRing = explosion.maxRingRadius ?? Number.POSITIVE_INFINITY;
                 explosion.ringRadius = Math.min(maxRing, explosion.ringRadius + explosion.ringGrowth * deltaSeconds);
             }
+
             switch (explosion.type) {
                 case 'nova': {
-                    explosion.pulse = ((_b = explosion.pulse) !== null && _b !== void 0 ? _b : 0) + deltaSeconds * 5;
+                    explosion.pulse = (explosion.pulse ?? 0) + deltaSeconds * 5;
                     if (explosion.spokes) {
                         for (const spoke of explosion.spokes) {
                             spoke.length = Math.min(spoke.maxLength, spoke.length + spoke.growth * deltaSeconds);
@@ -13437,7 +14471,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (explosion.orbits) {
                         for (const orbit of explosion.orbits) {
                             if (orbit.radius < orbit.targetRadius) {
-                                orbit.radius = Math.min(orbit.targetRadius, orbit.radius + orbit.growth * deltaSeconds);
+                                orbit.radius = Math.min(
+                                    orbit.targetRadius,
+                                    orbit.radius + orbit.growth * deltaSeconds
+                                );
                             }
                             orbit.angle += orbit.rotationSpeed * deltaSeconds;
                             if (orbit.targetEccentricity !== undefined) {
@@ -13459,7 +14496,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 case 'gravityRift': {
                     if (explosion.core) {
-                        explosion.core.radius = Math.max(explosion.core.minRadius, explosion.core.radius - explosion.core.collapseSpeed * deltaSeconds);
+                        explosion.core.radius = Math.max(
+                            explosion.core.minRadius,
+                            explosion.core.radius - explosion.core.collapseSpeed * deltaSeconds
+                        );
                     }
                     if (explosion.shockwaves) {
                         for (const shock of explosion.shockwaves) {
@@ -13472,7 +14512,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (explosion.fractures) {
                         for (const fracture of explosion.fractures) {
-                            fracture.length = Math.min(fracture.maxLength, fracture.length + fracture.growth * deltaSeconds);
+                            fracture.length = Math.min(
+                                fracture.maxLength,
+                                fracture.length + fracture.growth * deltaSeconds
+                            );
                         }
                     }
                     if (explosion.embers) {
@@ -13487,12 +14530,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 default:
                     break;
             }
+
             explosion.life -= delta;
             if (explosion.life <= 0) {
                 villainExplosions.splice(i, 1);
             }
         }
     }
+
     function updateStars(delta) {
         const scaledDelta = getScaledDelta(delta);
         const deltaSeconds = scaledDelta / 1000;
@@ -13506,6 +14551,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
     function updateParticles(delta) {
         const scaledDelta = getScaledDelta(delta);
         const deltaSeconds = scaledDelta / 1000;
@@ -13522,42 +14568,48 @@ document.addEventListener('DOMContentLoaded', () => {
             particle.vy *= 0.96;
         }
     }
+
     function updateSpawns(delta) {
         const spawnDelta = getScaledSpawnDelta(delta);
         spawnTimers.obstacle += spawnDelta;
         spawnTimers.collectible += spawnDelta;
         spawnTimers.powerUp += spawnDelta;
+
         if (state.bossBattle.active) {
             if (!state.bossBattle.bossSpawned) {
                 spawnBoss();
             }
             return;
         }
+
         const obstacleInterval = config.obstacleSpawnInterval / (1 + state.gameSpeed * 0.005 * getSpawnIntensity('obstacle'));
         const collectibleInterval = config.collectibleSpawnInterval / (1 + state.gameSpeed * 0.004 * getSpawnIntensity('collectible'));
         if (spawnTimers.obstacle >= obstacleInterval) {
             spawnTimers.obstacle = 0;
             spawnObstacle();
         }
+
         if (spawnTimers.collectible >= collectibleInterval) {
             spawnTimers.collectible = 0;
             spawnCollectible();
         }
+
         if (spawnTimers.powerUp >= nextPowerUpSpawnInterval) {
             spawnTimers.powerUp = 0;
             const spawned = spawnPowerUp();
-            const plannedInterval = powerUpSpawnDirector.planNextInterval(config === null || config === void 0 ? void 0 : config.powerUpSpawnInterval);
+            const plannedInterval = powerUpSpawnDirector.planNextInterval(config?.powerUpSpawnInterval);
             if (Number.isFinite(plannedInterval) && plannedInterval > 0) {
                 nextPowerUpSpawnInterval = plannedInterval;
             }
             if (!spawned) {
-                const fallback = Number.isFinite(config === null || config === void 0 ? void 0 : config.powerUpSpawnInterval)
+                const fallback = Number.isFinite(config?.powerUpSpawnInterval)
                     ? Math.max(7000, config.powerUpSpawnInterval)
                     : nextPowerUpSpawnInterval;
                 nextPowerUpSpawnInterval = fallback;
             }
         }
     }
+
     function getProjectileDamage(projectile) {
         if (!projectile) {
             return 1;
@@ -13572,26 +14624,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 return 1;
         }
     }
+
     function updateProjectilesCollisions() {
-        var _a, _b;
         for (let i = projectiles.length - 1; i >= 0; i--) {
             const projectile = projectiles[i];
             let projectileRemoved = false;
             for (let j = obstacles.length - 1; j >= 0; j--) {
                 const obstacle = obstacles[j];
-                if (!rectOverlap(projectile, obstacle))
-                    continue;
+                if (!rectOverlap(projectile, obstacle)) continue;
+
                 const damage = getProjectileDamage(projectile);
                 obstacle.health -= damage;
                 obstacle.hitFlash = 160;
+
                 projectiles.splice(i, 1);
                 projectileRemoved = true;
+
                 if (obstacle.health <= 0) {
                     obstacles.splice(j, 1);
                     awardDestroy(obstacle);
                     createVillainExplosion(obstacle);
-                }
-                else {
+                } else {
                     createHitSpark({
                         x: obstacle.x + obstacle.width * 0.5,
                         y: obstacle.y + obstacle.height * 0.5,
@@ -13600,14 +14653,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 break;
             }
+
             if (projectileRemoved) {
                 continue;
             }
+
             for (let j = asteroids.length - 1; j >= 0; j--) {
                 const asteroid = asteroids[j];
-                const radius = asteroid.radius * ((_b = (_a = config.asteroid) === null || _a === void 0 ? void 0 : _a.collisionRadiusMultiplier) !== null && _b !== void 0 ? _b : 1);
-                if (!circleRectOverlap({ x: asteroid.x, y: asteroid.y, radius }, projectile))
-                    continue;
+                const radius = asteroid.radius * (config.asteroid?.collisionRadiusMultiplier ?? 1);
+                if (!circleRectOverlap({ x: asteroid.x, y: asteroid.y, radius }, projectile)) continue;
+
                 const damage = getProjectileDamage(projectile);
                 projectiles.splice(i, 1);
                 damageAsteroid(asteroid, damage, j);
@@ -13616,8 +14671,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
     function updateEnemyProjectiles(delta) {
-        var _a, _b;
         if (!enemyProjectiles.length) {
             return;
         }
@@ -13626,42 +14681,55 @@ document.addEventListener('DOMContentLoaded', () => {
         const playerHitbox = player
             ? { x: player.x, y: player.y, width: player.width, height: player.height }
             : null;
+
         for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
             const projectile = enemyProjectiles[i];
             projectile.x += projectile.vx * deltaSeconds;
             projectile.y += projectile.vy * deltaSeconds;
-            projectile.life = ((_a = projectile.life) !== null && _a !== void 0 ? _a : 0) - scaledDelta;
-            if (projectile.life <= 0 ||
+            projectile.life = (projectile.life ?? 0) - scaledDelta;
+
+            if (
+                projectile.life <= 0 ||
                 projectile.x + projectile.width < -120 ||
                 projectile.x > viewport.width + 120 ||
                 projectile.y + projectile.height < -120 ||
-                projectile.y > viewport.height + 120) {
+                projectile.y > viewport.height + 120
+            ) {
                 enemyProjectiles.splice(i, 1);
                 continue;
             }
+
             if (!playerHitbox) {
                 continue;
             }
+
             if (rectOverlap(playerHitbox, projectile)) {
                 const magnitude = Math.max(Math.hypot(projectile.vx, projectile.vy), 1);
                 if (isShieldActive()) {
-                    triggerShieldImpact(projectile.x + projectile.width * 0.5, projectile.y + projectile.height * 0.5, projectile.vx / magnitude, projectile.vy / magnitude);
+                    triggerShieldImpact(
+                        projectile.x + projectile.width * 0.5,
+                        projectile.y + projectile.height * 0.5,
+                        projectile.vx / magnitude,
+                        projectile.vy / magnitude
+                    );
                     enemyProjectiles.splice(i, 1);
                     continue;
                 }
-                const message = (_b = projectile.onHitMessage) !== null && _b !== void 0 ? _b : 'A boss laser pierced your ship!';
+                const message = projectile.onHitMessage ?? 'A boss laser pierced your ship!';
                 enemyProjectiles.splice(i, 1);
                 triggerGameOver(message);
                 return;
             }
         }
     }
+
     function rectOverlap(a, b) {
         return a.x < b.x + b.width &&
             a.x + a.width > b.x &&
             a.y < b.y + b.height &&
             a.y + a.height > b.y;
     }
+
     function circleRectOverlap(circle, rect) {
         const closestX = clamp(circle.x, rect.x, rect.x + rect.width);
         const closestY = clamp(circle.y, rect.y, rect.y + rect.height);
@@ -13669,6 +14737,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const distanceY = circle.y - closestY;
         return (distanceX * distanceX + distanceY * distanceY) < (circle.radius * circle.radius);
     }
+
     function createHitSpark({ x, y, color }) {
         const sparkCount = reducedEffectsMode ? 4 : 8;
         const speedScale = reducedEffectsMode ? 0.7 : 1;
@@ -13689,6 +14758,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     }
+
     function createParticles({ x, y, color, count = 18, speedRange = [60, 340], sizeRange = [1.4, 4.4], lifeRange = [500, 900] }) {
         const intensity = reducedEffectsMode ? 0.6 : 1;
         const spawnCount = Math.max(1, Math.round(count * intensity));
@@ -13710,9 +14780,17 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     }
-    function spawnFloatingText({ text, x, y, color = '#facc15', life = 1200, variant = 'score', multiplier = 1 }) {
-        if (!text)
-            return;
+
+    function spawnFloatingText({
+        text,
+        x,
+        y,
+        color = '#facc15',
+        life = 1200,
+        variant = 'score',
+        multiplier = 1
+    }) {
+        if (!text) return;
         const scale = 1 + Math.max(0, multiplier - 1) * 0.4;
         floatingTexts.push({
             text,
@@ -13728,6 +14806,7 @@ document.addEventListener('DOMContentLoaded', () => {
             variant
         });
     }
+
     function updateFloatingTexts(delta) {
         const deltaSeconds = delta / 1000;
         for (let i = floatingTexts.length - 1; i >= 0; i--) {
@@ -13742,9 +14821,9 @@ document.addEventListener('DOMContentLoaded', () => {
             entry.vy += entry.gravity * deltaSeconds;
         }
     }
+
     function drawFloatingTexts() {
-        if (!floatingTexts.length)
-            return;
+        if (!floatingTexts.length) return;
         ctx.save();
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -13757,11 +14836,9 @@ document.addEventListener('DOMContentLoaded', () => {
             let shadowColor = 'rgba(244, 114, 182, 0.65)';
             if (entry.variant === 'collect') {
                 shadowColor = 'rgba(56, 189, 248, 0.75)';
-            }
-            else if (entry.variant === 'penalty') {
+            } else if (entry.variant === 'penalty') {
                 shadowColor = 'rgba(248, 113, 113, 0.75)';
-            }
-            else if (entry.variant === 'dodge') {
+            } else if (entry.variant === 'dodge') {
                 shadowColor = 'rgba(250, 204, 21, 0.65)';
             }
             ctx.shadowColor = shadowColor;
@@ -13770,8 +14847,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         ctx.restore();
     }
+
     function drawBossAlert(time) {
-        var _a, _b, _c;
         const remaining = state.bossBattle.alertTimer;
         if (!canvas || remaining <= 0) {
             return;
@@ -13786,7 +14863,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const centerX = viewport.width / 2;
         const centerY = viewport.height / 2;
         const fontSize = 64 + Math.sin(time * 0.008) * 4;
-        const bossName = (_c = (_b = (_a = state.bossBattle.currentConfig) === null || _a === void 0 ? void 0 : _a.villain) === null || _b === void 0 ? void 0 : _b.name) !== null && _c !== void 0 ? _c : null;
+        const bossName = state.bossBattle.currentConfig?.villain?.name ?? null;
         ctx.save();
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -13812,6 +14889,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         ctx.restore();
     }
+
     function triggerScreenShake(strength = 6, duration = 220) {
         const strengthScale = reducedEffectsMode ? 0.65 : 1;
         const durationScale = reducedEffectsMode ? 0.75 : 1;
@@ -13821,6 +14899,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cameraShake.duration = Math.max(cameraShake.duration, effectiveDuration);
         cameraShake.elapsed = 0;
     }
+
     function updateCameraShake(delta) {
         if (cameraShake.duration <= 0) {
             cameraShake.offsetX = 0;
@@ -13841,14 +14920,15 @@ document.addEventListener('DOMContentLoaded', () => {
         cameraShake.offsetX = (Math.random() * 2 - 1) * magnitude;
         cameraShake.offsetY = (Math.random() * 2 - 1) * magnitude;
     }
+
     function createVillainExplosion(obstacle) {
-        var _a, _b, _c;
         const centerX = obstacle.x + obstacle.width * 0.5;
         const centerY = obstacle.y + obstacle.height * 0.5;
-        const palette = (_b = villainExplosionPalettes[(_a = obstacle.villainType) === null || _a === void 0 ? void 0 : _a.key]) !== null && _b !== void 0 ? _b : villainExplosionPalettes.villain1;
+        const palette = villainExplosionPalettes[obstacle.villainType?.key] ?? villainExplosionPalettes.villain1;
         const sizeFactor = obstacle.width;
-        const villainKey = (_c = obstacle.villainType) === null || _c === void 0 ? void 0 : _c.key;
+        const villainKey = obstacle.villainType?.key;
         let explosion;
+
         switch (villainKey) {
             case 'villain2': {
                 const orbitCount = 3 + Math.floor(sizeFactor / 36);
@@ -13972,9 +15052,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             }
         }
+
         villainExplosions.push(explosion);
-        audioManager.playExplosion(villainKey !== null && villainKey !== void 0 ? villainKey : 'generic');
-        triggerScreenShake(Math.min(18, 8 + (sizeFactor !== null && sizeFactor !== void 0 ? sizeFactor : 0) * 0.05), 340);
+        audioManager.playExplosion(villainKey ?? 'generic');
+        triggerScreenShake(Math.min(18, 8 + (sizeFactor ?? 0) * 0.05), 340);
+
         switch (explosion.type) {
             case 'ionBurst': {
                 createParticles({
@@ -14029,6 +15111,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     sizeRange: [1.1, 3.4],
                     lifeRange: [360, 620]
                 });
+
                 createParticles({
                     x: centerX,
                     y: centerY,
@@ -14042,9 +15125,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
     function awardCollect(collectible) {
-        var _a, _b, _c;
-        const points = (_a = collectible === null || collectible === void 0 ? void 0 : collectible.points) !== null && _a !== void 0 ? _a : config.score.collect;
+        const points = collectible?.points ?? config.score.collect;
         state.nyan += points;
         awardScore(points, {
             x: collectible.x + collectible.width * 0.5,
@@ -14053,14 +15136,14 @@ document.addEventListener('DOMContentLoaded', () => {
             color: '#7dd3fc'
         });
         triggerScreenShake(3, 160);
-        audioManager.playCollect((_b = collectible === null || collectible === void 0 ? void 0 : collectible.key) !== null && _b !== void 0 ? _b : 'point');
+        audioManager.playCollect(collectible?.key ?? 'point');
         storyManager.recordEvent('collectible', {
-            type: (_c = collectible === null || collectible === void 0 ? void 0 : collectible.key) !== null && _c !== void 0 ? _c : 'point',
+            type: collectible?.key ?? 'point',
             points
         });
     }
+
     function awardDestroy(obstacle) {
-        var _a, _b, _c, _d, _e, _f;
         const sizeBonus = Math.floor(obstacle.width * 0.6);
         const durabilityBonus = (obstacle.maxHealth ? obstacle.maxHealth - 1 : 0) * 90;
         awardScore(config.score.destroy + sizeBonus + durabilityBonus, {
@@ -14074,7 +15157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (activeChallengeManager) {
             activeChallengeManager.recordEvent('villain', {
                 count: 1,
-                type: (_b = (_a = obstacle === null || obstacle === void 0 ? void 0 : obstacle.villainType) === null || _a === void 0 ? void 0 : _a.key) !== null && _b !== void 0 ? _b : null
+                type: obstacle?.villainType?.key ?? null
             });
         }
         if (isBossObstacle(obstacle)) {
@@ -14090,11 +15173,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             storyManager.recordEvent('boss', {
                 status: 'defeated',
-                boss: (_d = (_c = obstacle === null || obstacle === void 0 ? void 0 : obstacle.villainType) === null || _c === void 0 ? void 0 : _c.key) !== null && _d !== void 0 ? _d : null,
-                name: (_f = (_e = obstacle === null || obstacle === void 0 ? void 0 : obstacle.villainType) === null || _e === void 0 ? void 0 : _e.name) !== null && _f !== void 0 ? _f : null
+                boss: obstacle?.villainType?.key ?? null,
+                name: obstacle?.villainType?.name ?? null
             });
         }
     }
+
     function awardDodge() {
         state.score += config.score.dodge;
         state.comboTimer = Math.max(0, state.comboTimer - 400);
@@ -14108,13 +15192,14 @@ document.addEventListener('DOMContentLoaded', () => {
             variant: 'dodge'
         });
     }
+
     function getVillainEscapePenalty(obstacle) {
-        var _a, _b, _c, _d;
-        const basePenalty = (_b = (_a = config.score) === null || _a === void 0 ? void 0 : _a.villainEscape) !== null && _b !== void 0 ? _b : 0;
-        const durabilityPenalty = Math.max(0, ((_c = obstacle.maxHealth) !== null && _c !== void 0 ? _c : 0) - 1) * 45;
-        const sizePenalty = Math.round(((_d = obstacle.width) !== null && _d !== void 0 ? _d : 0) * 0.35);
+        const basePenalty = config.score?.villainEscape ?? 0;
+        const durabilityPenalty = Math.max(0, (obstacle.maxHealth ?? 0) - 1) * 45;
+        const sizePenalty = Math.round((obstacle.width ?? 0) * 0.35);
         return Math.max(0, basePenalty + durabilityPenalty + sizePenalty);
     }
+
     function handleVillainEscape(obstacle) {
         const penalty = getVillainEscapePenalty(obstacle);
         if (penalty > 0) {
@@ -14139,8 +15224,8 @@ document.addEventListener('DOMContentLoaded', () => {
             color: { r: 255, g: 120, b: 120 }
         });
     }
+
     function awardScore(basePoints, source = {}) {
-        var _a, _b, _c, _d;
         state.comboTimer = 0;
         const previousBest = state.bestStreak;
         state.streak += 1;
@@ -14177,21 +15262,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (metaProgressManager) {
             metaProgressManager.recordScore(finalPoints, { totalScore: state.score });
         }
-        const originX = (_a = source.x) !== null && _a !== void 0 ? _a : player.x + player.width * 0.5;
-        const originY = (_b = source.y) !== null && _b !== void 0 ? _b : player.y;
+        const originX = source.x ?? player.x + player.width * 0.5;
+        const originY = source.y ?? player.y;
         const text = `+${finalPoints.toLocaleString()}${totalMultiplier > 1.01 ? ` x${totalMultiplier.toFixed(2)}` : ''}`;
         spawnFloatingText({
             text,
             x: originX,
             y: originY,
-            color: (_c = source.color) !== null && _c !== void 0 ? _c : '#fbbf24',
-            variant: (_d = source.type) !== null && _d !== void 0 ? _d : 'score',
+            color: source.color ?? '#fbbf24',
+            variant: source.type ?? 'score',
             multiplier: totalMultiplier
         });
         if (finalPoints >= 600) {
             triggerScreenShake(Math.min(16, 6 + finalPoints / 400), 280);
         }
     }
+
     function resetStreak() {
         const hadStreak = state.streak > 0;
         state.streak = 0;
@@ -14200,25 +15286,31 @@ document.addEventListener('DOMContentLoaded', () => {
             mascotAnnouncer.lamentSetback();
         }
     }
+
     function finalizePendingSubmission({ recorded, reason = null, placement = null, runsToday = 0 } = {}) {
         if (!pendingSubmission) {
             return null;
         }
-        const summary = Object.assign({}, pendingSubmission);
+        const summary = { ...pendingSubmission };
         summary.recorded = Boolean(recorded);
-        summary.reason = reason !== null && reason !== void 0 ? reason : null;
-        summary.placement = placement !== null && placement !== void 0 ? placement : null;
-        summary.runsToday = runsToday !== null && runsToday !== void 0 ? runsToday : 0;
+        summary.reason = reason ?? null;
+        summary.placement = placement ?? null;
+        summary.runsToday = runsToday ?? 0;
+
         const normalizedScore = Number(summary.score);
         summary.score = Number.isFinite(normalizedScore) ? normalizedScore : 0;
+
         const normalizedBestStreak = Number(summary.bestStreak);
         summary.bestStreak = Number.isFinite(normalizedBestStreak) ? normalizedBestStreak : 0;
+
         const normalizedTime = Number(summary.timeMs);
         summary.timeMs = Number.isFinite(normalizedTime) ? normalizedTime : 0;
+
         const formattedTime = formatTime(summary.timeMs);
         const formattedScore = summary.score.toLocaleString();
         summary.formattedTime = formattedTime;
         summary.formattedScore = formattedScore;
+
         const xpAward = Math.max(1, Math.round(summary.score / 5000));
         summary.xpAward = xpAward;
         const timestamp = summary.recordedAt;
@@ -14253,34 +15345,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     type: 'leaderboard',
                     timestamp
                 });
-            }
-            else {
+            } else {
                 addSocialMoment(`${summary.player} logged ${formattedTime} for ${formattedScore} pts${runDescriptor}.`, {
                     type: 'score',
                     timestamp
                 });
             }
             mascotAnnouncer.celebrateVictory(summary);
-        }
-        else if (reason === 'limit') {
+        } else if (reason === 'limit') {
             addSocialMoment(`${summary.player} maxed out their daily flight logs for now.`, {
                 type: 'limit',
                 timestamp
             });
-        }
-        else if (reason === 'skipped') {
+        } else if (reason === 'skipped') {
             addSocialMoment(`${summary.player} survived ${formattedTime} for ${formattedScore} pts.`, {
                 type: 'score',
                 timestamp
             });
-        }
-        else if (reason === 'conflict') {
+        } else if (reason === 'conflict') {
             addSocialMoment(`${summary.player} already has a stronger log on the board.`, {
                 type: 'limit',
                 timestamp
             });
-        }
-        else if (reason === 'error') {
+        } else if (reason === 'error') {
             addSocialMoment(`${summary.player}'s log hit turbulence. Retry shortly.`, {
                 type: 'limit',
                 timestamp
@@ -14302,16 +15389,16 @@ document.addEventListener('DOMContentLoaded', () => {
         pendingSubmission = null;
         return { summary, formattedTime, formattedScore };
     }
+
     function triggerGameOver(message) {
-        if (state.gameState !== 'running')
-            return;
+        if (state.gameState !== 'running') return;
         state.gameState = 'gameover';
         updateSwapPilotButton();
         updateSwapWeaponButtons();
         mascotAnnouncer.lamentSetback({ force: true });
         hidePauseOverlay();
-        bodyElement === null || bodyElement === void 0 ? void 0 : bodyElement.classList.remove('paused');
-        survivalTimerEl === null || survivalTimerEl === void 0 ? void 0 : survivalTimerEl.classList.remove('paused');
+        bodyElement?.classList.remove('paused');
+        survivalTimerEl?.classList.remove('paused');
         audioManager.stopGameplayMusic();
         audioManager.stopHyperBeam();
         const finalTimeMs = state.elapsedTime;
@@ -14341,7 +15428,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const label = tutorialCallsign
                 ? `Temporary callsign ${tutorialCallsign}`
                 : 'Training flight';
-            setRunSummaryStatus('Training flight complete. Confirm your callsign to prep for ranked runs.', 'info');
+            setRunSummaryStatus(
+                'Training flight complete. Confirm your callsign to prep for ranked runs.',
+                'info'
+            );
             updateRunSummaryOverview();
             updateSharePanel();
             updateTimerDisplay();
@@ -14404,15 +15494,19 @@ document.addEventListener('DOMContentLoaded', () => {
             secondaryButton: secondaryConfig
         });
     }
+
     function skipScoreSubmission() {
         if (!pendingSubmission) {
             return;
         }
         pendingSubmission.player = getPendingPlayerName();
         const runsToday = pendingSubmission.limitReached
-            ? Math.min(typeof pendingSubmission.quotaCount === 'number'
-                ? pendingSubmission.quotaCount
-                : SUBMISSION_LIMIT, SUBMISSION_LIMIT)
+            ? Math.min(
+                typeof pendingSubmission.quotaCount === 'number'
+                    ? pendingSubmission.quotaCount
+                    : SUBMISSION_LIMIT,
+                SUBMISSION_LIMIT
+            )
             : getSubmissionUsage(pendingSubmission.player, pendingSubmission.recordedAt).count;
         const reason = pendingSubmission.limitReached ? 'limit' : 'skipped';
         finalizePendingSubmission({
@@ -14421,12 +15515,12 @@ document.addEventListener('DOMContentLoaded', () => {
             runsToday
         });
     }
+
     async function attemptSubmitScore() {
-        var _a, _b, _c, _d, _e, _f, _g, _h;
         if (!pendingSubmission) {
             return;
         }
-        const submission = Object.assign({}, pendingSubmission);
+        const submission = { ...pendingSubmission };
         submission.player = commitPlayerNameInput();
         pendingSubmission.player = submission.player;
         setOverlaySubmittingState(true);
@@ -14438,26 +15532,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 recordedAt: submission.recordedAt
             });
             if (!result || !result.recorded) {
-                const runsToday = (_a = result === null || result === void 0 ? void 0 : result.runsToday) !== null && _a !== void 0 ? _a : getSubmissionUsage(submission.player, submission.recordedAt).count;
-                const reason = (_b = result === null || result === void 0 ? void 0 : result.reason) !== null && _b !== void 0 ? _b : 'limit';
-                const placement = (_c = result === null || result === void 0 ? void 0 : result.placement) !== null && _c !== void 0 ? _c : null;
+                const runsToday = result?.runsToday ?? getSubmissionUsage(submission.player, submission.recordedAt).count;
+                const reason = result?.reason ?? 'limit';
+                const placement = result?.placement ?? null;
                 finalizePendingSubmission({ recorded: false, reason, placement, runsToday });
                 const message = buildRunSummaryMessage(submission.baseMessage, submission, {
                     runsToday,
                     limitReached: reason === 'limit',
                     conflict: reason === 'conflict',
-                    errorMessage: (_d = result === null || result === void 0 ? void 0 : result.message) !== null && _d !== void 0 ? _d : null
+                    errorMessage: result?.message ?? null
                 });
                 setOverlaySubmittingState(false);
                 const primaryLabel = reason === 'limit' ? 'Retry Flight' : getRetryControlText();
                 showOverlay(message, primaryLabel, { title: '', enableButton: true, launchMode: 'retry' });
                 return;
             }
-            const runsToday = (_e = result.runsToday) !== null && _e !== void 0 ? _e : getSubmissionUsage(submission.player, submission.recordedAt).count;
-            const placement = (_f = result.placement) !== null && _f !== void 0 ? _f : null;
+            const runsToday = result.runsToday ?? getSubmissionUsage(submission.player, submission.recordedAt).count;
+            const placement = result.placement ?? null;
             finalizePendingSubmission({
                 recorded: true,
-                reason: (_g = result.reason) !== null && _g !== void 0 ? _g : null,
+                reason: result.reason ?? null,
                 placement,
                 runsToday
             });
@@ -14467,12 +15561,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 runsToday,
                 success: result.source === 'remote',
                 offline: result.source === 'offline',
-                errorMessage: (_h = result.message) !== null && _h !== void 0 ? _h : null
+                errorMessage: result.message ?? null
             });
             setOverlaySubmittingState(false);
             showOverlay(message, getRetryControlText(), { title: '', enableButton: true, launchMode: 'retry' });
-        }
-        catch (error) {
+        } catch (error) {
             console.error('Unexpected score submission failure', error);
             const runsToday = getSubmissionUsage(submission.player, submission.recordedAt).count;
             finalizePendingSubmission({ recorded: false, reason: 'error', runsToday });
@@ -14484,6 +15577,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showOverlay(message, 'Retry Flight', { title: '', enableButton: true, launchMode: 'retry' });
         }
     }
+
     function handleOverlayAction(mode) {
         const action = mode || (state.gameState === 'ready' ? 'launch' : 'retry');
         if (action === 'submit') {
@@ -14509,14 +15603,14 @@ document.addEventListener('DOMContentLoaded', () => {
             commitPlayerNameInput();
             if (state.gameState === 'ready' && preflightReady) {
                 startGame();
-            }
-            else {
+            } else {
                 enterPreflightReadyState();
             }
             return;
         }
         openCharacterSelect('launch');
     }
+
     function updateCombo(delta) {
         state.comboTimer += delta;
         if (state.comboTimer >= config.comboDecayWindow && state.streak > 0) {
@@ -14528,7 +15622,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (comboFillEl) {
                 comboFillEl.style.width = `${percentage}%`;
             }
-            comboMeterEl === null || comboMeterEl === void 0 ? void 0 : comboMeterEl.setAttribute('aria-valuenow', String(percentage));
+            comboMeterEl?.setAttribute('aria-valuenow', String(percentage));
             lastComboPercent = percentage;
         }
         if (comboMeterEl) {
@@ -14536,6 +15630,7 @@ document.addEventListener('DOMContentLoaded', () => {
             comboMeterEl.classList.toggle('charged', charged);
         }
     }
+
     function updateHUD() {
         const formattedScore = state.score.toLocaleString();
         if (formattedScore !== hudCache.score) {
@@ -14544,6 +15639,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 scoreEl.textContent = formattedScore;
             }
         }
+
         const formattedNyan = state.nyan.toLocaleString();
         if (formattedNyan !== hudCache.nyan) {
             hudCache.nyan = formattedNyan;
@@ -14551,6 +15647,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 nyanEl.textContent = formattedNyan;
             }
         }
+
         const comboMultiplierText = `x${(1 + state.streak * config.comboMultiplierStep).toFixed(2)}`;
         if (comboMultiplierText !== hudCache.comboMultiplier) {
             hudCache.comboMultiplier = comboMultiplierText;
@@ -14558,13 +15655,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 streakEl.textContent = comboMultiplierText;
             }
         }
-        const bestTailLengthText = `${Math.round(config.baseTrailLength + state.bestStreak * config.trailGrowthPerStreak)}`;
+
+        const bestTailLengthText = `${Math.round(
+            config.baseTrailLength + state.bestStreak * config.trailGrowthPerStreak
+        )}`;
         if (bestTailLengthText !== hudCache.bestTailLength) {
             hudCache.bestTailLength = bestTailLengthText;
             if (bestStreakEl) {
                 bestStreakEl.textContent = bestTailLengthText;
             }
         }
+
         const marketCapText = `${(6.6 + state.score / 1400).toFixed(1)}K`;
         if (marketCapText !== hudCache.marketCap) {
             hudCache.marketCap = marketCapText;
@@ -14572,6 +15673,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 mcapEl.textContent = marketCapText;
             }
         }
+
         const normalizedCollects = state.nyan / baseCollectScore;
         const volumeText = `${(2.8 + normalizedCollects * 0.6 + state.streak * 0.3).toFixed(1)}K`;
         if (volumeText !== hudCache.volume) {
@@ -14580,6 +15682,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 volEl.textContent = volumeText;
             }
         }
+
         const activeBoosts = powerUpTypes
             .filter((type) => isPowerUpActive(type))
             .map((type) => `${powerUpLabels[type]} ${(state.powerUpTimers[type] / 1000).toFixed(1)}s`);
@@ -14591,6 +15694,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
     function drawBackground() {
         ctx.fillStyle = '#05091f';
         ctx.fillRect(0, 0, viewport.width, viewport.height);
@@ -14606,6 +15710,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, viewport.width, viewport.height);
     }
+
     function drawStars(time) {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
@@ -14619,13 +15724,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         ctx.restore();
     }
+
     function drawTrailSegments(points, style, now, { width = 72, height = 12, alphaScale = 1, hueOffset = 0 } = {}) {
-        var _a;
         if (!points || points.length < 2) {
             return;
         }
         const halfWidth = width / 2;
         const halfHeight = height / 2;
+
         ctx.save();
         if (style.type === 'palette' && Array.isArray(style.colors) && style.colors.length) {
             for (let i = 0; i < points.length; i++) {
@@ -14637,11 +15743,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 const colorIndex = Math.min(style.colors.length - 1, Math.floor(progress * style.colors.length));
                 ctx.globalAlpha = alpha;
-                ctx.fillStyle = (_a = style.colors[colorIndex]) !== null && _a !== void 0 ? _a : '#7dd3fc';
+                ctx.fillStyle = style.colors[colorIndex] ?? '#7dd3fc';
                 ctx.fillRect(point.x - halfWidth, point.y - halfHeight, width, height);
             }
-        }
-        else {
+        } else {
             for (let i = 0; i < points.length; i++) {
                 const point = points[i];
                 const progress = i / points.length;
@@ -14656,13 +15761,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         ctx.restore();
     }
+
     function drawTrail() {
-        var _a;
         if (isPowerUpActive(PUMP_POWER) || pumpTailState.fade > 0) {
             drawPumpTail();
             return;
         }
-        const style = (_a = getActiveTrailStyle()) !== null && _a !== void 0 ? _a : trailStyles.rainbow;
+        const style = getActiveTrailStyle() ?? trailStyles.rainbow;
         const now = performance.now();
         drawTrailSegments(trail, style, now, { width: 72, height: 12, alphaScale: 1 });
         if (doubleTeamState.trail.length >= 2) {
@@ -14674,13 +15779,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     }
+
     function drawShieldAura(entity, drawX, drawY, time = performance.now()) {
-        var _a, _b, _c, _d;
-        if (!isShieldActive())
-            return;
-        const shieldConfig = (_a = config.defensePower) !== null && _a !== void 0 ? _a : {};
-        const auraColor = (_b = normalizeColor(shieldConfig.auraColor)) !== null && _b !== void 0 ? _b : { r: 150, g: 214, b: 255 };
-        const duration = (_c = config.powerUp.duration[SHIELD_POWER]) !== null && _c !== void 0 ? _c : 1;
+        if (!isShieldActive()) return;
+        const shieldConfig = config.defensePower ?? {};
+        const auraColor = normalizeColor(shieldConfig.auraColor) ?? { r: 150, g: 214, b: 255 };
+        const duration = config.powerUp.duration[SHIELD_POWER] ?? 1;
         const remaining = clamp(state.powerUpTimers[SHIELD_POWER] / duration, 0, 1);
         const auraPulse = Number.isFinite(shieldConfig.auraPulse)
             ? shieldConfig.auraPulse
@@ -14688,14 +15792,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? Number(shieldConfig.auraPulse)
                 : 0.18;
         const pulseStrength = Math.sin(time * 0.007) * clamp(auraPulse, -2, 2);
-        const hitPulse = (_d = state.shieldHitPulse) !== null && _d !== void 0 ? _d : 0;
+        const hitPulse = state.shieldHitPulse ?? 0;
         const baseRadius = Math.max(entity.width, entity.height) * (0.65 + pulseStrength + hitPulse * 0.18);
         const safeBaseRadius = Math.max(baseRadius, 6);
         const centerX = drawX + entity.width * 0.5;
         const centerY = drawY + entity.height * 0.5;
+
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.globalCompositeOperation = 'lighter';
+
         const gradient = ctx.createRadialGradient(0, 0, safeBaseRadius * 0.35, 0, 0, safeBaseRadius);
         gradient.addColorStop(0, `rgba(${auraColor.r}, ${auraColor.g}, ${auraColor.b}, ${0.55 + hitPulse * 0.25})`);
         gradient.addColorStop(0.58, `rgba(${auraColor.r}, ${auraColor.g}, ${auraColor.b}, ${0.28 + remaining * 0.35})`);
@@ -14704,12 +15810,14 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.beginPath();
         ctx.arc(0, 0, safeBaseRadius, 0, Math.PI * 2);
         ctx.fill();
+
         const ringRadius = safeBaseRadius * (0.88 + 0.06 * Math.sin(time * 0.012 + hitPulse));
         ctx.strokeStyle = `rgba(${auraColor.r}, ${auraColor.g}, ${auraColor.b}, ${0.35 + remaining * 0.4})`;
         ctx.lineWidth = 4.2 + hitPulse * 2.6;
         ctx.beginPath();
         ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
         ctx.stroke();
+
         const sparkCount = 7;
         for (let i = 0; i < sparkCount; i++) {
             const angle = time * 0.0035 + i * (Math.PI * 2 / sparkCount);
@@ -14726,10 +15834,11 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fill();
             ctx.restore();
         }
+
         ctx.restore();
     }
+
     function drawDoubleTeamLink(time) {
-        var _a, _b;
         if (!isDoubleTeamActive()) {
             return;
         }
@@ -14742,9 +15851,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (distance < 6) {
             return;
         }
-        const color = (_a = powerUpColors[DOUBLE_TEAM_POWER]) !== null && _a !== void 0 ? _a : { r: 188, g: 224, b: 255 };
+        const color = powerUpColors[DOUBLE_TEAM_POWER] ?? { r: 188, g: 224, b: 255 };
         const pulse = 0.6 + Math.sin(time * 0.006 + doubleTeamState.wobble) * 0.2;
-        const alpha = 0.32 + ((_b = doubleTeamState.linkPulse) !== null && _b !== void 0 ? _b : 0) * 0.2;
+        const alpha = 0.32 + (doubleTeamState.linkPulse ?? 0) * 0.2;
+
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         ctx.lineCap = 'round';
@@ -14757,6 +15867,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.moveTo(origin.x, origin.y);
         ctx.lineTo(cloneCenter.x, cloneCenter.y);
         ctx.stroke();
+
         const midX = (origin.x + cloneCenter.x) / 2;
         const midY = (origin.y + cloneCenter.y) / 2;
         const orbRadius = Math.min(18, 6 + distance * 0.05) * pulse;
@@ -14769,8 +15880,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fill();
         ctx.restore();
     }
+
     function drawPlayerSprite(entity, time, index) {
-        var _a;
         if (!entity) {
             return;
         }
@@ -14779,15 +15890,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const bob = Math.sin((time + bobOffset) * 0.005) * 4;
         const drawX = entity.x;
         const drawY = entity.y + bob;
+
         drawShieldAura(entity, drawX, drawY, time);
+
         ctx.save();
         if (isClone) {
             ctx.globalAlpha = 0.9;
         }
         if (activePlayerImage.complete && activePlayerImage.naturalWidth !== 0) {
             ctx.drawImage(activePlayerImage, drawX, drawY, entity.width, entity.height);
-        }
-        else {
+        } else {
             const gradient = ctx.createLinearGradient(drawX, drawY, drawX + entity.width, drawY + entity.height);
             gradient.addColorStop(0, '#ff9a9e');
             gradient.addColorStop(0.5, '#fad0c4');
@@ -14796,7 +15908,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillRect(drawX, drawY, entity.width, entity.height);
         }
         if (isClone) {
-            const color = (_a = powerUpColors[DOUBLE_TEAM_POWER]) !== null && _a !== void 0 ? _a : { r: 188, g: 224, b: 255 };
+            const color = powerUpColors[DOUBLE_TEAM_POWER] ?? { r: 188, g: 224, b: 255 };
             ctx.globalCompositeOperation = 'lighter';
             const overlay = ctx.createLinearGradient(drawX, drawY, drawX + entity.width, drawY + entity.height);
             overlay.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, 0.45)`);
@@ -14805,10 +15917,12 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillRect(drawX, drawY, entity.width, entity.height);
         }
         ctx.restore();
+
         if (isShieldActive()) {
             drawShieldAura(entity, drawX, drawY, time + 40);
         }
     }
+
     function drawPlayer() {
         const now = performance.now();
         drawDoubleTeamLink(now);
@@ -14817,15 +15931,22 @@ document.addEventListener('DOMContentLoaded', () => {
             drawPlayerSprite(players[i], now, i);
         }
     }
+
     function drawObstacles() {
         for (const obstacle of obstacles) {
             ctx.save();
             ctx.translate(obstacle.x + obstacle.width / 2, obstacle.y + obstacle.height / 2);
             ctx.rotate(obstacle.rotation);
+
             if (obstacle.image && obstacle.image.complete && obstacle.image.naturalWidth > 0) {
-                ctx.drawImage(obstacle.image, -obstacle.width / 2, -obstacle.height / 2, obstacle.width, obstacle.height);
-            }
-            else {
+                ctx.drawImage(
+                    obstacle.image,
+                    -obstacle.width / 2,
+                    -obstacle.height / 2,
+                    obstacle.width,
+                    obstacle.height
+                );
+            } else {
                 const radius = obstacle.width / 2;
                 ctx.beginPath();
                 ctx.moveTo(radius, 0);
@@ -14840,12 +15961,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.lineWidth = 2;
                 ctx.stroke();
             }
+
             if (obstacle.hitFlash > 0) {
                 const flashAlpha = clamp(obstacle.hitFlash / 160, 0, 1);
                 ctx.fillStyle = `rgba(255, 255, 255, ${0.35 * flashAlpha})`;
                 ctx.fillRect(-obstacle.width / 2, -obstacle.height / 2, obstacle.width, obstacle.height);
             }
+
             ctx.restore();
+
             if (obstacle.maxHealth > 1) {
                 const ratio = clamp(obstacle.health / obstacle.maxHealth, 0, 1);
                 const barWidth = obstacle.width;
@@ -14859,37 +15983,50 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
     function drawCollectibles(time) {
-        var _a, _b, _c, _d;
         for (const collectible of collectibles) {
             ctx.save();
             ctx.translate(collectible.x + collectible.width / 2, collectible.y + collectible.height / 2);
             ctx.rotate(Math.sin(time * 0.004 + collectible.wobbleTime) * 0.2);
             const pulse = Math.sin(time * 0.004 + collectible.wobbleTime);
             const sprite = collectible.sprite;
-            const spriteReady = (sprite === null || sprite === void 0 ? void 0 : sprite.complete) && sprite.naturalWidth > 0;
-            const glowColors = (_a = collectible.glow) !== null && _a !== void 0 ? _a : {};
-            const innerGlow = (_b = glowColors.inner) !== null && _b !== void 0 ? _b : 'rgba(255, 255, 255, 0.9)';
-            const outerGlow = (_c = glowColors.outer) !== null && _c !== void 0 ? _c : 'rgba(255, 215, 0, 0.2)';
+            const spriteReady = sprite?.complete && sprite.naturalWidth > 0;
+            const glowColors = collectible.glow ?? {};
+            const innerGlow = glowColors.inner ?? 'rgba(255, 255, 255, 0.9)';
+            const outerGlow = glowColors.outer ?? 'rgba(255, 215, 0, 0.2)';
+
             const glowRadius = collectible.width * (0.62 + 0.08 * pulse);
-            const gradient = getCachedRadialGradient(collectibleGradientCache, ctx, glowRadius * 0.35, glowRadius, [
-                [0, innerGlow],
-                [1, outerGlow]
-            ]);
+            const gradient = getCachedRadialGradient(
+                collectibleGradientCache,
+                ctx,
+                glowRadius * 0.35,
+                glowRadius,
+                [
+                    [0, innerGlow],
+                    [1, outerGlow]
+                ]
+            );
             ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
             ctx.fill();
+
             if (spriteReady) {
                 const drawSize = collectible.width * (0.9 + 0.1 * pulse);
                 ctx.drawImage(sprite, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
-            }
-            else {
+            } else {
                 const fallbackRadius = collectible.width * 0.48;
-                const fallbackGradient = getCachedRadialGradient(collectibleGradientCache, ctx, 4, fallbackRadius, [
-                    [0, innerGlow],
-                    [1, outerGlow]
-                ]);
+                const fallbackGradient = getCachedRadialGradient(
+                    collectibleGradientCache,
+                    ctx,
+                    4,
+                    fallbackRadius,
+                    [
+                        [0, innerGlow],
+                        [1, outerGlow]
+                    ]
+                );
                 ctx.fillStyle = fallbackGradient;
                 ctx.beginPath();
                 ctx.arc(0, 0, fallbackRadius, 0, Math.PI * 2);
@@ -14898,45 +16035,52 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.font = `700 10px ${primaryFontStack}`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText((_d = collectible.label) !== null && _d !== void 0 ? _d : 'POINTS', 0, 0);
+                ctx.fillText(collectible.label ?? 'POINTS', 0, 0);
             }
             ctx.restore();
         }
     }
+
     function drawPowerUps(time) {
-        var _a, _b;
         for (const powerUp of powerUps) {
             ctx.save();
             ctx.translate(powerUp.x + powerUp.width / 2, powerUp.y + powerUp.height / 2);
             const pulse = 0.15 * Math.sin(time * 0.006 + powerUp.wobbleTime);
             const radius = powerUp.width * (0.36 + pulse);
-            const color = (_a = powerUpColors[powerUp.type]) !== null && _a !== void 0 ? _a : { r: 220, g: 220, b: 255 };
-            const gradient = getCachedRadialGradient(powerUpGradientCache, ctx, radius * 0.25, radius, [
-                [0, `rgba(${color.r}, ${color.g}, ${color.b}, 0.95)`],
-                [0.65, `rgba(${color.r}, ${color.g}, ${color.b}, 0.6)`],
-                [1, 'rgba(255,255,255,0.1)']
-            ]);
+            const color = powerUpColors[powerUp.type] ?? { r: 220, g: 220, b: 255 };
+            const gradient = getCachedRadialGradient(
+                powerUpGradientCache,
+                ctx,
+                radius * 0.25,
+                radius,
+                [
+                    [0, `rgba(${color.r}, ${color.g}, ${color.b}, 0.95)`],
+                    [0.65, `rgba(${color.r}, ${color.g}, ${color.b}, 0.6)`],
+                    [1, 'rgba(255,255,255,0.1)']
+                ]
+            );
             ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.arc(0, 0, radius, 0, Math.PI * 2);
             ctx.fill();
+
             ctx.strokeStyle = 'rgba(255,255,255,0.4)';
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.arc(0, 0, radius * 0.7, 0, Math.PI * 2);
             ctx.stroke();
+
             const sprite = powerUpImages[powerUp.type];
-            const isSpriteReady = (sprite === null || sprite === void 0 ? void 0 : sprite.complete) && sprite.naturalWidth !== 0;
+            const isSpriteReady = sprite?.complete && sprite.naturalWidth !== 0;
             if (isSpriteReady) {
                 const drawSize = powerUp.width;
                 ctx.drawImage(sprite, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
-            }
-            else {
+            } else {
                 ctx.fillStyle = '#060b28';
                 ctx.font = `700 12px ${primaryFontStack}`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                const label = (_b = powerUpLabels[powerUp.type]) !== null && _b !== void 0 ? _b : 'BOOST';
+                const label = powerUpLabels[powerUp.type] ?? 'BOOST';
                 ctx.fillText(label.split(' ')[0], 0, -6);
                 if (label.includes(' ')) {
                     ctx.fillText(label.split(' ')[1], 0, 8);
@@ -14945,9 +16089,9 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.restore();
         }
     }
+
     function drawAreaBursts() {
-        if (!areaBursts.length)
-            return;
+        if (!areaBursts.length) return;
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
         for (const burst of areaBursts) {
@@ -14959,6 +16103,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.beginPath();
             ctx.arc(burst.x, burst.y, burst.radius, 0, Math.PI * 2);
             ctx.fill();
+
             ctx.strokeStyle = `rgba(255, 200, 150, ${0.5 * opacity})`;
             ctx.lineWidth = 6;
             ctx.beginPath();
@@ -14967,25 +16112,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         ctx.restore();
     }
+
     function drawVillainExplosions() {
-        var _a, _b, _c, _d;
-        if (!villainExplosions.length)
-            return;
+        if (!villainExplosions.length) return;
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
         for (const explosion of villainExplosions) {
-            const palette = (_a = explosion.palette) !== null && _a !== void 0 ? _a : villainExplosionPalettes.villain1;
+            const palette = explosion.palette ?? villainExplosionPalettes.villain1;
             const alpha = clamp(explosion.life / explosion.maxLife, 0, 1);
+
             switch (explosion.type) {
                 case 'ionBurst': {
-                    const gradient = ctx.createRadialGradient(explosion.x, explosion.y, Math.max(6, explosion.radius * 0.2), explosion.x, explosion.y, Math.max(explosion.radius, 1));
-                    gradient.addColorStop(0, `rgba(${palette.core.r}, ${palette.core.g}, ${palette.core.b}, ${0.65 * alpha})`);
-                    gradient.addColorStop(0.6, `rgba(${palette.halo.r}, ${palette.halo.g}, ${palette.halo.b}, ${0.4 * alpha})`);
+                    const gradient = ctx.createRadialGradient(
+                        explosion.x,
+                        explosion.y,
+                        Math.max(6, explosion.radius * 0.2),
+                        explosion.x,
+                        explosion.y,
+                        Math.max(explosion.radius, 1)
+                    );
+                    gradient.addColorStop(
+                        0,
+                        `rgba(${palette.core.r}, ${palette.core.g}, ${palette.core.b}, ${0.65 * alpha})`
+                    );
+                    gradient.addColorStop(
+                        0.6,
+                        `rgba(${palette.halo.r}, ${palette.halo.g}, ${palette.halo.b}, ${0.4 * alpha})`
+                    );
                     gradient.addColorStop(1, `rgba(${palette.halo.r}, ${palette.halo.g}, ${palette.halo.b}, 0)`);
                     ctx.fillStyle = gradient;
                     ctx.beginPath();
                     ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
                     ctx.fill();
+
                     if (explosion.orbits) {
                         for (const orbit of explosion.orbits) {
                             const orbitAlpha = alpha * 0.35;
@@ -15000,17 +16159,19 @@ document.addEventListener('DOMContentLoaded', () => {
                             ctx.restore();
                         }
                     }
+
                     if (typeof explosion.ringRadius === 'number') {
                         ctx.strokeStyle = `rgba(${palette.core.r}, ${palette.core.g}, ${palette.core.b}, ${0.25 * alpha})`;
-                        ctx.lineWidth = (_b = explosion.ringThickness) !== null && _b !== void 0 ? _b : 6;
+                        ctx.lineWidth = explosion.ringThickness ?? 6;
                         ctx.beginPath();
                         ctx.arc(explosion.x, explosion.y, explosion.ringRadius, 0, Math.PI * 2);
                         ctx.stroke();
                     }
+
                     if (explosion.swirl) {
                         const swirlSegments = 18;
                         ctx.strokeStyle = `rgba(${palette.core.r}, ${palette.core.g}, ${palette.core.b}, ${0.4 * alpha})`;
-                        ctx.lineWidth = Math.max(2, ((_c = explosion.ringThickness) !== null && _c !== void 0 ? _c : 6) * 0.4);
+                        ctx.lineWidth = Math.max(2, (explosion.ringThickness ?? 6) * 0.4);
                         ctx.beginPath();
                         for (let i = 0; i < swirlSegments; i++) {
                             const t = i / (swirlSegments - 1);
@@ -15020,13 +16181,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             const py = explosion.y + Math.sin(angle) * radius * 0.6;
                             if (i === 0) {
                                 ctx.moveTo(px, py);
-                            }
-                            else {
+                            } else {
                                 ctx.lineTo(px, py);
                             }
                         }
                         ctx.stroke();
                     }
+
                     if (explosion.sparks) {
                         for (const spark of explosion.sparks) {
                             const px = explosion.x + Math.cos(spark.angle) * spark.distance;
@@ -15041,18 +16202,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
                 }
                 case 'gravityRift': {
-                    const gradient = ctx.createRadialGradient(explosion.x, explosion.y, Math.max(4, explosion.radius * 0.12), explosion.x, explosion.y, Math.max(explosion.radius, 1));
-                    gradient.addColorStop(0, `rgba(${palette.core.r}, ${palette.core.g}, ${palette.core.b}, ${0.7 * alpha})`);
-                    gradient.addColorStop(0.5, `rgba(${palette.halo.r}, ${palette.halo.g}, ${palette.halo.b}, ${0.45 * alpha})`);
+                    const gradient = ctx.createRadialGradient(
+                        explosion.x,
+                        explosion.y,
+                        Math.max(4, explosion.radius * 0.12),
+                        explosion.x,
+                        explosion.y,
+                        Math.max(explosion.radius, 1)
+                    );
+                    gradient.addColorStop(
+                        0,
+                        `rgba(${palette.core.r}, ${palette.core.g}, ${palette.core.b}, ${0.7 * alpha})`
+                    );
+                    gradient.addColorStop(
+                        0.5,
+                        `rgba(${palette.halo.r}, ${palette.halo.g}, ${palette.halo.b}, ${0.45 * alpha})`
+                    );
                     gradient.addColorStop(1, `rgba(${palette.halo.r}, ${palette.halo.g}, ${palette.halo.b}, 0)`);
                     ctx.fillStyle = gradient;
                     ctx.beginPath();
                     ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
                     ctx.fill();
+
                     if (explosion.shockwaves) {
                         for (const shock of explosion.shockwaves) {
-                            if (shock.delay > 0)
-                                continue;
+                            if (shock.delay > 0) continue;
                             const shockAlpha = alpha * shock.opacity;
                             ctx.strokeStyle = `rgba(${palette.halo.r}, ${palette.halo.g}, ${palette.halo.b}, ${shockAlpha})`;
                             ctx.lineWidth = shock.lineWidth;
@@ -15061,6 +16235,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ctx.stroke();
                         }
                     }
+
                     if (explosion.fractures) {
                         ctx.lineCap = 'round';
                         for (const fracture of explosion.fractures) {
@@ -15074,10 +16249,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             ctx.stroke();
                         }
                     }
+
                     if (explosion.embers) {
                         for (const ember of explosion.embers) {
-                            if (ember.opacity <= 0)
-                                continue;
+                            if (ember.opacity <= 0) continue;
                             const ex = explosion.x + Math.cos(ember.angle) * ember.radius;
                             const ey = explosion.y + Math.sin(ember.angle) * ember.radius * 0.85;
                             const emberAlpha = alpha * ember.opacity;
@@ -15087,6 +16262,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ctx.fill();
                         }
                     }
+
                     if (explosion.core) {
                         ctx.save();
                         ctx.globalCompositeOperation = 'source-over';
@@ -15099,21 +16275,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
                 }
                 default: {
-                    const gradient = ctx.createRadialGradient(explosion.x, explosion.y, Math.max(6, explosion.radius * 0.2), explosion.x, explosion.y, Math.max(explosion.radius, 1));
-                    gradient.addColorStop(0, `rgba(${palette.core.r}, ${palette.core.g}, ${palette.core.b}, ${0.55 * alpha})`);
+                    const gradient = ctx.createRadialGradient(
+                        explosion.x,
+                        explosion.y,
+                        Math.max(6, explosion.radius * 0.2),
+                        explosion.x,
+                        explosion.y,
+                        Math.max(explosion.radius, 1)
+                    );
+                    gradient.addColorStop(
+                        0,
+                        `rgba(${palette.core.r}, ${palette.core.g}, ${palette.core.b}, ${0.55 * alpha})`
+                    );
                     gradient.addColorStop(1, `rgba(${palette.halo.r}, ${palette.halo.g}, ${palette.halo.b}, 0)`);
                     ctx.fillStyle = gradient;
                     ctx.beginPath();
                     ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
                     ctx.fill();
+
                     if (typeof explosion.ringRadius === 'number') {
-                        const pulse = Math.sin((_d = explosion.pulse) !== null && _d !== void 0 ? _d : 0) * 0.5 + 0.5;
+                        const pulse = Math.sin(explosion.pulse ?? 0) * 0.5 + 0.5;
                         ctx.strokeStyle = `rgba(${palette.core.r}, ${palette.core.g}, ${palette.core.b}, ${0.35 * alpha * pulse})`;
                         ctx.lineWidth = explosion.ringThickness;
                         ctx.beginPath();
                         ctx.arc(explosion.x, explosion.y, explosion.ringRadius, 0, Math.PI * 2);
                         ctx.stroke();
                     }
+
                     if (explosion.spokes) {
                         ctx.lineCap = 'round';
                         for (const spoke of explosion.spokes) {
@@ -15133,17 +16321,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         ctx.restore();
     }
+
     function drawHyperBeam(time) {
-        var _a, _b, _c;
         const bounds = hyperBeamState.bounds;
         const intensity = hyperBeamState.intensity;
         if (!bounds || intensity <= 0) {
             return;
         }
-        const hyperConfig = (_a = config.hyperBeam) !== null && _a !== void 0 ? _a : {};
-        const color = (_b = powerUpColors[HYPER_BEAM_POWER]) !== null && _b !== void 0 ? _b : { r: 147, g: 197, b: 253 };
+
+        const hyperConfig = config.hyperBeam ?? {};
+        const color = powerUpColors[HYPER_BEAM_POWER] ?? { r: 147, g: 197, b: 253 };
         const effectScale = reducedEffectsMode ? 0.7 : 1;
-        const jitterAmplitude = ((_c = hyperConfig.jitterAmplitude) !== null && _c !== void 0 ? _c : 18) * effectScale;
+        const jitterAmplitude = (hyperConfig.jitterAmplitude ?? 18) * effectScale;
         const verticalJitter = Math.sin(time * 0.008 + hyperBeamState.wave) * jitterAmplitude * intensity;
         const top = clamp(bounds.y + verticalJitter * -0.5, 0, Math.max(0, viewport.height - bounds.height));
         const height = Math.min(bounds.height, viewport.height - top);
@@ -15151,8 +16340,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const midY = clamp(top + height / 2 + verticalJitter * 0.3, top, top + height);
+
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
+
         const outerGradient = ctx.createLinearGradient(bounds.x, top, bounds.x + bounds.width, top);
         const outerAlpha = Math.min(1, (0.32 + intensity * 0.28) * effectScale);
         const midAlpha = Math.min(1, (0.5 + intensity * 0.3) * effectScale);
@@ -15161,6 +16352,7 @@ document.addEventListener('DOMContentLoaded', () => {
         outerGradient.addColorStop(1, 'rgba(17, 24, 39, 0)');
         ctx.fillStyle = outerGradient;
         ctx.fillRect(bounds.x, top, bounds.width, height);
+
         const coreHeight = Math.max(18, height * 0.36 * (reducedEffectsMode ? 0.85 : 1));
         const coreTop = clamp(midY - coreHeight / 2, top, top + height - coreHeight);
         const coreWidth = bounds.width * (reducedEffectsMode ? 0.8 : 0.9);
@@ -15169,16 +16361,18 @@ document.addEventListener('DOMContentLoaded', () => {
         coreGradient.addColorStop(1, 'rgba(148, 210, 255, 0)');
         ctx.fillStyle = coreGradient;
         ctx.fillRect(bounds.x, coreTop, coreWidth, coreHeight);
+
         ctx.strokeStyle = `rgba(236, 254, 255, ${Math.min(1, 0.55 * intensity * effectScale)})`;
         ctx.lineWidth = Math.max(2, height * 0.12 * intensity * effectScale);
         ctx.beginPath();
         ctx.moveTo(bounds.x, midY + Math.sin(time * 0.014 + hyperBeamState.wave) * height * 0.08);
         ctx.lineTo(bounds.x + bounds.width, midY + Math.sin(time * 0.017 + hyperBeamState.wave) * height * 0.05);
         ctx.stroke();
+
         ctx.restore();
     }
+
     function drawProjectiles() {
-        var _a, _b, _c;
         for (const projectile of projectiles) {
             if (projectile.type === 'missile') {
                 ctx.save();
@@ -15203,22 +16397,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.fillStyle = '#263238';
                 ctx.fillRect(bodyWidth * 0.1, -halfHeight * 0.4, bodyWidth * 0.5, halfHeight * 0.8);
                 ctx.restore();
-            }
-            else {
+            } else {
                 ctx.save();
                 if (projectile.shadowBlur) {
                     ctx.shadowBlur = projectile.shadowBlur;
-                    ctx.shadowColor = (_b = (_a = projectile.shadowColor) !== null && _a !== void 0 ? _a : projectile.glow) !== null && _b !== void 0 ? _b : 'rgba(14, 165, 233, 0.4)';
-                }
-                else if (projectile.glow) {
+                    ctx.shadowColor = projectile.shadowColor ?? projectile.glow ?? 'rgba(14, 165, 233, 0.4)';
+                } else if (projectile.glow) {
                     ctx.shadowBlur = 10;
                     ctx.shadowColor = projectile.glow;
                 }
+
                 if (projectile.shape === 'lance' || projectile.type === 'lance') {
-                    const colors = Array.isArray(projectile.gradient) && projectile.gradient.length
-                        ? projectile.gradient
-                        : ['#e0f2fe', '#38bdf8'];
-                    const gradient = ctx.createLinearGradient(projectile.x, projectile.y, projectile.x + projectile.width, projectile.y);
+                    const colors =
+                        Array.isArray(projectile.gradient) && projectile.gradient.length
+                            ? projectile.gradient
+                            : ['#e0f2fe', '#38bdf8'];
+                    const gradient = ctx.createLinearGradient(
+                        projectile.x,
+                        projectile.y,
+                        projectile.x + projectile.width,
+                        projectile.y
+                    );
                     colors.forEach((color, index) => {
                         const stop = colors.length > 1 ? index / (colors.length - 1) : 0;
                         gradient.addColorStop(stop, color);
@@ -15239,12 +16438,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         ctx.lineWidth = 1.5;
                         ctx.stroke();
                     }
-                }
-                else if (projectile.shape === 'flameWhip' || projectile.type === 'flameWhip') {
-                    const colors = Array.isArray(projectile.gradient) && projectile.gradient.length
-                        ? projectile.gradient
-                        : ['#450a0a', '#9f1239', '#f97316'];
-                    const gradient = ctx.createLinearGradient(projectile.x, projectile.y, projectile.x + projectile.width, projectile.y + projectile.height * 0.6);
+                } else if (projectile.shape === 'flameWhip' || projectile.type === 'flameWhip') {
+                    const colors =
+                        Array.isArray(projectile.gradient) && projectile.gradient.length
+                            ? projectile.gradient
+                            : ['#450a0a', '#9f1239', '#f97316'];
+                    const gradient = ctx.createLinearGradient(
+                        projectile.x,
+                        projectile.y,
+                        projectile.x + projectile.width,
+                        projectile.y + projectile.height * 0.6
+                    );
                     colors.forEach((color, index) => {
                         const stop = colors.length > 1 ? index / (colors.length - 1) : 0;
                         gradient.addColorStop(stop, color);
@@ -15252,27 +16456,52 @@ document.addEventListener('DOMContentLoaded', () => {
                     ctx.globalCompositeOperation = 'lighter';
                     ctx.fillStyle = gradient;
                     const halfHeight = projectile.height * 0.5;
-                    const curve = (_c = projectile.curve) !== null && _c !== void 0 ? _c : 0;
+                    const curve = projectile.curve ?? 0;
                     ctx.beginPath();
                     ctx.moveTo(projectile.x, projectile.y + halfHeight - curve * 0.25);
-                    ctx.quadraticCurveTo(projectile.x + projectile.width * 0.26, projectile.y + halfHeight + curve * 0.6, projectile.x + projectile.width * 0.52, projectile.y + halfHeight - curve * 0.25);
-                    ctx.quadraticCurveTo(projectile.x + projectile.width * 0.82, projectile.y + halfHeight - curve * 0.8, projectile.x + projectile.width, projectile.y + halfHeight - curve * 0.15);
-                    ctx.quadraticCurveTo(projectile.x + projectile.width * 0.74, projectile.y + halfHeight + curve * 0.35, projectile.x + projectile.width * 0.36, projectile.y + halfHeight + curve * 0.55);
-                    ctx.quadraticCurveTo(projectile.x + projectile.width * 0.08, projectile.y + halfHeight + curve * 0.18, projectile.x, projectile.y + halfHeight - curve * 0.25);
+                    ctx.quadraticCurveTo(
+                        projectile.x + projectile.width * 0.26,
+                        projectile.y + halfHeight + curve * 0.6,
+                        projectile.x + projectile.width * 0.52,
+                        projectile.y + halfHeight - curve * 0.25
+                    );
+                    ctx.quadraticCurveTo(
+                        projectile.x + projectile.width * 0.82,
+                        projectile.y + halfHeight - curve * 0.8,
+                        projectile.x + projectile.width,
+                        projectile.y + halfHeight - curve * 0.15
+                    );
+                    ctx.quadraticCurveTo(
+                        projectile.x + projectile.width * 0.74,
+                        projectile.y + halfHeight + curve * 0.35,
+                        projectile.x + projectile.width * 0.36,
+                        projectile.y + halfHeight + curve * 0.55
+                    );
+                    ctx.quadraticCurveTo(
+                        projectile.x + projectile.width * 0.08,
+                        projectile.y + halfHeight + curve * 0.18,
+                        projectile.x,
+                        projectile.y + halfHeight - curve * 0.25
+                    );
                     ctx.closePath();
                     ctx.fill();
                     ctx.strokeStyle = 'rgba(255, 244, 214, 0.38)';
                     ctx.lineWidth = 1.2;
                     ctx.stroke();
                     ctx.globalCompositeOperation = 'source-over';
-                }
-                else {
-                    const colors = Array.isArray(projectile.gradient) && projectile.gradient.length
-                        ? projectile.gradient
-                        : projectile.type === 'spread'
-                            ? ['#b39ddb', '#7e57c2']
-                            : ['#00e5ff', '#6a5acd'];
-                    const gradient = ctx.createLinearGradient(projectile.x, projectile.y, projectile.x + projectile.width, projectile.y + projectile.height);
+                } else {
+                    const colors =
+                        Array.isArray(projectile.gradient) && projectile.gradient.length
+                            ? projectile.gradient
+                            : projectile.type === 'spread'
+                                ? ['#b39ddb', '#7e57c2']
+                                : ['#00e5ff', '#6a5acd'];
+                    const gradient = ctx.createLinearGradient(
+                        projectile.x,
+                        projectile.y,
+                        projectile.x + projectile.width,
+                        projectile.y + projectile.height
+                    );
                     colors.forEach((color, index) => {
                         const stop = colors.length > 1 ? index / (colors.length - 1) : 0;
                         gradient.addColorStop(stop, color);
@@ -15283,8 +16512,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (path) {
                             ctx.translate(projectile.x, projectile.y);
                             ctx.fill(path);
-                        }
-                        else {
+                        } else {
                             ctx.beginPath();
                             ctx.moveTo(projectile.x, projectile.y);
                             ctx.lineTo(projectile.x + projectile.width, projectile.y + projectile.height * 0.5);
@@ -15292,8 +16520,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ctx.closePath();
                             ctx.fill();
                         }
-                    }
-                    else {
+                    } else {
                         ctx.beginPath();
                         ctx.moveTo(projectile.x, projectile.y);
                         ctx.lineTo(projectile.x + projectile.width, projectile.y + projectile.height * 0.5);
@@ -15306,16 +16533,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
     function drawEnemyProjectiles() {
-        var _a;
         if (!enemyProjectiles.length) {
             return;
         }
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         for (const projectile of enemyProjectiles) {
-            const color = (_a = projectile.color) !== null && _a !== void 0 ? _a : '#f87171';
-            const gradient = ctx.createLinearGradient(projectile.x, projectile.y, projectile.x + projectile.width, projectile.y + projectile.height);
+            const color = projectile.color ?? '#f87171';
+            const gradient = ctx.createLinearGradient(
+                projectile.x,
+                projectile.y,
+                projectile.x + projectile.width,
+                projectile.y + projectile.height
+            );
             gradient.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
             gradient.addColorStop(1, color);
             ctx.fillStyle = gradient;
@@ -15324,13 +16556,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.beginPath();
                 ctx.roundRect(projectile.x, projectile.y, projectile.width, projectile.height, radius);
                 ctx.fill();
-            }
-            else {
+            } else {
                 ctx.fillRect(projectile.x, projectile.y, projectile.width, projectile.height);
             }
         }
         ctx.restore();
     }
+
     function drawParticles() {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
@@ -15347,6 +16579,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         ctx.restore();
     }
+
     function stepNonRunning(delta) {
         updateCameraShake(delta);
         updateStars(delta);
@@ -15359,6 +16592,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateHyperBeam(delta);
         updatePumpTail(delta);
     }
+
     function stepRunning(delta) {
         state.elapsedTime += delta;
         const activeChallengeManager = getChallengeManager();
@@ -15371,10 +16605,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.bossBattle.alertTimer > 0) {
             state.bossBattle.alertTimer = Math.max(0, state.bossBattle.alertTimer - delta);
         }
+
         const upcomingBoss = bossBattleDefinitions[state.bossBattle.nextEventIndex];
         if (upcomingBoss && !state.bossBattle.active && state.elapsedTime >= upcomingBoss.timeMs) {
             startBossBattle();
         }
+
         updateCameraShake(delta);
         updatePlayer(delta);
         updateProjectiles(delta);
@@ -15397,11 +16633,11 @@ document.addEventListener('DOMContentLoaded', () => {
         updateVillainExplosions(delta);
         updateCombo(delta);
     }
+
     function renderFrame(timestamp) {
-        var _a, _b;
         drawBackground();
         ctx.save();
-        ctx.translate((_a = cameraShake.offsetX) !== null && _a !== void 0 ? _a : 0, (_b = cameraShake.offsetY) !== null && _b !== void 0 ? _b : 0);
+        ctx.translate(cameraShake.offsetX ?? 0, cameraShake.offsetY ?? 0);
         drawStars(timestamp);
         drawAsteroids(timestamp);
         drawTrail();
@@ -15419,10 +16655,12 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.restore();
         drawBossAlert(timestamp);
     }
+
     let lastTime = null;
     let accumulatedDelta = 0;
     const FIXED_TIMESTEP = 1000 / 60; // Use a precise 60 Hz simulation step to avoid browser-specific rounding.
     const MAX_ACCUMULATED_TIME = FIXED_TIMESTEP * 6;
+
     function pauseGame({ reason = 'manual', showOverlay = true } = {}) {
         if (state.gameState !== 'running') {
             return false;
@@ -15431,8 +16669,8 @@ document.addEventListener('DOMContentLoaded', () => {
         state.gameState = 'paused';
         updateSwapPilotButton();
         updateSwapWeaponButtons();
-        bodyElement === null || bodyElement === void 0 ? void 0 : bodyElement.classList.add('paused');
-        survivalTimerEl === null || survivalTimerEl === void 0 ? void 0 : survivalTimerEl.classList.add('paused');
+        bodyElement?.classList.add('paused');
+        survivalTimerEl?.classList.add('paused');
         audioManager.suspendForVisibilityChange();
         keys.clear();
         dashTapTracker.clear();
@@ -15441,13 +16679,13 @@ document.addEventListener('DOMContentLoaded', () => {
         accumulatedDelta = 0;
         if (showOverlay) {
             showPauseOverlay(reason);
-        }
-        else {
+        } else {
             hidePauseOverlay();
         }
         updateTimerDisplay();
         return true;
     }
+
     function resumeGame({ focusCanvas = true } = {}) {
         if (state.gameState !== 'paused') {
             return false;
@@ -15455,8 +16693,8 @@ document.addEventListener('DOMContentLoaded', () => {
         state.gameState = 'running';
         updateSwapPilotButton();
         updateSwapWeaponButtons();
-        bodyElement === null || bodyElement === void 0 ? void 0 : bodyElement.classList.remove('paused');
-        survivalTimerEl === null || survivalTimerEl === void 0 ? void 0 : survivalTimerEl.classList.remove('paused');
+        bodyElement?.classList.remove('paused');
+        survivalTimerEl?.classList.remove('paused');
         hidePauseOverlay();
         audioManager.resumeAfterVisibilityChange();
         lastTime = null;
@@ -15467,14 +16705,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return true;
     }
+
     function togglePause(reason = 'manual') {
         if (state.gameState === 'running') {
             pauseGame({ reason });
-        }
-        else if (state.gameState === 'paused') {
+        } else if (state.gameState === 'paused') {
             resumeGame();
         }
     }
+
     function monitorFramePerformance(timestamp) {
         if (!Number.isFinite(timestamp)) {
             return;
@@ -15512,12 +16751,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             mascotAnnouncer.notifyPerformanceMode(false);
                         }
                     }
-                }
-                else {
+                } else {
                     monitor.recoveryTimer = 0;
                 }
-            }
-            else if (!manualReducedEffectsEnabled) {
+            } else if (!manualReducedEffectsEnabled) {
                 if (average >= AUTO_REDUCED_EFFECTS_ENABLE_THRESHOLD && getTimestamp() >= monitor.cooldownUntil) {
                     monitor.slowTimer += frameTime;
                     if (monitor.slowTimer >= AUTO_REDUCED_EFFECTS_TRIGGER_DURATION) {
@@ -15527,23 +16764,24 @@ document.addEventListener('DOMContentLoaded', () => {
                             mascotAnnouncer.notifyPerformanceMode(true);
                         }
                     }
-                }
-                else {
+                } else {
                     monitor.slowTimer = 0;
                 }
-            }
-            else {
+            } else {
                 monitor.slowTimer = 0;
                 monitor.recoveryTimer = 0;
             }
         }
         monitor.lastTimestamp = timestamp;
     }
+
     function gameLoop(timestamp = performance.now()) {
         requestAnimationFrame(gameLoop);
         monitorFramePerformance(timestamp);
+
         updateGamepadInput();
         updateGamepadCursor(timestamp);
+
         if (state.gameState === 'ready') {
             stepNonRunning(FIXED_TIMESTEP);
             renderFrame(timestamp);
@@ -15553,6 +16791,7 @@ document.addEventListener('DOMContentLoaded', () => {
             accumulatedDelta = 0;
             return;
         }
+
         if (state.gameState === 'paused') {
             renderFrame(timestamp);
             updateHUD();
@@ -15561,34 +16800,39 @@ document.addEventListener('DOMContentLoaded', () => {
             accumulatedDelta = 0;
             return;
         }
+
         if (lastTime === null) {
             lastTime = timestamp;
         }
+
         let delta = timestamp - lastTime;
         lastTime = timestamp;
+
         if (delta > 200) {
             delta = 200;
-        }
-        else if (delta < 0) {
+        } else if (delta < 0) {
             delta = 0;
         }
+
         accumulatedDelta = Math.min(accumulatedDelta + delta, MAX_ACCUMULATED_TIME);
+
         while (accumulatedDelta >= FIXED_TIMESTEP) {
             if (state.gameState === 'running') {
                 stepRunning(FIXED_TIMESTEP);
-            }
-            else {
+            } else {
                 stepNonRunning(FIXED_TIMESTEP);
             }
             accumulatedDelta -= FIXED_TIMESTEP;
         }
+
         renderFrame(timestamp);
         updateHUD();
         updateTimerDisplay();
     }
+
     runCyborgLoadingSequence();
     createInitialStars();
     scheduleNextMeteorShower();
     requestAnimationFrame(gameLoop);
 });
-export {};
+

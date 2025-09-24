@@ -34,3 +34,17 @@ Add a `webpagebackground.png` file to the `public/` directory to replace the def
 3. Close the in-game console with the **Back to lobby** button or the <kbd>Escape</kbd> key when you are finished playing.
 
 The cabinet now looks for `/public/AstroCats3/index.html` inside an iframe, falling back to `/AstroCats3/index.html` when needed, so ensure all asset paths remain relative to those files. You can also open the mini game directly in a new browser tab at `/public/AstroCats3/index.html` (or `/AstroCats3/index.html` if you rely on the legacy location) to verify it deploys correctly.
+
+### Updating the bundled mini game script
+
+For broader browser compatibility the production build ships a transpiled version of the mini game script at
+`public/AstroCats3/scripts/app.js`. The original source lives beside it as `app.source.js`. After making changes to the
+source file, regenerate the transpiled bundle by running:
+
+```
+npx tsc -p tsconfig.astrocat.json
+mv public/AstroCats3/scripts/compat/app.source.js public/AstroCats3/scripts/app.js
+rmdir public/AstroCats3/scripts/compat
+```
+
+This downlevels modern JavaScript features so the game boots cleanly across more browsers.
