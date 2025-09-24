@@ -6505,11 +6505,21 @@ const LOADOUTS_MANAGED_EXTERNALLY = true;
             return null;
         }
 
-        const manager = createMetaProgressManager({
-            challengeManager: getChallengeManager(),
-            broadcast: broadcastMetaMessage,
-            seasonTrack: () => seasonPassTrackRef
-        });
+        let manager = null;
+        try {
+            manager = createMetaProgressManager({
+                challengeManager: getChallengeManager(),
+                broadcast: broadcastMetaMessage,
+                seasonTrack: () => seasonPassTrackRef
+            });
+        } catch (error) {
+            if (error instanceof ReferenceError) {
+                seasonPassTrackRef = DISABLED_SEASON_PASS_TRACK;
+                disableSeasonPassUI();
+                return null;
+            }
+            throw error;
+        }
 
         if (!manager) {
             return null;
