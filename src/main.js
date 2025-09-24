@@ -215,41 +215,19 @@ function ensureBaseStyleSheet(href) {
 
 ensureBaseStyleSheet(styleSheetUrl);
 
-function getImportMetaGlob() {
-  if (typeof import.meta === "undefined" || !import.meta) {
-    return null;
-  }
-
-  const glob = import.meta.glob;
-  if (typeof glob !== "function") {
-    return null;
-  }
-
-  return glob.bind(import.meta);
-}
-
 function tryCreateAssetManifest() {
-  const glob = getImportMetaGlob();
-  if (!glob) {
-    if (typeof console !== "undefined") {
-      console.warn(
-        "import.meta.glob is unavailable in this environment. Falling back to dynamic loading."
-      );
-    }
-    return null;
-  }
-
   try {
-    return glob("./assets/*.{png,PNG}", {
+    return import.meta.glob("./assets/*.{png,PNG}", {
       eager: true,
       import: "default"
     });
   } catch (error) {
-    if (error && typeof console !== "undefined") {
-      console.warn(
-        "import.meta.glob failed while loading sprite assets. Falling back to dynamic loading.",
-        error
-      );
+    if (typeof console !== "undefined" && error) {
+      const message =
+        error instanceof TypeError && typeof error.message === "string"
+          ? "import.meta.glob is unavailable in this environment. Falling back to dynamic loading."
+          : "import.meta.glob failed while loading sprite assets. Falling back to dynamic loading.";
+      console.warn(message, error);
     }
     return null;
   }
@@ -258,27 +236,18 @@ function tryCreateAssetManifest() {
 const assetManifest = tryCreateAssetManifest();
 
 function tryCreateAudioManifest() {
-  const glob = getImportMetaGlob();
-  if (!glob) {
-    if (typeof console !== "undefined") {
-      console.warn(
-        "import.meta.glob is unavailable for audio assets. Falling back to dynamic loading."
-      );
-    }
-    return null;
-  }
-
   try {
-    return glob("./assets/audio/*.{wav,mp3,ogg}", {
+    return import.meta.glob("./assets/audio/*.{wav,mp3,ogg}", {
       eager: true,
       import: "default"
     });
   } catch (error) {
-    if (error && typeof console !== "undefined") {
-      console.warn(
-        "import.meta.glob failed while loading audio assets. Falling back to dynamic loading.",
-        error
-      );
+    if (typeof console !== "undefined" && error) {
+      const message =
+        error instanceof TypeError && typeof error.message === "string"
+          ? "import.meta.glob is unavailable for audio assets. Falling back to dynamic loading."
+          : "import.meta.glob failed while loading audio assets. Falling back to dynamic loading.";
+      console.warn(message, error);
     }
     return null;
   }
