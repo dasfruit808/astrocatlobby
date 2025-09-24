@@ -3975,8 +3975,7 @@ if (typeof window !== "undefined") {
         0,
         Math.round(Number.isFinite(summary.xpAward) ? summary.xpAward : Number(summary.xpAward) || 0)
       );
-      gainExperience(normalizedXp);
-      ui.refresh(playerStats);
+      const leveledUp = gainExperience(normalizedXp);
 
       const playerName =
         typeof summary.player === "string" && summary.player.trim().length
@@ -3994,7 +3993,10 @@ if (typeof window !== "undefined") {
           ? summary.formattedTime
           : formatRunDuration(timeMs);
       const xpLine = normalizedXp > 0 ? ` +${normalizedXp} XP` : "";
-      const messageText = `${playerName} logged ${formattedScore} pts in ${formattedTime} (x${bestStreak} streak).${xpLine}`;
+      let messageText = `${playerName} logged ${formattedScore} pts in ${formattedTime} (x${bestStreak} streak).${xpLine}`;
+      if (leveledUp) {
+        messageText += ` Level up! You reached level ${playerStats.level}.`;
+      }
       showMessage(
         {
           text: messageText,
