@@ -30,15 +30,35 @@ function readPublicManifestEntry(relativePath) {
   return typeof entry === "string" && entry ? entry : null;
 }
 
+function isResolvableBaseHref(baseHref) {
+  if (typeof baseHref !== "string") {
+    return false;
+  }
+
+  const trimmed = baseHref.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  if (/^(?:about|blob|data|javascript):/i.test(trimmed)) {
+    return false;
+  }
+
+  return true;
+}
+
 function getDocumentBaseHref() {
   if (typeof document !== "undefined" && typeof document.baseURI === "string") {
-    return document.baseURI;
+    if (isResolvableBaseHref(document.baseURI)) {
+      return document.baseURI;
+    }
   }
 
   if (
     typeof window !== "undefined" &&
     window.location &&
-    typeof window.location.href === "string"
+    typeof window.location.href === "string" &&
+    isResolvableBaseHref(window.location.href)
   ) {
     return window.location.href;
   }
