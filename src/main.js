@@ -16,10 +16,106 @@ function normalizePublicRelativePath(relativePath) {
     .replace(/\\/g, "/");
 }
 
+function readPublicManifestEntry(relativePath) {
+  if (typeof globalThis === "undefined") {
+    return null;
+  }
+
+  const manifest = globalThis.__ASTROCAT_PUBLIC_MANIFEST__;
+  if (!manifest || typeof manifest !== "object") {
+    return null;
+  }
+
+  const entry = manifest[relativePath];
+  return typeof entry === "string" && entry ? entry : null;
+}
+
+function getDocumentBaseHref() {
+  if (typeof document !== "undefined" && typeof document.baseURI === "string") {
+    return document.baseURI;
+  }
+
+  if (
+    typeof window !== "undefined" &&
+    window.location &&
+    typeof window.location.href === "string"
+  ) {
+    return window.location.href;
+  }
+
+  return null;
+}
+
+function normaliseHrefForDirectory(baseHref) {
+  if (!baseHref) {
+    return null;
+  }
+
+  const withoutFragment = baseHref.split("#", 1)[0];
+  const withoutQuery = withoutFragment.split("?", 1)[0];
+  if (!withoutQuery) {
+    return null;
+  }
+
+  if (withoutQuery.endsWith("/")) {
+    return withoutQuery;
+  }
+
+  const segments = withoutQuery.split("/");
+  const lastSegment = segments[segments.length - 1] ?? "";
+  if (!lastSegment || !lastSegment.includes(".")) {
+    return `${withoutQuery}/`;
+  }
+
+  const trimmed = withoutQuery.replace(/[^/]*$/, "");
+  if (trimmed.endsWith("/")) {
+    return trimmed;
+  }
+  return `${trimmed}/`;
+}
+
+function resolveUsingDocumentBase(candidate) {
+  const baseHref = getDocumentBaseHref();
+  const normalisedBase = normaliseHrefForDirectory(baseHref);
+  if (!normalisedBase) {
+    return null;
+  }
+
+  try {
+    return new URL(candidate, normalisedBase).toString();
+  } catch (error) {
+    if (typeof console !== "undefined" && error) {
+      console.warn("Failed to resolve public asset using document base", candidate, error);
+    }
+  }
+
+  return null;
+}
+
 function resolvePublicAssetUrl(relativePath) {
   const normalized = normalizePublicRelativePath(relativePath);
   if (!normalized) {
     return null;
+  }
+
+  const manifestEntry = readPublicManifestEntry(normalized);
+  if (manifestEntry) {
+    if (
+      /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(manifestEntry) ||
+      manifestEntry.startsWith("//") ||
+      manifestEntry.startsWith("/") ||
+      manifestEntry.startsWith("./") ||
+      manifestEntry.startsWith("../")
+    ) {
+      return manifestEntry;
+    }
+
+    const resolvedFromManifest = resolveUsingDocumentBase(manifestEntry);
+    if (resolvedFromManifest) {
+      return resolvedFromManifest;
+    }
+
+    return manifestEntry;
   }
 
   const candidate = normalized;
@@ -33,8 +129,27 @@ function resolvePublicAssetUrl(relativePath) {
   }
 
   const base = import.meta?.env?.BASE_URL ?? "/";
-  const separator = base.endsWith("/") ? "" : "/";
-  return `${base}${separator}${candidate}`;
+
+  if (typeof base === "string" && base) {
+    if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(base) || base.startsWith("//")) {
+      const separator = base.endsWith("/") ? "" : "/";
+      return `${base}${separator}${candidate}`;
+    }
+
+    if (base.startsWith("/")) {
+      const separator = base.endsWith("/") ? "" : "/";
+      return `${base}${separator}${candidate}`;
+    }
+
+    const merged = `${base}${base.endsWith("/") ? "" : "/"}${candidate}`;
+    const resolved = resolveUsingDocumentBase(merged);
+    if (resolved) {
+      return resolved;
+    }
+    return merged;
+  }
+
+  return `/${candidate}`;
 }
 
 function tryCreateAssetManifest() {
