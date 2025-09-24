@@ -6745,26 +6745,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function createMetaProgressManager({ challengeManager, broadcast } = {}) {
         var _a;
         const META_PROGRESS_VERSION = 1;
-        const safeReadSeasonPassTrack = () => {
-            if (typeof globalThis === 'undefined') {
-                return undefined;
-            }
-            try {
-                if (!Object.prototype.hasOwnProperty.call(globalThis, 'SEASON_PASS_TRACK')) {
-                    return undefined;
-                }
-                const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'SEASON_PASS_TRACK');
-                return descriptor === null || descriptor === void 0 ? void 0 : descriptor.value;
-            }
-            catch (error) {
-                if (error instanceof ReferenceError || (typeof (error === null || error === void 0 ? void 0 : error.message) === 'string' && error.message.includes('SEASON_PASS_TRACK'))) {
-                    return undefined;
-                }
-                throw error;
-            }
-        };
         const defaultState = () => {
-            const baseState = {
+            return {
                 version: META_PROGRESS_VERSION,
                 achievements: {},
                 communityGoals: COMMUNITY_GOALS.map((goal) => ({
@@ -6776,29 +6758,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 })),
                 streak: { milestonesEarned: [] }
             };
-            try {
-                const track = safeReadSeasonPassTrack();
-                if (typeof track !== 'undefined') {
-                    baseState.seasonPass = { track: track };
-                }
-            }
-            catch (error) {
-                if (!(error instanceof ReferenceError)) {
-                    throw error;
-                }
-            }
-            return baseState;
         };
         const buildSafeDefaultState = () => {
-            try {
-                return defaultState();
-            }
-            catch (error) {
-                if (error instanceof ReferenceError) {
-                    return null;
-                }
-                throw error;
-            }
+            return defaultState();
         };
         function ensureCommunityEntry(state, goalId) {
             let entry = Array.isArray(state.communityGoals)

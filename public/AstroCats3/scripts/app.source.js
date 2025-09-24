@@ -7286,30 +7286,8 @@ const LOADOUTS_MANAGED_EXTERNALLY = true;
     function createMetaProgressManager({ challengeManager, broadcast } = {}) {
         const META_PROGRESS_VERSION = 1;
 
-        const safeReadSeasonPassTrack = () => {
-            if (typeof globalThis === 'undefined') {
-                return undefined;
-            }
-
-            try {
-                if (!Object.prototype.hasOwnProperty.call(globalThis, 'SEASON_PASS_TRACK')) {
-                    return undefined;
-                }
-
-                const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'SEASON_PASS_TRACK');
-
-                return descriptor?.value;
-            } catch (error) {
-                if (error instanceof ReferenceError || (typeof error?.message === 'string' && error.message.includes('SEASON_PASS_TRACK'))) {
-                    return undefined;
-                }
-
-                throw error;
-            }
-        };
-
         const defaultState = () => {
-            const baseState = {
+            return {
                 version: META_PROGRESS_VERSION,
                 achievements: {},
                 communityGoals: COMMUNITY_GOALS.map((goal) => ({
@@ -7321,31 +7299,10 @@ const LOADOUTS_MANAGED_EXTERNALLY = true;
                 })),
                 streak: { milestonesEarned: [] }
             };
-
-            try {
-                const track = safeReadSeasonPassTrack();
-
-                if (typeof track !== 'undefined') {
-                    baseState.seasonPass = { track };
-                }
-            } catch (error) {
-                if (!(error instanceof ReferenceError)) {
-                    throw error;
-                }
-            }
-
-            return baseState;
         };
 
         const buildSafeDefaultState = () => {
-            try {
-                return defaultState();
-            } catch (error) {
-                if (error instanceof ReferenceError) {
-                    return null;
-                }
-                throw error;
-            }
+            return defaultState();
         };
 
         function ensureCommunityEntry(state, goalId) {
