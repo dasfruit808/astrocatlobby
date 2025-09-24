@@ -1,10 +1,10 @@
-const CACHE_VERSION = 'flyin-nyan-v2';
+const CACHE_VERSION = 'flyin-nyan-v3';
 const PRECACHE_PATHS = [
   './',
   'index.html',
   'manifest.webmanifest',
   'styles/main.css',
-  'scripts/app.js',
+  'scripts/app.js?v=20240911',
   'assets/logo.png',
   'assets/background.png',
   'assets/background1.png',
