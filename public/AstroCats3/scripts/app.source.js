@@ -7301,7 +7301,11 @@ const LOADOUTS_MANAGED_EXTERNALLY = true;
             };
 
             try {
-                const track = typeof globalThis !== 'undefined' ? globalThis.SEASON_PASS_TRACK : undefined;
+                let track = undefined;
+                if (typeof globalThis !== 'undefined') {
+                    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'SEASON_PASS_TRACK');
+                    track = descriptor && descriptor.value;
+                }
                 if (typeof track !== 'undefined') {
                     baseState.seasonPass = { track };
                 }
