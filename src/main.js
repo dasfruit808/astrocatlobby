@@ -415,10 +415,184 @@ function computeMiniGameOrigin(entryPoint = miniGameEntryPoint) {
   }
 }
 
-function updateMiniGameEntryPointTargets(entry = miniGameEntryPoint) {
-  if (miniGameOverlayState?.frame) {
-    miniGameOverlayState.frame.src = entry;
+const inlineMiniGameEntryCache = new Map();
+const inlineMiniGameEntryRequests = new Map();
+let inlineMiniGameEntryAssignmentToken = 0;
+
+function shouldInlineMiniGameEntry(entry) {
+  if (typeof window === "undefined" || !entry) {
+    return false;
   }
+
+  if (window.location?.protocol !== "file:") {
+    return false;
+  }
+
+  try {
+    const entryUrl = new URL(entry, window.location.href);
+    return entryUrl.protocol === "file:";
+  } catch (error) {
+    if (typeof console !== "undefined" && error) {
+      console.warn("Failed to parse mini game entry for inline fallback.", error);
+    }
+    return false;
+  }
+}
+
+async function fetchInlineMiniGameSource(entryUrl) {
+  const urlAsString = entryUrl.toString();
+
+  if (inlineMiniGameEntryCache.has(urlAsString)) {
+    return inlineMiniGameEntryCache.get(urlAsString);
+  }
+
+  if (inlineMiniGameEntryRequests.has(urlAsString)) {
+    return inlineMiniGameEntryRequests.get(urlAsString);
+  }
+
+  const run = async () => {
+    const baseHref = new URL("./", entryUrl).href;
+
+    const injectBaseHref = (markup) => {
+      if (!markup) {
+        return "";
+      }
+
+      const baseTag = `<base href="${baseHref}">`;
+
+      if (/<base\s/i.test(markup)) {
+        return markup;
+      }
+
+      if (/<head[>\s]/i.test(markup)) {
+        return markup.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
+      }
+
+      return `${baseTag}${markup}`;
+    };
+
+    const loadViaFetch = async () => {
+      if (typeof fetch !== "function") {
+        return null;
+      }
+
+      try {
+        const response = await fetch(urlAsString, { cache: "no-store" });
+        if (response?.ok) {
+          const markup = await response.text();
+          return injectBaseHref(markup);
+        }
+      } catch (error) {
+        if (typeof console !== "undefined" && error) {
+          console.warn("Failed to fetch mini game entry for inline fallback.", error);
+        }
+      }
+
+      return null;
+    };
+
+    const loadViaXmlHttpRequest = async () => {
+      if (typeof XMLHttpRequest !== "function") {
+        return null;
+      }
+
+      try {
+        const markup = await new Promise((resolve, reject) => {
+          const request = new XMLHttpRequest();
+          request.open("GET", urlAsString, true);
+          request.responseType = "text";
+          request.overrideMimeType?.("text/html");
+          request.addEventListener("load", () => {
+            if (request.status === 0 || (request.status >= 200 && request.status < 300)) {
+              resolve(request.responseText ?? "");
+              return;
+            }
+            reject(new Error(`Unexpected status code ${request.status}`));
+          });
+          request.addEventListener("error", () => {
+            reject(new Error("Failed to load mini game entry via XMLHttpRequest."));
+          });
+          request.send();
+        });
+
+        return injectBaseHref(markup);
+      } catch (error) {
+        if (typeof console !== "undefined" && error) {
+          console.warn(
+            "Failed to retrieve mini game entry via XMLHttpRequest for inline fallback.",
+            error
+          );
+        }
+      }
+
+      return null;
+    };
+
+    const markup = (await loadViaFetch()) ?? (await loadViaXmlHttpRequest());
+
+    if (markup) {
+      inlineMiniGameEntryCache.set(urlAsString, markup);
+    }
+
+    return markup ?? "";
+  };
+
+  const request = run().finally(() => {
+    inlineMiniGameEntryRequests.delete(urlAsString);
+  });
+
+  inlineMiniGameEntryRequests.set(urlAsString, request);
+
+  return request;
+}
+
+function applyMiniGameFrameSource(entry) {
+  if (!miniGameOverlayState?.frame) {
+    return;
+  }
+
+  const frame = miniGameOverlayState.frame;
+  const requestToken = ++inlineMiniGameEntryAssignmentToken;
+
+  const applyDirectSource = () => {
+    if (inlineMiniGameEntryAssignmentToken !== requestToken) {
+      return;
+    }
+    frame.removeAttribute("srcdoc");
+    frame.src = entry;
+  };
+
+  if (!shouldInlineMiniGameEntry(entry)) {
+    applyDirectSource();
+    return;
+  }
+
+  try {
+    const entryUrl = new URL(entry, window.location.href);
+    fetchInlineMiniGameSource(entryUrl)
+      .then((markup) => {
+        if (inlineMiniGameEntryAssignmentToken !== requestToken) {
+          return;
+        }
+
+        if (markup) {
+          frame.removeAttribute("src");
+          frame.srcdoc = markup;
+        } else {
+          applyDirectSource();
+        }
+      })
+      .catch(applyDirectSource);
+  } catch (error) {
+    if (typeof console !== "undefined" && error) {
+      console.warn("Failed to resolve mini game entry URL for inline fallback.", error);
+    }
+    applyDirectSource();
+  }
+}
+
+function updateMiniGameEntryPointTargets(entry = miniGameEntryPoint) {
+  applyMiniGameFrameSource(entry);
 
   if (miniGameOverlayState?.supportLink) {
     miniGameOverlayState.supportLink.href = entry;
