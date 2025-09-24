@@ -24,6 +24,12 @@ const serviceWorkerSupported =
     typeof window !== 'undefined' &&
     'serviceWorker' in navigator &&
     typeof navigator.serviceWorker?.register === 'function';
+
+const serviceWorkerRegistrationEnabled =
+    serviceWorkerSupported &&
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
 let serviceWorkerRegistrationPromise = null;
 
 function markOfflineCapabilityReady() {
@@ -33,7 +39,7 @@ function markOfflineCapabilityReady() {
 }
 
 function registerGameServiceWorker() {
-    if (!serviceWorkerSupported) {
+    if (!serviceWorkerRegistrationEnabled) {
         return null;
     }
     if (serviceWorkerRegistrationPromise) {
@@ -60,7 +66,20 @@ function registerGameServiceWorker() {
     return serviceWorkerRegistrationPromise;
 }
 
-if (serviceWorkerSupported) {
+if (serviceWorkerSupported && !serviceWorkerRegistrationEnabled) {
+    if (typeof navigator.serviceWorker?.getRegistrations === 'function') {
+        navigator.serviceWorker
+            .getRegistrations()
+            .then((registrations) => {
+                for (const registration of registrations) {
+                    registration.unregister().catch(() => {});
+                }
+            })
+            .catch(() => {});
+    }
+}
+
+if (serviceWorkerRegistrationEnabled) {
     if (navigator.serviceWorker.controller) {
         markOfflineCapabilityReady();
     }
