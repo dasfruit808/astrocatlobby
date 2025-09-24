@@ -6373,6 +6373,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return metaProgressManager;
         }
 
+        // Skip initialization entirely when the season pass track has been
+        // disabled or failed to load. Attempting to create the manager would
+        // otherwise trigger access to the deferred season track definition and
+        // throw before it becomes available in some environments.
+        if (!seasonPassTrackRef) {
+            return null;
+        }
+
         const manager = createMetaProgressManager({
             challengeManager: getChallengeManager(),
             broadcast: broadcastMetaMessage,
