@@ -6180,9 +6180,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     ];
 
-    // Disable the season pass track to prevent initialization issues that
-    // currently block the game from loading in some environments.
-    let seasonPassTrackRef = null;
+    // Provide a minimal placeholder season track so meta progress initialisation
+    // never touches the original SEASON_PASS_TRACK constant when it is missing.
+    // This prevents a ReferenceError that previously stopped the app from
+    // booting before the real season data could load.
+    let seasonPassTrackRef = {
+        seasonId: 'season-disabled',
+        label: 'Season Pass',
+        tiers: []
+    };
 
     const CHALLENGE_DEFINITIONS = {
         daily: [
