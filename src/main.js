@@ -1639,6 +1639,31 @@ const miniGameLoadoutSlots = [
   { slot: "slotA", defaultName: "Custom Loadout A" },
   { slot: "slotB", defaultName: "Custom Loadout B" }
 ];
+const miniGameLoadoutSlotCatalog = miniGameLoadoutSlots.map((slot, index) => ({
+  slot: typeof slot.slot === "string" ? slot.slot : `slot${index + 1}`,
+  defaultName:
+    typeof slot.defaultName === "string"
+      ? slot.defaultName
+      : `Custom Loadout ${index + 1}`,
+  index
+}));
+const miniGameLoadoutSlotLookup = new Map(
+  miniGameLoadoutSlotCatalog.map((meta) => [meta.slot, meta])
+);
+
+function resolveMiniGameLoadoutSlotMeta(slotId, fallbackIndex = 0) {
+  if (slotId && miniGameLoadoutSlotLookup.has(slotId)) {
+    return miniGameLoadoutSlotLookup.get(slotId);
+  }
+
+  return (
+    miniGameLoadoutSlotCatalog[fallbackIndex] ?? {
+      slot: slotId ?? `slot${fallbackIndex + 1}`,
+      defaultName: `Custom Loadout ${fallbackIndex + 1}`,
+      index: fallbackIndex
+    }
+  );
+}
 const miniGameMaxLoadoutNameLength = 32;
 
 const miniGamePilotOptions = [
@@ -1699,8 +1724,10 @@ const miniGameStreamOptions = [
 ];
 
 function createDefaultMiniGameLoadout(slotMeta, index = 0) {
-  const fallbackSlot = slotMeta?.slot ?? `slot${index + 1}`;
-  const fallbackName = slotMeta?.defaultName ?? `Custom Loadout ${index + 1}`;
+  const resolvedMeta = resolveMiniGameLoadoutSlotMeta(slotMeta?.slot, slotMeta?.index ?? index);
+  const slotIndex = typeof resolvedMeta.index === "number" ? resolvedMeta.index : index;
+  const fallbackSlot = resolvedMeta.slot ?? `slot${slotIndex + 1}`;
+  const fallbackName = resolvedMeta.defaultName ?? `Custom Loadout ${slotIndex + 1}`;
   return {
     slot: fallbackSlot,
     name: fallbackName,
@@ -1730,13 +1757,14 @@ function sanitizeMiniGameLoadoutOption(options, candidate, fallbackId) {
 }
 
 function sanitizeMiniGameLoadout(entry, slotMeta, index) {
-  const fallback = createDefaultMiniGameLoadout(slotMeta, index);
+  const meta = resolveMiniGameLoadoutSlotMeta(slotMeta?.slot, slotMeta?.index ?? index);
+  const fallback = createDefaultMiniGameLoadout(meta, meta.index ?? index);
   if (!entry || typeof entry !== "object") {
     return { ...fallback };
   }
 
-  const slotId = slotMeta?.slot ?? fallback.slot;
-  const defaultName = slotMeta?.defaultName ?? fallback.name;
+  const slotId = meta.slot ?? fallback.slot;
+  const defaultName = meta.defaultName ?? fallback.name;
   const rawName = typeof entry.name === "string" ? entry.name.trim() : "";
   const sanitizedName = rawName
     ? rawName.slice(0, miniGameMaxLoadoutNameLength)
@@ -1769,11 +1797,11 @@ function sanitizeMiniGameLoadout(entry, slotMeta, index) {
 }
 
 function sanitizeMiniGameLoadoutsState(state) {
-  const slots = miniGameLoadoutSlots.map((slotMeta, index) => {
+  const slots = miniGameLoadoutSlotCatalog.map((slotMeta) => {
     const source = Array.isArray(state?.slots)
-      ? state.slots.find((entry) => entry && entry.slot === slotMeta.slot) ?? state.slots[index]
+      ? state.slots.find((entry) => entry && entry.slot === slotMeta.slot) ?? state.slots[slotMeta.index]
       : null;
-    return sanitizeMiniGameLoadout(source, slotMeta, index);
+    return sanitizeMiniGameLoadout(source, slotMeta, slotMeta.index);
   });
 
   const availableSlots = new Set(slots.map((entry) => entry.slot));
@@ -1833,6 +1861,21 @@ function saveMiniGameLoadoutsToStorage(state) {
     console.warn("Failed to persist mini game loadouts", error);
     return false;
   }
+}
+
+function isSameMiniGameLoadout(a, b) {
+  if (!a || !b) {
+    return false;
+  }
+
+  return (
+    a.slot === b.slot &&
+    a.name === b.name &&
+    a.characterId === b.characterId &&
+    a.weaponId === b.weaponId &&
+    a.skinId === b.skinId &&
+    a.trailId === b.trailId
+  );
 }
 
 function getMiniGameLoadoutBySlot(slots, slotId) {
@@ -4732,19 +4775,10 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
       return;
     }
     const previous = currentState.slots[index];
-    const slotMeta =
-      miniGameLoadoutSlots.find((slot) => slot.slot === previous.slot) ??
-      miniGameLoadoutSlots[index] ??
-      { slot: previous.slot };
+    const slotMeta = resolveMiniGameLoadoutSlotMeta(previous.slot, index);
     const candidate = { ...previous, ...patch };
     const sanitized = sanitizeMiniGameLoadout(candidate, slotMeta, index);
-    if (
-      sanitized.name === previous.name &&
-      sanitized.characterId === previous.characterId &&
-      sanitized.weaponId === previous.weaponId &&
-      sanitized.skinId === previous.skinId &&
-      sanitized.trailId === previous.trailId
-    ) {
+    if (isSameMiniGameLoadout(sanitized, previous)) {
       applyFormValues(previous);
       return;
     }
