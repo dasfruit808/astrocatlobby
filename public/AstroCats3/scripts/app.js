@@ -29,6 +29,7 @@ let preflightSwapWeaponButton = null;
 let openWeaponSelectButton = null;
 const weaponPatternStates = new Map();
 const weaponLoadouts = {};
+const LOADOUTS_MANAGED_EXTERNALLY = true;
 const serviceWorkerSupported = typeof window !== 'undefined' &&
     'serviceWorker' in navigator &&
     typeof ((_a = navigator.serviceWorker) === null || _a === void 0 ? void 0 : _a.register) === 'function';
@@ -3822,7 +3823,6 @@ document.addEventListener('DOMContentLoaded', () => {
         { slot: 'slotB', defaultName: 'Custom Loadout B' }
     ];
     const MAX_LOADOUT_NAME_LENGTH = 32;
-    const LOADOUTS_MANAGED_EXTERNALLY = true;
     function sanitizeLoadoutName(name, fallback) {
         const base = typeof name === 'string' ? name.trim() : '';
         if (!base) {
