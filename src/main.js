@@ -1982,6 +1982,34 @@ function applyAttributeScaling(stats, options = {}) {
   stats.mp = clamp(Math.round(newMaxMp * mpRatio), 0, newMaxMp);
   stats.attackPower = 8 + strength * 3;
   stats.speedRating = 8 + agility * 2;
+  stats.weightedLevel = calculateWeightedPlayerLevel(stats);
+}
+
+function calculateWeightedPlayerLevel(stats) {
+  if (!stats || typeof stats !== "object") {
+    return 1;
+  }
+
+  const baseLevel = Math.max(1, Math.floor(stats.level ?? 1));
+  const exp = typeof stats.exp === "number" ? stats.exp : 0;
+  const maxExp = typeof stats.maxExp === "number" ? stats.maxExp : 0;
+  const expRatio = maxExp > 0 ? clamp(exp, 0, maxExp) / maxExp : 0;
+
+  const totalPointsEarned = baseLevel * STAT_POINTS_PER_LEVEL;
+  const availablePoints = Math.max(
+    0,
+    Math.min(totalPointsEarned, stats.statPoints ?? 0)
+  );
+  const spentPoints = totalPointsEarned - availablePoints;
+  const allocationScore =
+    totalPointsEarned > 0 ? clamp(spentPoints / totalPointsEarned, 0, 1) : 0;
+
+  const xpWeight = 0.7;
+  const allocationWeight = 0.3;
+  const weightedProgress = expRatio * xpWeight + allocationScore * allocationWeight;
+  const weightedLevel = baseLevel + weightedProgress;
+
+  return Math.round(weightedLevel * 100) / 100;
 }
 
 function getExpForNextLevel(level) {
@@ -2018,7 +2046,8 @@ const playerStats = {
   statPoints: STAT_POINTS_PER_LEVEL,
   attributes: createInitialAttributeState(),
   attackPower: 0,
-  speedRating: 0
+  speedRating: 0,
+  weightedLevel: 1
 };
 
 applyAttributeScaling(playerStats, { preservePercent: true });
@@ -2219,7 +2248,8 @@ function syncMiniGameProfile() {
     level: playerStats.level,
     rank: playerStats.rank,
     exp: playerStats.exp,
-    maxExp: playerStats.maxExp
+    maxExp: playerStats.maxExp,
+    weightedLevel: playerStats.weightedLevel
   };
 
   const activeLoadout = getMiniGameLoadoutBySlot(
@@ -3996,6 +4026,7 @@ function gainExperience(amount) {
   if (levelsGained > 0) {
     applyAttributeScaling(playerStats);
   }
+  playerStats.weightedLevel = calculateWeightedPlayerLevel(playerStats);
   updateRankFromLevel();
   if (leveledUp) {
     audio.playEffect("levelUp");
@@ -4907,6 +4938,41 @@ function createInterface(stats, options = {}) {
   statsContainer.className = "stats-container";
   panel.append(statsContainer);
 
+  const statsSummary = document.createElement("div");
+  statsSummary.className = "stats-summary";
+  const statsSummaryRows = new Map();
+  const statsSummaryDefinitions = [
+    { key: "level", label: "Level", valueClass: "stats-summary__value--accent" },
+    {
+      key: "weightedLevel",
+      label: "Weighted Level",
+      valueClass: "stats-summary__value--accent"
+    },
+    { key: "rank", label: "Rank" },
+    { key: "statPoints", label: "Unspent Points" },
+    { key: "expProgress", label: "EXP Progress", fullWidth: true }
+  ];
+  for (const definition of statsSummaryDefinitions) {
+    const row = document.createElement("div");
+    row.className = "stats-summary__row";
+    if (definition.fullWidth) {
+      row.classList.add("stats-summary__row--full");
+    }
+    const label = document.createElement("span");
+    label.className = "stats-summary__label";
+    label.textContent = definition.label;
+    const value = document.createElement("span");
+    value.className = "stats-summary__value";
+    if (definition.valueClass) {
+      value.classList.add(definition.valueClass);
+    }
+    value.textContent = "—";
+    row.append(label, value);
+    statsSummary.append(row);
+    statsSummaryRows.set(definition.key, value);
+  }
+  statsContainer.append(statsSummary);
+
   const hpBar = createStatBar("HP", "linear-gradient(90deg,#ff9a9e,#ff4e50)");
   const mpBar = createStatBar("MP", "linear-gradient(90deg,#74f2ff,#4fa9ff)");
   const expBar = createStatBar("EXP", "linear-gradient(90deg,#fddb92,#d1fdff)");
@@ -5268,6 +5334,62 @@ function createInterface(stats, options = {}) {
 
   root.append(canvasWrapper, panel);
 
+  function setStatsSummaryValue(key, text) {
+    const target = statsSummaryRows.get(key);
+    if (!target) {
+      return;
+    }
+    target.textContent = text;
+  }
+
+  function formatNumberDisplay(value, decimals = 2) {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return "—";
+    }
+    const fixed = value.toFixed(decimals);
+    if (decimals <= 0) {
+      return fixed;
+    }
+    return fixed.replace(/(?:\.\d*?)0+$/, "$1").replace(/\.$/, "");
+  }
+
+  function updateStatsSummary(updatedStats) {
+    if (!updatedStats || typeof updatedStats !== "object") {
+      for (const value of statsSummaryRows.values()) {
+        value.textContent = "—";
+      }
+      return;
+    }
+
+    const baseLevel = Math.max(1, Math.floor(updatedStats.level ?? 1));
+    setStatsSummaryValue("level", baseLevel.toString());
+
+    const weightedLevel =
+      typeof updatedStats.weightedLevel === "number"
+        ? updatedStats.weightedLevel
+        : calculateWeightedPlayerLevel(updatedStats);
+    setStatsSummaryValue("weightedLevel", formatNumberDisplay(weightedLevel));
+
+    const rank = updatedStats.rank;
+    setStatsSummaryValue("rank", rank ? `${rank}` : "—");
+
+    const unspentPoints = Math.max(0, Math.floor(updatedStats.statPoints ?? 0));
+    setStatsSummaryValue("statPoints", `${unspentPoints} pts`);
+
+    const exp = typeof updatedStats.exp === "number" ? updatedStats.exp : null;
+    const maxExp = typeof updatedStats.maxExp === "number" ? updatedStats.maxExp : null;
+    if (exp !== null && maxExp !== null && maxExp > 0) {
+      const clampedExp = clamp(exp, 0, maxExp);
+      const percent = Math.round((clampedExp / maxExp) * 100);
+      setStatsSummaryValue(
+        "expProgress",
+        `${Math.round(clampedExp)} / ${Math.round(maxExp)} (${percent}%)`
+      );
+    } else {
+      setStatsSummaryValue("expProgress", "—");
+    }
+  }
+
   function updateAttributeInterface(updatedStats) {
     const availablePoints = Math.max(0, updatedStats.statPoints ?? 0);
     statPointsBadge.textContent =
@@ -5325,11 +5447,13 @@ function createInterface(stats, options = {}) {
     updateBar(mpBar, stats.mp, stats.maxMp);
     updateAttributeInterface(stats);
     updateDerivedStatsInterface(stats);
+    updateStatsSummary(stats);
     syncMiniGameProfile();
   }
 
   updateAttributeInterface(stats);
   updateDerivedStatsInterface(stats);
+  updateStatsSummary(stats);
 
   return {
     root,
@@ -5351,6 +5475,7 @@ function createInterface(stats, options = {}) {
       updateBar(expBar, updatedStats.exp, updatedStats.maxExp);
       updateAttributeInterface(updatedStats);
       updateDerivedStatsInterface(updatedStats);
+      updateStatsSummary(updatedStats);
       const portalCleared = updatedStats.level >= portalLevelRequirement;
       missionRequirement.classList.toggle("is-complete", portalCleared);
       if (portalCleared) {
