@@ -14396,12 +14396,46 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const activeBoosts = powerUpTypes
             .filter((type) => isPowerUpActive(type))
-            .map((type) => `${powerUpLabels[type]} ${(state.powerUpTimers[type] / 1000).toFixed(1)}s`);
-        const powerUpText = activeBoosts.length ? activeBoosts.join(' | ') : 'None';
+            .map((type) => {
+            const label = powerUpLabels[type];
+            const remainingSeconds = Math.max(0, state.powerUpTimers[type] / 1000);
+            return {
+                label,
+                remainingSeconds,
+                formatted: `${label} ${remainingSeconds.toFixed(1)}s`
+            };
+        });
+        const powerUpText = activeBoosts.length
+            ? activeBoosts.map((entry) => entry.formatted).join(' | ')
+            : 'None';
         if (powerUpText !== hudCache.powerUps) {
             hudCache.powerUps = powerUpText;
             if (powerUpsEl) {
-                powerUpsEl.textContent = powerUpText;
+                if (!activeBoosts.length) {
+                    powerUpsEl.textContent = 'None';
+                    powerUpsEl.classList.add('power-up-list--empty');
+                    powerUpsEl.setAttribute('aria-label', 'No boosts active');
+                    powerUpsEl.removeAttribute('data-count');
+                }
+                else {
+                    powerUpsEl.classList.remove('power-up-list--empty');
+                    powerUpsEl.textContent = '';
+                    powerUpsEl.setAttribute('aria-label', 'Active boosts');
+                    powerUpsEl.setAttribute('data-count', String(activeBoosts.length));
+                    for (const boost of activeBoosts) {
+                        const pill = document.createElement('span');
+                        pill.className = 'power-up-pill';
+                        pill.setAttribute('role', 'listitem');
+                        const labelEl = document.createElement('span');
+                        labelEl.className = 'power-up-pill__label';
+                        labelEl.textContent = boost.label;
+                        const timerEl = document.createElement('span');
+                        timerEl.className = 'power-up-pill__timer';
+                        timerEl.textContent = `${boost.remainingSeconds.toFixed(1)}s`;
+                        pill.append(labelEl, timerEl);
+                        powerUpsEl.appendChild(pill);
+                    }
+                }
             }
         }
     }
