@@ -101,6 +101,11 @@ body.is-scroll-locked {
   gap: 10px;
 }
 
+.site-toolbar__brand-text {
+  display: inline-flex;
+  align-items: center;
+}
+
 .site-toolbar__brand::before {
   content: "★";
   font-size: 1.1rem;
@@ -109,6 +114,21 @@ body.is-scroll-locked {
     0 0 6px rgba(255, 255, 255, 0.9),
     0 3px 0 rgba(47, 71, 255, 0.45);
   transform: rotate(-12deg);
+}
+
+.site-toolbar__brand--has-image::before {
+  display: none;
+}
+
+.site-toolbar__brand-image {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: contain;
+  box-shadow:
+    0 4px 10px rgba(28, 18, 64, 0.35),
+    inset 0 1px 2px rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.75);
 }
 
 .site-toolbar__tagline {
