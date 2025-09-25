@@ -111,7 +111,6 @@
             <button type="button" class="instruction-button" data-panel-target="stats">Flight Status</button>
             <button type="button" class="instruction-button" data-panel-target="missionCard">Mission</button>
             <button type="button" class="instruction-button" data-panel-target="intelCard">Intel</button>
-            <button type="button" class="instruction-button" data-panel-target="loadoutCard">Loadout</button>
         </div>
         <div id="instructionPanels" hidden aria-hidden="true">
             <section id="stats" class="info-panel telemetry-panel" role="complementary" aria-live="polite">
@@ -305,17 +304,6 @@
                     <ul class="intel-log" id="intelLog" role="list" aria-live="polite"></ul>
                 </div>
             </section>
-            <section class="hud-card info-panel" id="loadoutCard" aria-labelledby="loadoutCardTitle">
-                <h2 class="card-title" id="loadoutCardTitle">Custom Loadouts</h2>
-                <div class="card-body">
-                    <p class="custom-loadout-description">
-                        Loadouts are now configured from the Astrocat Lobby. Review the presets you saved there before launch and hop in when you are ready.
-                    </p>
-                    <div class="custom-loadout-section" id="customLoadoutSection" aria-live="polite">
-                        <div class="custom-loadout-grid" data-loadout-grid role="list"></div>
-                    </div>
-                </div>
-            </section>
         </div>
         <div
             id="infoModal"
@@ -390,7 +378,7 @@
             <div id="pilotPreview" aria-live="polite">
                 <div class="pilot-preview-header">
                     <h2>Custom Loadouts</h2>
-                    <p id="pilotPreviewDescription">Equip one of your saved presets instantly before launch. Manage the presets in the Custom Loadouts panel below.</p>
+                    <p id="pilotPreviewDescription">Equip one of your saved presets instantly before launch. Manage your presets from the Astrocat Lobby before stepping into the Starcade.</p>
                 </div>
                 <div id="pilotPreviewGrid" class="pilot-preview-grid" role="list"></div>
             </div>

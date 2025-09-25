@@ -2794,7 +2794,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pilotPreviewDescription = document.getElementById('pilotPreviewDescription');
     const defaultPilotPreviewDescription =
         (pilotPreviewDescription?.textContent ?? '').trim() ||
-        'Presets sync from the Astrocat Lobby. Launch once you are happy with the lobby selection.';
+        'Equip one of your saved presets instantly before launch. Manage your presets from the Astrocat Lobby before stepping into the Starcade.';
     const loadoutCreationPromptText =
         'Loadouts are managed in the Astrocat Lobby. Equip a preset there before launch.';
     const shareButton = document.getElementById('shareButton');

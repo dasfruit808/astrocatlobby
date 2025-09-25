@@ -2172,7 +2172,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         if (pilotExpEl) {
-            if (Number.isFinite(pilotProgressState.exp) && Number.isFinite(pilotProgressState.maxExp) && pilotProgressState.maxExp > 0) {
+            if (Number.isFinite(pilotProgressState.exp) &&
+                Number.isFinite(pilotProgressState.maxExp) &&
+                pilotProgressState.maxExp > 0) {
                 const expValue = Math.max(0, Math.floor(pilotProgressState.exp));
                 const maxValue = Math.max(0, Math.floor(pilotProgressState.maxExp));
                 pilotExpEl.textContent = `${expValue.toLocaleString()} / ${maxValue.toLocaleString()}`;
@@ -2567,7 +2569,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pilotPreviewGrid = document.getElementById('pilotPreviewGrid');
     const pilotPreviewDescription = document.getElementById('pilotPreviewDescription');
     const defaultPilotPreviewDescription = ((_l = pilotPreviewDescription === null || pilotPreviewDescription === void 0 ? void 0 : pilotPreviewDescription.textContent) !== null && _l !== void 0 ? _l : '').trim() ||
-        'Presets sync from the Astrocat Lobby. Launch once you are happy with the lobby selection.';
+        'Equip one of your saved presets instantly before launch. Manage your presets from the Astrocat Lobby before stepping into the Starcade.';
     const loadoutCreationPromptText = 'Loadouts are managed in the Astrocat Lobby. Equip a preset there before launch.';
     const shareButton = document.getElementById('shareButton');
     const shareStatusEl = document.getElementById('shareStatus');
