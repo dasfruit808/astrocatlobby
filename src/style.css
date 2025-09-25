@@ -733,6 +733,7 @@ body.is-scroll-locked {
   color: rgba(229, 235, 255, 0.72);
   font-weight: 500;
   font-size: 14px;
+  overflow-wrap: anywhere;
 }
 
 .stats-container {
@@ -758,6 +759,7 @@ body.is-scroll-locked {
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
+  min-width: 0;
 }
 
 .stats-summary__row--full {
@@ -769,6 +771,9 @@ body.is-scroll-locked {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(230, 235, 255, 0.55);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .stats-summary__value {
@@ -776,6 +781,10 @@ body.is-scroll-locked {
   font-weight: 600;
   color: #f7f8ff;
   font-variant-numeric: tabular-nums;
+  flex: 0 1 auto;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .stats-summary__value--accent {
@@ -1639,6 +1648,7 @@ body.is-scroll-locked {
   font-size: 15px;
   font-weight: 600;
   color: #8abfff;
+  overflow-wrap: anywhere;
 }
 
 .account-card__cat-name {
@@ -1647,12 +1657,14 @@ body.is-scroll-locked {
   font-weight: 600;
   color: #ffffff;
   letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
 }
 
 .account-card__starter {
   display: flex;
   gap: 18px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .account-card__starter-image {
@@ -1669,18 +1681,22 @@ body.is-scroll-locked {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1 1 160px;
+  min-width: 0;
 }
 
 .account-card__starter-name {
   font-weight: 600;
   font-size: 15px;
   color: #e7ecff;
+  overflow-wrap: anywhere;
 }
 
 .account-card__starter-tagline {
   font-size: 13px;
   color: rgba(225, 232, 255, 0.7);
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .account-card__actions {
