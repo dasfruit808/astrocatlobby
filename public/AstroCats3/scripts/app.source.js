@@ -20,6 +20,8 @@ const weaponPatternStates = new Map();
 
 const weaponLoadouts = {};
 
+const LOADOUTS_MANAGED_EXTERNALLY = true;
+
 const serviceWorkerSupported =
     typeof window !== 'undefined' &&
     'serviceWorker' in navigator &&
@@ -4211,7 +4213,6 @@ const CUSTOM_LOADOUT_SLOTS = [
     { slot: 'slotB', defaultName: 'Custom Loadout B' }
 ];
 const MAX_LOADOUT_NAME_LENGTH = 32;
-const LOADOUTS_MANAGED_EXTERNALLY = true;
 
     function sanitizeLoadoutName(name, fallback) {
         const base = typeof name === 'string' ? name.trim() : '';
