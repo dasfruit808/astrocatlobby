@@ -1660,27 +1660,100 @@ function resolveMiniGameLoadoutSlotMeta(slotId, fallbackIndex = 0) {
 }
 const miniGameMaxLoadoutNameLength = 32;
 
+function resolvePanelSpriteAsset(relativePath) {
+  const assetPath = `./assets/${relativePath}`;
+
+  if (assetManifest && typeof assetManifest === "object") {
+    const resolved = assetManifest[assetPath];
+    if (typeof resolved === "string" && resolved) {
+      return resolved;
+    }
+  }
+
+  try {
+    return new URL(assetPath, import.meta.url).href;
+  } catch (error) {
+    if (typeof console !== "undefined" && error) {
+      console.warn(`Failed to resolve loadout art at ${assetPath}`, error);
+    }
+  }
+
+  return "";
+}
+
+function createSvgDataUrl(svgMarkup) {
+  if (typeof svgMarkup !== "string" || !svgMarkup.trim()) {
+    return "";
+  }
+
+  const compact = svgMarkup
+    .replace(/\s{2,}/g, " ")
+    .replace(/>\s+</g, "><")
+    .trim();
+  return `data:image/svg+xml,${encodeURIComponent(compact)}`;
+}
+
+function createWeaponBadgeImage(id, palette) {
+  if (!id || !palette) {
+    return "";
+  }
+
+  const gradientId = `weapon-gradient-${id}`;
+  const glowId = `weapon-glow-${id}`;
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" role="img" aria-hidden="true">
+      <defs>
+        <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${palette.backgroundStart}" />
+          <stop offset="100%" stop-color="${palette.backgroundEnd}" />
+        </linearGradient>
+        <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="glow" />
+          <feMerge>
+            <feMergeNode in="glow" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <rect x="4" y="4" width="152" height="112" rx="22" fill="url(#${gradientId})" opacity="0.95" />
+      <rect x="10" y="10" width="140" height="100" rx="18" fill="${palette.innerBackground}" opacity="0.6" />
+      <g filter="url(#${glowId})">
+        <path d="M26 72 L120 34 C134 44 138 78 122 88 L30 106 Z" fill="${palette.beam}" opacity="0.9" />
+        <path d="M38 64 C66 46 104 46 128 62 L128 78 C96 92 64 92 36 78 Z" fill="${palette.wave}" opacity="0.85" />
+        <circle cx="46" cy="72" r="14" fill="${palette.core}" />
+        <circle cx="116" cy="60" r="10" fill="${palette.focus}" />
+        <path d="M40 86 C68 98 102 100 130 92" stroke="${palette.trace}" stroke-width="6" stroke-linecap="round" opacity="0.6" />
+      </g>
+    </svg>
+  `;
+
+  return createSvgDataUrl(svg);
+}
+
 const miniGamePilotOptions = [
   {
     id: "nova",
     name: "Nova",
     role: "Squad Vanguard",
     summary:
-      "Balanced thrusters and pinpoint instincts keep Nova stable during any sortie."
+      "Balanced thrusters and pinpoint instincts keep Nova stable during any sortie.",
+    image: resolvePanelSpriteAsset("playersprite1.png")
   },
   {
     id: "aurora",
     name: "Aurora",
     role: "Skystreak Ace",
     summary:
-      "Aurora’s tuned reactors favour evasive manoeuvres and quick recoveries through dense fields."
+      "Aurora’s tuned reactors favour evasive manoeuvres and quick recoveries through dense fields.",
+    image: resolvePanelSpriteAsset("playersprite2.png")
   },
   {
     id: "ember",
     name: "Ember",
     role: "Siegebreak Specialist",
     summary:
-      "Ember channels heavier ordinance to crack shielded foes when the pressure spikes."
+      "Ember channels heavier ordinance to crack shielded foes when the pressure spikes.",
+    image: resolvePanelSpriteAsset("playersprite3.png")
   }
 ];
 
@@ -1688,17 +1761,50 @@ const miniGameWeaponOptions = [
   {
     id: "pulse",
     name: "Pulse Array",
-    summary: "Reliable dual-phase cannons engineered for steady clears."
+    summary: "Reliable dual-phase cannons engineered for steady clears.",
+    classification: "Balanced burst",
+    image: createWeaponBadgeImage("pulse", {
+      backgroundStart: "#6ac9ff",
+      backgroundEnd: "#2a5bff",
+      innerBackground: "#09102a",
+      beam: "#ffffff",
+      wave: "#7fd4ff",
+      core: "#ffccff",
+      focus: "#ffe9a8",
+      trace: "#91f1ff"
+    })
   },
   {
     id: "scatter",
     name: "Scatter Volley",
-    summary: "Triple-shot volley that carpets the lane with plasma."
+    summary: "Triple-shot volley that carpets the lane with plasma.",
+    classification: "Lane control",
+    image: createWeaponBadgeImage("scatter", {
+      backgroundStart: "#ff9cdc",
+      backgroundEnd: "#ffb36b",
+      innerBackground: "#230d2c",
+      beam: "#ffe5f6",
+      wave: "#ffcf99",
+      core: "#fffae1",
+      focus: "#ffb2f7",
+      trace: "#ffd8ff"
+    })
   },
   {
     id: "lance",
     name: "Photon Lance",
-    summary: "Charged spear shot that pierces heavy armour and bosses."
+    summary: "Charged spear shot that pierces heavy armour and bosses.",
+    classification: "Armor breaker",
+    image: createWeaponBadgeImage("lance", {
+      backgroundStart: "#b998ff",
+      backgroundEnd: "#4732ff",
+      innerBackground: "#140c2e",
+      beam: "#f2ebff",
+      wave: "#9ba8ff",
+      core: "#ffd080",
+      focus: "#fffbf2",
+      trace: "#c8f0ff"
+    })
   }
 ];
 
@@ -4497,6 +4603,46 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
     return field;
   }
 
+  function createPreviewItem(labelText, modifier) {
+    const item = document.createElement("article");
+    item.className = `loadout-preview__item loadout-preview__item--${modifier}`;
+
+    const label = document.createElement("p");
+    label.className = "loadout-preview__label";
+    label.textContent = labelText;
+
+    const media = document.createElement("div");
+    media.className = "loadout-preview__media";
+
+    const image = document.createElement("img");
+    image.className = "loadout-preview__image";
+    image.alt = "";
+    image.decoding = "async";
+    image.loading = "lazy";
+    media.append(image);
+
+    const name = document.createElement("h3");
+    name.className = "loadout-preview__name";
+
+    const meta = document.createElement("p");
+    meta.className = "loadout-preview__meta";
+    meta.hidden = true;
+
+    const summaryBlurb = document.createElement("p");
+    summaryBlurb.className = "loadout-preview__summary";
+    summaryBlurb.hidden = true;
+
+    item.append(label, media, name, meta, summaryBlurb);
+
+    return {
+      root: item,
+      image,
+      name,
+      meta,
+      summary: summaryBlurb
+    };
+  }
+
   const slotSelect = document.createElement("select");
   slotSelect.className = "loadout-panel__select";
   slotSelect.id = `miniGameLoadoutSlot-${idSuffix}`;
@@ -4560,6 +4706,13 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
   }
   const streamField = createField("Stream", streamSelect);
   form.append(streamField);
+
+  const previewContainer = document.createElement("div");
+  previewContainer.className = "loadout-preview";
+  const pilotPreview = createPreviewItem("Pilot visual", "pilot");
+  const weaponPreview = createPreviewItem("Weapon profile", "weapon");
+  previewContainer.append(pilotPreview.root, weaponPreview.root);
+  form.append(previewContainer);
 
   const summary = document.createElement("div");
   summary.className = "loadout-summary";
@@ -4651,6 +4804,79 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
     }
   }
 
+  function applyPreview(display, entry, options = {}) {
+    if (!display) {
+      return;
+    }
+
+    const {
+      root: previewRoot,
+      image,
+      name,
+      meta,
+      summary: summaryBlurb
+    } = display;
+
+    const {
+      fallbackName = "Select a preset",
+      altPrefix = "",
+      metaKey = "",
+      summaryKey = "summary"
+    } = options;
+
+    if (entry) {
+      name.textContent = entry.name ?? fallbackName;
+      name.hidden = false;
+
+      const metaValue = metaKey ? entry[metaKey] ?? "" : "";
+      meta.textContent = metaValue;
+      meta.hidden = !metaValue;
+
+      const summaryValue = summaryKey ? entry[summaryKey] ?? "" : "";
+      summaryBlurb.textContent = summaryValue;
+      summaryBlurb.hidden = !summaryValue;
+
+      const hasImage = typeof entry.image === "string" && entry.image;
+      if (hasImage) {
+        image.src = entry.image;
+        const altName = entry.name ?? fallbackName;
+        image.alt = altPrefix ? `${altPrefix} ${altName}`.trim() : altName ?? "";
+        image.hidden = false;
+      } else {
+        image.removeAttribute("src");
+        image.alt = "";
+        image.hidden = true;
+      }
+
+      previewRoot.classList.toggle("is-empty", !hasImage);
+      return;
+    }
+
+    name.textContent = fallbackName;
+    name.hidden = false;
+    meta.textContent = "";
+    meta.hidden = true;
+    summaryBlurb.textContent = "";
+    summaryBlurb.hidden = true;
+    image.removeAttribute("src");
+    image.alt = "";
+    image.hidden = true;
+    previewRoot.classList.add("is-empty");
+  }
+
+  function updatePreviewDisplays(pilot, weapon) {
+    applyPreview(pilotPreview, pilot, {
+      fallbackName: "Select a pilot",
+      altPrefix: "Pilot portrait for",
+      metaKey: "role"
+    });
+    applyPreview(weaponPreview, weapon, {
+      fallbackName: "Select a weapon",
+      altPrefix: "Weapon hologram for",
+      metaKey: "classification"
+    });
+  }
+
   function rebuildSlotOptions() {
     slotSelect.innerHTML = "";
     for (const entry of currentState.slots) {
@@ -4727,6 +4953,8 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
 
     summaryValues.suit.textContent = suit ? suit.name : "—";
     summaryValues.stream.textContent = stream ? stream.name : "—";
+
+    updatePreviewDisplays(pilot, weapon);
   }
 
   function applyFormValues(loadout) {
