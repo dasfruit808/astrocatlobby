@@ -2309,6 +2309,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const mcapEl = document.getElementById('mcap');
     const volEl = document.getElementById('vol');
     const powerUpsEl = document.getElementById('powerUps');
+    const pilotLevelEl = document.getElementById('pilotLevel');
+    const pilotExpEl = document.getElementById('pilotExp');
     const comboFillEl = document.getElementById('comboFill');
     const comboMeterEl = document.getElementById('comboMeter');
     const joystickZone = document.getElementById('joystickZone');
@@ -2323,6 +2325,62 @@ document.addEventListener('DOMContentLoaded', () => {
             ratio: debugOverlayEl.querySelector('[data-debug-line="ratio"]')
         }
         : {};
+
+    const pilotProgressState = {
+        level: null,
+        exp: null,
+        maxExp: null,
+        rank: null
+    };
+
+    function syncPilotTelemetry() {
+        if (pilotLevelEl) {
+            if (Number.isFinite(pilotProgressState.level)) {
+                const levelText = `Level ${pilotProgressState.level}`;
+                pilotLevelEl.textContent = pilotProgressState.rank
+                    ? `${levelText} — ${pilotProgressState.rank}`
+                    : levelText;
+            } else {
+                pilotLevelEl.textContent = '—';
+            }
+        }
+
+        if (pilotExpEl) {
+            if (
+                Number.isFinite(pilotProgressState.exp) &&
+                Number.isFinite(pilotProgressState.maxExp) &&
+                pilotProgressState.maxExp > 0
+            ) {
+                const expValue = Math.max(0, Math.floor(pilotProgressState.exp));
+                const maxValue = Math.max(0, Math.floor(pilotProgressState.maxExp));
+                pilotExpEl.textContent = `${expValue.toLocaleString()} / ${maxValue.toLocaleString()}`;
+            } else {
+                pilotExpEl.textContent = '—';
+            }
+        }
+    }
+
+    function applySharedProfile(partial = {}) {
+        if (partial && typeof partial === 'object') {
+            if (Number.isFinite(partial.level)) {
+                pilotProgressState.level = Math.max(1, Math.floor(partial.level));
+            }
+            if (Number.isFinite(partial.exp)) {
+                pilotProgressState.exp = Math.max(0, partial.exp);
+            }
+            if (Number.isFinite(partial.maxExp)) {
+                pilotProgressState.maxExp = Math.max(0, partial.maxExp);
+            }
+            if (typeof partial.rank === 'string') {
+                const trimmedRank = partial.rank.trim();
+                pilotProgressState.rank = trimmedRank.length ? trimmedRank : null;
+            }
+        }
+
+        syncPilotTelemetry();
+    }
+
+    applySharedProfile();
 
     const overlay = document.getElementById('overlay');
     const overlayMessage = document.getElementById('overlayMessage');
@@ -8077,6 +8135,27 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
         }
         if (typeof data.playerName === 'string') {
             updatePlayerName(data.playerName);
+        }
+        const profileUpdate = {};
+        let hasUpdate = false;
+        if (Number.isFinite(data.level)) {
+            profileUpdate.level = data.level;
+            hasUpdate = true;
+        }
+        if (Number.isFinite(data.exp)) {
+            profileUpdate.exp = data.exp;
+            hasUpdate = true;
+        }
+        if (Number.isFinite(data.maxExp)) {
+            profileUpdate.maxExp = data.maxExp;
+            hasUpdate = true;
+        }
+        if (typeof data.rank === 'string') {
+            profileUpdate.rank = data.rank;
+            hasUpdate = true;
+        }
+        if (hasUpdate) {
+            applySharedProfile(profileUpdate);
         }
         // Future profile fields (cosmetics, difficulty, etc.) can be handled here.
     });
