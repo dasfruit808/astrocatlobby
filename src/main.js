@@ -1158,12 +1158,6 @@ function createStarterSpriteDataUrl({
 }) {
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">
-      <defs>
-        <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="${highlight}" stop-opacity="0.55" />
-          <stop offset="100%" stop-color="${accent}" stop-opacity="0.35" />
-        </linearGradient>
-      </defs>
       <rect x="0" y="0" width="160" height="160" rx="28" fill="${background}" />
       <path d="M48 60 L64 22 L84 58" fill="${body}" stroke="${accent}" stroke-width="6" stroke-linejoin="round" />
       <path d="M112 58 L128 22 L144 60" fill="${body}" stroke="${accent}" stroke-width="6" stroke-linejoin="round" />
@@ -1175,7 +1169,6 @@ function createStarterSpriteDataUrl({
       <circle cx="96" cy="112" r="12" fill="${accessory}" stroke="${accent}" stroke-width="4" />
       <path d="M82 118 Q96 130 110 118" fill="none" stroke="${accessory}" stroke-width="5" stroke-linecap="round" />
       <circle cx="96" cy="106" r="5" fill="${accent}" />
-      <path d="M70 80 Q96 94 122 80" fill="url(#glow)" opacity="0.85" />
       <path d="M88 118 Q88 128 78 132" stroke="${accent}" stroke-width="4" stroke-linecap="round" fill="none" />
       <path d="M104 118 Q104 128 114 132" stroke="${accent}" stroke-width="4" stroke-linecap="round" fill="none" />
     </svg>
