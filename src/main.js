@@ -299,6 +299,7 @@ const baseCanvasHeight = 540;
 // the gradient page backdrop.
 
 const customPageBackgroundUrl = resolvePublicAssetUrl("webpagebackground.png");
+const toolbarBrandImageUrl = resolvePublicAssetUrl("toolbar-brand.png");
 let customBackgroundAvailabilityProbe = null;
 
 function shouldUseCustomPageBackground() {
@@ -5595,6 +5596,41 @@ function createInterface(stats, options = {}) {
     }
   };
 
+  function attachToolbarBrandImage(brandLink) {
+    if (!brandLink || !toolbarBrandImageUrl) {
+      return null;
+    }
+
+    const image = document.createElement("img");
+    image.className = "site-toolbar__brand-image";
+    image.alt = "";
+    image.setAttribute("aria-hidden", "true");
+    image.decoding = "async";
+    image.loading = "lazy";
+    image.hidden = true;
+
+    const handleLoad = () => {
+      image.hidden = false;
+      brandLink.classList.add("site-toolbar__brand--has-image");
+      image.removeEventListener("load", handleLoad);
+      image.removeEventListener("error", handleError);
+    };
+
+    const handleError = () => {
+      brandLink.classList.remove("site-toolbar__brand--has-image");
+      image.removeEventListener("load", handleLoad);
+      image.removeEventListener("error", handleError);
+      image.remove();
+    };
+
+    image.addEventListener("load", handleLoad);
+    image.addEventListener("error", handleError);
+    image.src = toolbarBrandImageUrl;
+    brandLink.prepend(image);
+
+    return image;
+  }
+
   function createToolbar() {
     const header = document.createElement("header");
     header.className = "site-toolbar";
@@ -5608,11 +5644,17 @@ function createInterface(stats, options = {}) {
     const brandLink = document.createElement("a");
     brandLink.className = "site-toolbar__brand";
     brandLink.href = "#app";
-    brandLink.textContent = "Astrocat Lobby";
     brandLink.setAttribute(
       "aria-label",
       "Return to the top of the Astrocat Lobby"
     );
+
+    const brandText = document.createElement("span");
+    brandText.className = "site-toolbar__brand-text";
+    brandText.textContent = "Astrocat Lobby";
+    brandLink.append(brandText);
+
+    attachToolbarBrandImage(brandLink);
 
     const tagline = document.createElement("span");
     tagline.className = "site-toolbar__tagline";
