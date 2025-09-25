@@ -641,7 +641,8 @@ canvas {
 
 #stats .stat-list {
     display: grid;
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: clamp(12px, 2vw, 18px);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -649,17 +650,112 @@ canvas {
 
 #stats .stat-row {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 16px;
-    color: rgba(226, 232, 240, 0.9);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: clamp(12px, 2.2vw, 18px);
+    border-radius: 16px;
+    background: linear-gradient(150deg, rgba(15, 23, 42, 0.82), rgba(12, 19, 35, 0.72));
+    border: 1px solid rgba(94, 234, 212, 0.08);
+    box-shadow:
+        0 12px 24px rgba(2, 6, 23, 0.45),
+        inset 0 0 0 1px rgba(148, 163, 184, 0.12);
+    color: rgba(226, 232, 240, 0.92);
+    backdrop-filter: blur(8px);
+    min-height: clamp(80px, 14vh, 112px);
 }
 
 #stats .stat-label {
-    font-size: 0.68rem;
+    font-size: 0.66rem;
     text-transform: uppercase;
-    letter-spacing: 0.16em;
-    color: rgba(148, 163, 184, 0.85);
+    letter-spacing: 0.18em;
+    color: rgba(148, 163, 184, 0.78);
+}
+
+#stats .stat-row .value {
+    font-size: clamp(1.1rem, 2.5vw, 1.45rem);
+    font-weight: 700;
+    color: #ffe082;
+    letter-spacing: 0.04em;
+    display: block;
+    width: 100%;
+    text-align: left;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+#stats .power-up-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: flex-start;
+    padding-top: 6px;
+}
+
+#stats .power-up-list.power-up-list--empty {
+    display: block;
+    padding-top: 0;
+    color: rgba(226, 232, 240, 0.64);
+}
+
+#stats .power-up-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(13, 148, 136, 0.25), rgba(14, 165, 233, 0.18));
+    border: 1px solid rgba(125, 211, 252, 0.28);
+    color: rgba(224, 242, 254, 0.95);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    box-shadow: 0 10px 22px rgba(14, 165, 233, 0.18);
+    backdrop-filter: blur(4px);
+    line-height: 1.1;
+}
+
+#stats .power-up-pill__label {
+    font-weight: 600;
+}
+
+#stats .power-up-pill__timer {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.7rem;
+    color: #fef3c7;
+}
+
+#stats .stat-row .value small {
+    display: block;
+    font-size: 0.72rem;
+    color: rgba(226, 232, 240, 0.72);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-top: 4px;
+}
+
+#stats .stat-row[data-compact] {
+    min-height: auto;
+}
+
+@media (max-width: 720px) {
+    #stats .stat-list {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: clamp(10px, 3vw, 16px);
+    }
+
+    #stats .stat-row {
+        padding: clamp(10px, 4vw, 16px);
+        min-height: auto;
+    }
+
+    #stats .stat-row .value {
+        font-size: clamp(1rem, 4.8vw, 1.28rem);
+    }
+
+    #stats .power-up-list {
+        gap: 6px;
+    }
 }
 
 #survivalTimer {
