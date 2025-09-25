@@ -4883,6 +4883,16 @@ function createInterface(stats, options = {}) {
   const root = document.createElement("div");
   root.className = "game-root";
 
+  const interfaceRoot = document.createElement("div");
+  interfaceRoot.className = "lobby-shell";
+
+  const toolbar = createToolbar();
+  const toolbarContent = document.createElement("div");
+  toolbarContent.className = "lobby-shell__content";
+  toolbarContent.append(root);
+
+  interfaceRoot.append(toolbar, toolbarContent);
+
   const canvasWrapper = document.createElement("div");
   canvasWrapper.className = "canvas-wrapper";
 
@@ -4895,6 +4905,7 @@ function createInterface(stats, options = {}) {
 
   const panel = document.createElement("aside");
   panel.className = "stats-panel";
+  panel.id = "about";
 
   const title = document.createElement("h1");
   title.textContent = "Astrocat Lobby";
@@ -5483,7 +5494,7 @@ function createInterface(stats, options = {}) {
   updateStatsSummary(stats);
 
   return {
-    root,
+    root: interfaceRoot,
     canvasWrapper,
     canvasSurface,
     promptText: "",
@@ -5568,6 +5579,68 @@ function createInterface(stats, options = {}) {
       chatBoard.addMessage(entry);
     }
   };
+
+  function createToolbar() {
+    const header = document.createElement("header");
+    header.className = "site-toolbar";
+
+    const inner = document.createElement("div");
+    inner.className = "site-toolbar__inner";
+
+    const brandGroup = document.createElement("div");
+    brandGroup.className = "site-toolbar__brand-group";
+
+    const brandLink = document.createElement("a");
+    brandLink.className = "site-toolbar__brand";
+    brandLink.href = "#app";
+    brandLink.textContent = "Astrocat Lobby";
+    brandLink.setAttribute(
+      "aria-label",
+      "Return to the top of the Astrocat Lobby"
+    );
+
+    const tagline = document.createElement("span");
+    tagline.className = "site-toolbar__tagline";
+    tagline.textContent = "Launch into adventure";
+
+    brandGroup.append(brandLink, tagline);
+
+    const nav = document.createElement("nav");
+    nav.className = "site-toolbar__nav";
+
+    const list = document.createElement("ul");
+    list.className = "site-toolbar__list";
+
+    const links = [
+      { label: "X.com", href: "https://x.com", external: true },
+      { label: "Medium", href: "https://medium.com", external: true },
+      { label: "About", href: "#about", external: false }
+    ];
+
+    for (const linkDefinition of links) {
+      const item = document.createElement("li");
+      item.className = "site-toolbar__item";
+
+      const link = document.createElement("a");
+      link.className = "site-toolbar__link";
+      link.href = linkDefinition.href;
+      link.textContent = linkDefinition.label;
+
+      if (linkDefinition.external) {
+        link.target = "_blank";
+        link.rel = "noreferrer noopener";
+      }
+
+      item.append(link);
+      list.append(item);
+    }
+
+    nav.append(list);
+    inner.append(brandGroup, nav);
+    header.append(inner);
+
+    return header;
+  }
 
   function createChatBoardSection() {
     const section = document.createElement("section");
