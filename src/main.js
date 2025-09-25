@@ -5363,11 +5363,26 @@ function createInterface(stats, options = {}) {
 
   const instructions = document.createElement("ul");
   instructions.className = "instruction-list";
-  instructions.innerHTML = `
-    <li>Move with A/D or ←/→</li>
-    <li>Jump with Space or W/↑</li>
-    <li>Press E near objects to interact</li>
-  `;
+  const instructionItems = [
+    { action: "Move", keys: "A/D or ←/→" },
+    { action: "Jump", keys: "Space or W/↑" },
+    { action: "Interact", keys: "E (near objects)" }
+  ];
+  for (const entry of instructionItems) {
+    const item = document.createElement("li");
+    item.className = "instruction-list__item";
+
+    const action = document.createElement("span");
+    action.className = "instruction-list__action";
+    action.textContent = entry.action;
+
+    const keys = document.createElement("span");
+    keys.className = "instruction-list__keys";
+    keys.textContent = entry.keys;
+
+    item.append(action, keys);
+    instructions.append(item);
+  }
   panel.append(instructions);
 
   root.append(canvasWrapper, panel);
