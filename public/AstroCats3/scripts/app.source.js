@@ -2311,6 +2311,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const powerUpsEl = document.getElementById('powerUps');
     const pilotLevelEl = document.getElementById('pilotLevel');
     const pilotExpEl = document.getElementById('pilotExp');
+    const pilotStatPointsEl = document.getElementById('pilotStatPoints');
     const comboFillEl = document.getElementById('comboFill');
     const comboMeterEl = document.getElementById('comboMeter');
     const joystickZone = document.getElementById('joystickZone');
@@ -2330,6 +2331,7 @@ document.addEventListener('DOMContentLoaded', () => {
         level: null,
         exp: null,
         maxExp: null,
+        statPoints: null,
         rank: null
     };
 
@@ -2358,6 +2360,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 pilotExpEl.textContent = '—';
             }
         }
+
+        if (pilotStatPointsEl) {
+            if (Number.isFinite(pilotProgressState.statPoints)) {
+                const clamped = Math.max(0, Math.floor(pilotProgressState.statPoints));
+                pilotStatPointsEl.textContent = `${clamped.toLocaleString()} pts`;
+            } else {
+                pilotStatPointsEl.textContent = '—';
+            }
+        }
     }
 
     function applySharedProfile(partial = {}) {
@@ -2370,6 +2381,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (Number.isFinite(partial.maxExp)) {
                 pilotProgressState.maxExp = Math.max(0, partial.maxExp);
+            }
+            if (Number.isFinite(partial.statPoints)) {
+                pilotProgressState.statPoints = Math.max(0, partial.statPoints);
             }
             if (typeof partial.rank === 'string') {
                 const trimmedRank = partial.rank.trim();
@@ -8148,6 +8162,10 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
         }
         if (Number.isFinite(data.maxExp)) {
             profileUpdate.maxExp = data.maxExp;
+            hasUpdate = true;
+        }
+        if (Number.isFinite(data.statPoints)) {
+            profileUpdate.statPoints = data.statPoints;
             hasUpdate = true;
         }
         if (typeof data.rank === 'string') {
