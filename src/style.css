@@ -811,8 +811,8 @@ body.is-scroll-locked {
 }
 
 .hud-modal {
-  width: min(680px, 100%);
-  max-height: min(88vh, 780px);
+  width: min(920px, calc(100% - 32px));
+  max-height: min(92vh, 860px);
   background: rgba(14, 22, 52, 0.96);
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -867,13 +867,14 @@ body.is-scroll-locked {
   flex: 1 1 auto;
   overflow-y: auto;
   padding-right: 6px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 24px;
+  align-content: start;
 }
 
 .hud-modal__content > * {
-  width: 100%;
+  min-width: 0;
 }
 
 @media (max-width: 720px) {
@@ -888,6 +889,12 @@ body.is-scroll-locked {
   .hud-modal {
     padding: 24px;
     border-radius: 20px;
+    width: 100%;
+    max-height: min(92vh, 760px);
+  }
+
+  .hud-modal__content {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -900,10 +907,15 @@ body.is-scroll-locked {
 }
 
 .stats-container {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 18px;
   width: 100%;
+  align-items: start;
+}
+
+.stats-container > * {
+  min-width: 0;
 }
 
 .stats-summary {
@@ -911,6 +923,7 @@ body.is-scroll-locked {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   width: 100%;
+  grid-column: 1 / -1;
 }
 
 .stats-summary__row {
@@ -961,6 +974,10 @@ body.is-scroll-locked {
 
 @media (max-width: 600px) {
   .stats-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stats-container {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -1159,6 +1176,8 @@ body.is-scroll-locked {
 .loadout-panel__form {
   display: grid;
   gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: start;
 }
 
 .loadout-panel__field {
@@ -1175,6 +1194,12 @@ body.is-scroll-locked {
 @media (min-width: 720px) {
   .loadout-preview {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .loadout-preview {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
