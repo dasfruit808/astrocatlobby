@@ -714,6 +714,7 @@ body.is-scroll-locked {
   gap: 24px;
   color: #f4f6ff;
   text-align: left;
+  box-sizing: border-box;
 }
 
 @media (max-width: 1100px) {
@@ -822,6 +823,7 @@ body.is-scroll-locked {
   flex-direction: column;
   gap: 18px;
   color: #f4f6ff;
+  box-sizing: border-box;
 }
 
 .hud-modal__header {
