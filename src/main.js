@@ -5168,7 +5168,8 @@ function createInterface(stats, options = {}) {
 
   const hudHint = document.createElement("p");
   hudHint.className = "hud-panel__hint";
-  hudHint.textContent = "Access lobby systems via the console buttons.";
+  hudHint.textContent =
+    "Your profile is displayed below. Access other lobby systems via the console buttons.";
   panel.append(hudHint);
 
   const hudButtons = document.createElement("div");
@@ -5788,12 +5789,10 @@ function createInterface(stats, options = {}) {
     instructions.append(item);
   }
 
-  registerHudPopup({
-    id: "hud-profile",
-    label: "Profile",
-    title: "Astrocat Profile",
-    nodes: [subtitle, accountCard, crystalsLabel, message]
-  });
+  const profileSection = document.createElement("section");
+  profileSection.className = "hud-panel__profile";
+  profileSection.append(subtitle, accountCard, crystalsLabel, message);
+  panel.insertBefore(profileSection, hudButtons);
 
   registerHudPopup({
     id: "hud-stats",
