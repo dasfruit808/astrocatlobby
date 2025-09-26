@@ -751,6 +751,14 @@ body.is-scroll-locked {
   width: 100%;
 }
 
+.hud-panel__profile {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin: 24px 0;
+  width: 100%;
+}
+
 .hud-panel__button {
   appearance: none;
   border: 1px solid rgba(255, 255, 255, 0.16);
