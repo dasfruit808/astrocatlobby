@@ -5147,18 +5147,25 @@ function createInterface(stats, options = {}) {
   const accountCard = document.createElement("section");
   accountCard.className = "account-card account-card--empty";
 
+  const accountHeader = document.createElement("div");
+  accountHeader.className = "account-card__header";
+
   const accountHeading = document.createElement("span");
   accountHeading.className = "account-card__title";
   accountHeading.textContent = "Your Astrocat Profile";
-  accountCard.append(accountHeading);
 
-  const accountHandle = document.createElement("p");
-  accountHandle.className = "account-card__handle";
-  accountCard.append(accountHandle);
+  const accountHandle = document.createElement("div");
+  accountHandle.className = "account-card__handle is-placeholder";
+  const accountHandleLabel = document.createElement("span");
+  accountHandleLabel.className = "account-card__handle-label";
+  accountHandleLabel.textContent = "Call sign";
+  const accountHandleValue = document.createElement("span");
+  accountHandleValue.className = "account-card__handle-value";
+  accountHandleValue.textContent = "-----";
+  accountHandle.append(accountHandleLabel, accountHandleValue);
 
-  const accountCatName = document.createElement("p");
-  accountCatName.className = "account-card__cat-name";
-  accountCard.append(accountCatName);
+  accountHeader.append(accountHeading, accountHandle);
+  accountCard.append(accountHeader);
 
   const accountStarter = document.createElement("div");
   accountStarter.className = "account-card__starter";
@@ -5167,11 +5174,14 @@ function createInterface(stats, options = {}) {
   accountStarterImage.alt = "Starter preview";
   const accountStarterInfo = document.createElement("div");
   accountStarterInfo.className = "account-card__starter-info";
+  const accountCatName = document.createElement("p");
+  accountCatName.className = "account-card__cat-name is-placeholder";
+  accountCatName.textContent = "Name your Astrocat to begin your mission.";
   const accountStarterName = document.createElement("span");
   accountStarterName.className = "account-card__starter-name";
   const accountStarterTagline = document.createElement("span");
   accountStarterTagline.className = "account-card__starter-tagline";
-  accountStarterInfo.append(accountStarterName, accountStarterTagline);
+  accountStarterInfo.append(accountCatName, accountStarterName, accountStarterTagline);
   accountStarter.append(accountStarterImage, accountStarterInfo);
   accountCard.append(accountStarter);
 
@@ -6179,8 +6189,10 @@ function createInterface(stats, options = {}) {
 
     if (!account) {
       accountCard.classList.add("account-card--empty");
-      accountHandle.textContent = "Call sign: -----";
+      accountHandle.classList.add("is-placeholder");
+      accountHandleValue.textContent = "-----";
       accountCatName.textContent = "Name your Astrocat to begin your mission.";
+      accountCatName.classList.add("is-placeholder");
       accountStarterImage.src = fallbackStarter.image;
       accountStarterImage.alt = fallbackStarter.name;
       accountStarterName.textContent = fallbackStarter.name;
@@ -6189,11 +6201,25 @@ function createInterface(stats, options = {}) {
       return;
     }
 
-    const resolvedStarter = starterOverride ?? findStarterCharacter(account.starterId);
+    const resolvedStarter =
+      starterOverride ?? findStarterCharacter(account.starterId) ?? fallbackStarter;
     accountCard.classList.remove("account-card--empty");
     const callSignLabel = account.callSign ? `@${account.callSign}` : account.handle;
-    accountHandle.textContent = callSignLabel ? `Call sign: ${callSignLabel}` : "Call sign: -----";
-    accountCatName.textContent = account.catName;
+    if (callSignLabel) {
+      accountHandleValue.textContent = callSignLabel;
+      accountHandle.classList.remove("is-placeholder");
+    } else {
+      accountHandleValue.textContent = "-----";
+      accountHandle.classList.add("is-placeholder");
+    }
+    const displayName = typeof account.catName === "string" ? account.catName.trim() : "";
+    if (displayName) {
+      accountCatName.textContent = displayName;
+      accountCatName.classList.remove("is-placeholder");
+    } else {
+      accountCatName.textContent = "Name your Astrocat to begin your mission.";
+      accountCatName.classList.add("is-placeholder");
+    }
     accountStarterImage.src = resolvedStarter.image;
     accountStarterImage.alt = resolvedStarter.name;
     accountStarterName.textContent = resolvedStarter.name;

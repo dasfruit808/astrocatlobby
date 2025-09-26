@@ -1637,7 +1637,7 @@ body.is-scroll-locked {
 .account-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   padding: 18px 20px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.06);
@@ -1645,19 +1645,65 @@ body.is-scroll-locked {
   box-shadow: none;
 }
 
+.account-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .account-card__title {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: rgba(230, 235, 255, 0.55);
+  flex: 1 1 auto;
 }
 
 .account-card__handle {
-  margin: 0;
-  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(138, 191, 255, 0.32);
+  background: rgba(138, 191, 255, 0.16);
+  color: rgba(214, 232, 255, 0.85);
+  font-size: 11px;
   font-weight: 600;
-  color: #8abfff;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  margin: 0;
+  max-width: 100%;
+}
+
+.account-card__handle-label {
+  flex: 0 0 auto;
+  color: rgba(214, 232, 255, 0.82);
+}
+
+.account-card__handle-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: #f4f7ff;
+  font-weight: 600;
   overflow-wrap: anywhere;
+}
+
+.account-card__handle.is-placeholder {
+  border-style: dashed;
+  background: rgba(138, 191, 255, 0.08);
+  color: rgba(215, 222, 255, 0.72);
+}
+
+.account-card__handle.is-placeholder .account-card__handle-value {
+  color: inherit;
 }
 
 .account-card__cat-name {
@@ -1669,11 +1715,16 @@ body.is-scroll-locked {
   overflow-wrap: anywhere;
 }
 
+.account-card__cat-name.is-placeholder {
+  font-style: italic;
+  color: rgba(215, 222, 255, 0.7);
+}
+
 .account-card__starter {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 18px;
   align-items: center;
-  flex-wrap: wrap;
 }
 
 .account-card__starter-image {
@@ -1686,11 +1737,12 @@ body.is-scroll-locked {
   object-fit: cover;
 }
 
+
 .account-card__starter-info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  flex: 1 1 160px;
+  gap: 6px;
+  align-items: flex-start;
   min-width: 0;
 }
 
@@ -1708,16 +1760,36 @@ body.is-scroll-locked {
   overflow-wrap: anywhere;
 }
 
+@media (max-width: 520px) {
+  .account-card__starter {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    text-align: center;
+  }
+
+  .account-card__starter-info {
+    align-items: center;
+  }
+
+  .account-card__cat-name,
+  .account-card__starter-name,
+  .account-card__starter-tagline {
+    text-align: center;
+  }
+}
+
+
 .account-card__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
   margin-top: 4px;
 }
 
 .account-card__action {
-  flex: 1 1 120px;
-  padding: 9px 16px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 16px;
   border-radius: 999px;
   border: 1px solid rgba(134, 225, 255, 0.35);
   background: rgba(134, 225, 255, 0.16);
@@ -1757,10 +1829,16 @@ body.is-scroll-locked {
   display: none;
 }
 
-.account-card--empty .account-card__handle,
+.account-card--empty .account-card__handle {
+  border-style: dashed;
+  background: rgba(138, 191, 255, 0.08);
+  color: rgba(215, 222, 255, 0.72);
+}
+
+.account-card--empty .account-card__handle-value,
 .account-card--empty .account-card__cat-name {
   font-style: italic;
-  color: rgba(215, 222, 255, 0.58);
+  color: rgba(215, 222, 255, 0.68);
 }
 
 .instruction-list {
