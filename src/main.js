@@ -5166,9 +5166,160 @@ function createInterface(stats, options = {}) {
   title.textContent = "Astrocat Lobby";
   panel.append(title);
 
+  const hudHint = document.createElement("p");
+  hudHint.className = "hud-panel__hint";
+  hudHint.textContent = "Access lobby systems via the console buttons.";
+  panel.append(hudHint);
+
+  const hudButtons = document.createElement("div");
+  hudButtons.className = "hud-panel__actions";
+  panel.append(hudButtons);
+
+  let hudPopupSequence = 0;
+
+  function registerHudPopup({ id, label, title: popupTitle, nodes }) {
+    const overlay = document.createElement("div");
+    const overlayId = id || `hud-popup-${++hudPopupSequence}`;
+    overlay.id = overlayId;
+    overlay.className = "hud-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-hidden", "true");
+
+    overlay.hidden = true;
+
+    const modal = document.createElement("div");
+    modal.className = "hud-modal";
+
+    const header = document.createElement("div");
+    header.className = "hud-modal__header";
+
+    const heading = document.createElement("h2");
+    heading.className = "hud-modal__title";
+    heading.textContent = popupTitle;
+    const headingId = `${overlayId}-title`;
+    heading.id = headingId;
+    overlay.setAttribute("aria-labelledby", headingId);
+
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "hud-modal__close";
+    closeButton.textContent = "Close";
+
+    header.append(heading, closeButton);
+
+    const content = document.createElement("div");
+    content.className = "hud-modal__content";
+    const nodesToAppend = Array.isArray(nodes) ? nodes : [nodes];
+    for (const node of nodesToAppend) {
+      if (node) {
+        content.append(node);
+      }
+    }
+
+    modal.append(header, content);
+    overlay.append(modal);
+
+    const mountTarget =
+      typeof document !== "undefined" && document.body
+        ? document.body
+        : typeof document !== "undefined"
+          ? document.documentElement
+          : null;
+    if (mountTarget) {
+      mountTarget.append(overlay);
+    } else {
+      panel.append(overlay);
+    }
+
+    let previousFocus = null;
+    let previousOverflow = "";
+
+    const handleBackdropClick = (event) => {
+      if (event.target === overlay) {
+        close();
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.code === "Escape") {
+        event.preventDefault();
+        close();
+      }
+    };
+
+    function open() {
+      if (!overlay.hidden) {
+        return;
+      }
+
+      previousFocus =
+        typeof document !== "undefined" &&
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+
+      if (typeof document !== "undefined" && document.body) {
+        previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+      }
+
+      overlay.hidden = false;
+      overlay.setAttribute("aria-hidden", "false");
+      overlay.addEventListener("click", handleBackdropClick);
+      window.addEventListener("keydown", handleEscape);
+
+      try {
+        closeButton.focus({ preventScroll: true });
+      } catch (error) {
+        closeButton.focus();
+      }
+    }
+
+    function close() {
+      if (overlay.hidden) {
+        return;
+      }
+
+      overlay.hidden = true;
+      overlay.setAttribute("aria-hidden", "true");
+      overlay.removeEventListener("click", handleBackdropClick);
+      window.removeEventListener("keydown", handleEscape);
+
+      if (typeof document !== "undefined" && document.body) {
+        document.body.style.overflow = previousOverflow;
+      }
+
+      if (previousFocus) {
+        try {
+          previousFocus.focus({ preventScroll: true });
+        } catch (error) {
+          previousFocus.focus();
+        }
+      }
+    }
+
+    closeButton.addEventListener("click", () => {
+      close();
+    });
+
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "hud-panel__button";
+    trigger.textContent = label;
+    trigger.setAttribute("aria-haspopup", "dialog");
+    trigger.setAttribute("aria-controls", overlayId);
+    trigger.addEventListener("click", () => {
+      open();
+    });
+
+    hudButtons.append(trigger);
+
+    return { overlay, open, close, trigger };
+  }
+
   const subtitle = document.createElement("p");
   subtitle.className = "player-subtitle";
-  panel.append(subtitle);
 
   const accountCard = document.createElement("section");
   accountCard.className = "account-card account-card--empty";
@@ -5235,11 +5386,8 @@ function createInterface(stats, options = {}) {
   accountActions.append(loginButton, logoutButton);
   accountCard.append(accountActions);
 
-  panel.append(accountCard);
-
   const statsContainer = document.createElement("div");
   statsContainer.className = "stats-container";
-  panel.append(statsContainer);
 
   const statsSummary = document.createElement("div");
   statsSummary.className = "stats-summary";
@@ -5359,8 +5507,6 @@ function createInterface(stats, options = {}) {
   }
   attributePanel.append(derivedStatsList);
 
-  panel.append(attributePanel);
-
   const loadoutPanel = createMiniGameLoadoutPanel(miniGameLoadoutState, {
     onLoadoutsChange(nextState) {
       miniGameLoadoutState = nextState;
@@ -5368,15 +5514,12 @@ function createInterface(stats, options = {}) {
     }
   });
   miniGameLoadoutState = loadoutPanel.getState();
-  panel.append(loadoutPanel.root);
 
   const crystalsLabel = document.createElement("p");
   crystalsLabel.className = "crystal-label";
-  panel.append(crystalsLabel);
 
   const message = document.createElement("p");
   message.className = "message";
-  panel.append(message);
 
   const commsSection = document.createElement("section");
   commsSection.className = "comms-center";
@@ -5430,8 +5573,6 @@ function createInterface(stats, options = {}) {
     commsMessages,
     commsForm
   );
-  panel.append(commsSection);
-
   let activeCallSign = isValidCallSign(stats.callSign) ? stats.callSign : null;
 
   const applyCommsBoard = (callSign) => {
@@ -5581,8 +5722,6 @@ function createInterface(stats, options = {}) {
   const missionList = document.createElement("ul");
   missionList.className = "mission-log__list";
   missionSection.append(missionTitle, missionSummary, missionRequirement, missionList);
-  panel.append(missionSection);
-
   const applyMissionState = (missionState) => {
     const normalizedState = Array.isArray(missionState) ? missionState : [];
     const total = normalizedState.length;
@@ -5648,7 +5787,48 @@ function createInterface(stats, options = {}) {
     item.append(action, keys);
     instructions.append(item);
   }
-  panel.append(instructions);
+
+  registerHudPopup({
+    id: "hud-profile",
+    label: "Profile",
+    title: "Astrocat Profile",
+    nodes: [subtitle, accountCard, crystalsLabel, message]
+  });
+
+  registerHudPopup({
+    id: "hud-stats",
+    label: "Stats",
+    title: "Pilot Stats",
+    nodes: [statsContainer, attributePanel]
+  });
+
+  registerHudPopup({
+    id: "hud-loadouts",
+    label: "Loadouts",
+    title: "Mini Game Loadouts",
+    nodes: [loadoutPanel.root]
+  });
+
+  registerHudPopup({
+    id: "hud-comms",
+    label: "Comms",
+    title: "Comms Center",
+    nodes: [commsSection]
+  });
+
+  registerHudPopup({
+    id: "hud-missions",
+    label: "Missions",
+    title: "Mission Log",
+    nodes: [missionSection]
+  });
+
+  registerHudPopup({
+    id: "hud-controls",
+    label: "Controls",
+    title: "Pilot Controls",
+    nodes: [instructions]
+  });
 
   root.append(canvasWrapper, panel);
 
