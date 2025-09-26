@@ -70,18 +70,64 @@ function normalizePublicRelativePath(relativePath) {
     .replace(/\\/g, "/");
 }
 
-function readPublicManifestEntry(relativePath) {
+function getPublicManifest() {
   if (typeof globalThis === "undefined") {
     return null;
   }
 
   const manifest = globalThis.__ASTROCAT_PUBLIC_MANIFEST__;
-  if (!manifest || typeof manifest !== "object") {
+  return manifest && typeof manifest === "object" ? manifest : null;
+}
+
+function readPublicManifestEntry(relativePath) {
+  const manifest = getPublicManifest();
+  if (!manifest) {
     return null;
   }
 
   const entry = manifest[relativePath];
   return typeof entry === "string" && entry ? entry : null;
+}
+
+function tryFindPublicManifestEntryByBasename(relativePath) {
+  const manifest = getPublicManifest();
+  if (!manifest) {
+    return null;
+  }
+
+  const normalized = normalizePublicRelativePath(relativePath);
+  const separatorIndex = normalized.lastIndexOf("/");
+  const baseName = separatorIndex >= 0 ? normalized.slice(separatorIndex + 1) : normalized;
+  if (!baseName) {
+    return null;
+  }
+
+  let fallbackEntry = null;
+  for (const key of Object.keys(manifest)) {
+    if (key === normalized) {
+      continue;
+    }
+
+    const manifestSeparatorIndex = key.lastIndexOf("/");
+    const manifestBaseName =
+      manifestSeparatorIndex >= 0 ? key.slice(manifestSeparatorIndex + 1) : key;
+    if (manifestBaseName !== baseName) {
+      continue;
+    }
+
+    const manifestValue = manifest[key];
+    if (typeof manifestValue !== "string" || !manifestValue) {
+      continue;
+    }
+
+    if (fallbackEntry) {
+      return null;
+    }
+
+    fallbackEntry = manifestValue;
+  }
+
+  return fallbackEntry;
 }
 
 function isResolvableBaseHref(baseHref) {
@@ -199,7 +245,10 @@ function resolvePublicAssetUrl(relativePath) {
     return null;
   }
 
-  const manifestEntry = readPublicManifestEntry(normalized);
+  let manifestEntry = readPublicManifestEntry(normalized);
+  if (!manifestEntry) {
+    manifestEntry = tryFindPublicManifestEntryByBasename(normalized);
+  }
   if (manifestEntry) {
     if (
       /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(manifestEntry) ||
