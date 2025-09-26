@@ -57,11 +57,15 @@ body.is-scroll-locked {
   width: 100%;
   display: flex;
   justify-content: center;
+  margin-top: 160px;
 }
 
 .site-toolbar {
-  position: sticky;
+  position: fixed;
   top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100% - 64px), 1280px);
   z-index: 20;
   padding: 18px 32px;
   border-radius: 999px;
@@ -223,7 +227,12 @@ body.is-scroll-locked {
 @media (max-width: 960px) {
   .site-toolbar {
     top: 12px;
+    width: calc(100% - 32px);
     padding: 16px 24px;
+  }
+
+  .lobby-shell__content {
+    margin-top: 200px;
   }
 
   .site-toolbar__inner {
