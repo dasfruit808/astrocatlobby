@@ -61,9 +61,8 @@ body.is-scroll-locked {
 }
 
 .site-toolbar {
-  position: sticky;
-  top: 24px;
-  margin: 0 auto;
+  position: static;
+  margin: 24px auto 0;
   width: min(calc(100% - 64px), 1280px);
   z-index: 20;
   padding: 18px 32px;
