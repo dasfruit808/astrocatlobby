@@ -2050,10 +2050,13 @@ const rankThresholds = [
 
 const portalRequiredLevel = 3;
 
-const levelExperienceCurve = [80, 140, 220, 310, 420, 540, 680, 840, 1020, 1220];
-const lateLevelGrowthFactor = 1.17;
-const lateLevelBonus = 120;
-const STAT_POINTS_PER_LEVEL = 3;
+const BASE_EXP_REQUIREMENT = 120;
+const EXP_GROWTH_RATE = 1.28;
+const EXP_MILESTONE_INTERVAL = 5;
+const EXP_MILESTONE_BONUS = 160;
+const STAT_POINTS_PER_LEVEL = 2;
+const STAT_POINT_MILESTONE_INTERVAL = 5;
+const STAT_POINT_MILESTONE_BONUS = 3;
 
 const attributeDefinitions = [
   {
@@ -2128,6 +2131,34 @@ function applyAttributeScaling(stats, options = {}) {
   stats.weightedLevel = calculateWeightedPlayerLevel(stats);
 }
 
+function getBonusStatPointsForLevel(level) {
+  if (typeof level !== "number" || !Number.isFinite(level)) {
+    return 0;
+  }
+
+  const normalized = Math.max(1, Math.floor(level));
+  return normalized % STAT_POINT_MILESTONE_INTERVAL === 0
+    ? STAT_POINT_MILESTONE_BONUS
+    : 0;
+}
+
+function getStatPointsForLevel(level) {
+  return STAT_POINTS_PER_LEVEL + getBonusStatPointsForLevel(level);
+}
+
+function calculateTotalStatPointsEarned(level) {
+  if (typeof level !== "number" || !Number.isFinite(level)) {
+    return getStatPointsForLevel(1);
+  }
+
+  const normalized = Math.max(1, Math.floor(level));
+  let total = 0;
+  for (let currentLevel = 1; currentLevel <= normalized; currentLevel += 1) {
+    total += getStatPointsForLevel(currentLevel);
+  }
+  return total;
+}
+
 function calculateWeightedPlayerLevel(stats) {
   if (!stats || typeof stats !== "object") {
     return 1;
@@ -2138,7 +2169,7 @@ function calculateWeightedPlayerLevel(stats) {
   const maxExp = typeof stats.maxExp === "number" ? stats.maxExp : 0;
   const expRatio = maxExp > 0 ? clamp(exp, 0, maxExp) / maxExp : 0;
 
-  const totalPointsEarned = baseLevel * STAT_POINTS_PER_LEVEL;
+  const totalPointsEarned = calculateTotalStatPointsEarned(baseLevel);
   const availablePoints = Math.max(
     0,
     Math.min(totalPointsEarned, stats.statPoints ?? 0)
@@ -2157,20 +2188,13 @@ function calculateWeightedPlayerLevel(stats) {
 
 function getExpForNextLevel(level) {
   if (typeof level !== "number" || !Number.isFinite(level)) {
-    return levelExperienceCurve[0];
+    return Math.round(BASE_EXP_REQUIREMENT);
   }
 
   const normalizedLevel = Math.max(1, Math.floor(level));
-  const index = normalizedLevel - 1;
-
-  if (index < levelExperienceCurve.length) {
-    return levelExperienceCurve[index];
-  }
-
-  const extraLevels = index - (levelExperienceCurve.length - 1);
-  const base = levelExperienceCurve[levelExperienceCurve.length - 1];
-  const growth = Math.pow(lateLevelGrowthFactor, extraLevels);
-  return Math.round(base * growth + lateLevelBonus * extraLevels);
+  const growth = Math.pow(EXP_GROWTH_RATE, normalizedLevel - 1);
+  const milestoneBonus = Math.floor(normalizedLevel / EXP_MILESTONE_INTERVAL) * EXP_MILESTONE_BONUS;
+  return Math.round(BASE_EXP_REQUIREMENT * growth + milestoneBonus);
 }
 
 const playerStats = {
@@ -2186,7 +2210,7 @@ const playerStats = {
   maxHp: 100,
   mp: 40,
   maxMp: 60,
-  statPoints: STAT_POINTS_PER_LEVEL,
+  statPoints: getStatPointsForLevel(1),
   attributes: createInitialAttributeState(),
   attackPower: 0,
   speedRating: 0,
@@ -4162,7 +4186,8 @@ function gainExperience(amount) {
   while (playerStats.exp >= playerStats.maxExp) {
     playerStats.exp -= playerStats.maxExp;
     playerStats.level += 1;
-    playerStats.statPoints = (playerStats.statPoints ?? 0) + STAT_POINTS_PER_LEVEL;
+    const pointsEarned = getStatPointsForLevel(playerStats.level);
+    playerStats.statPoints = (playerStats.statPoints ?? 0) + pointsEarned;
     playerStats.maxExp = getExpForNextLevel(playerStats.level);
     leveledUp = true;
     levelsGained += 1;
@@ -5690,8 +5715,8 @@ function createInterface(stats, options = {}) {
     statPointsBadge.classList.toggle("is-empty", availablePoints === 0);
     attributeHint.textContent =
       availablePoints > 0
-        ? `You have ${availablePoints} stat ${availablePoints === 1 ? "point" : "points"} to spend.`
-        : "Complete missions and level up to earn stat points.";
+        ? `You have ${availablePoints} stat ${availablePoints === 1 ? "point" : "points"} to spend. Bonus caches unlock every ${STAT_POINT_MILESTONE_INTERVAL} levels.`
+        : `Complete missions to earn stat points. Bonus caches unlock every ${STAT_POINT_MILESTONE_INTERVAL} levels.`;
 
     for (const definition of attributeDefinitions) {
       const row = attributeRows.get(definition.key);
