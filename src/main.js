@@ -2392,7 +2392,8 @@ function syncMiniGameProfile() {
     rank: playerStats.rank,
     exp: playerStats.exp,
     maxExp: playerStats.maxExp,
-    weightedLevel: playerStats.weightedLevel
+    weightedLevel: playerStats.weightedLevel,
+    statPoints: playerStats.statPoints
   };
 
   const activeLoadout = getMiniGameLoadoutBySlot(
