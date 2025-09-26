@@ -57,7 +57,7 @@ body.is-scroll-locked {
   width: 100%;
   display: flex;
   justify-content: center;
-  margin-top: 160px;
+  margin-top: 10px;
 }
 
 .site-toolbar {
@@ -230,7 +230,7 @@ body.is-scroll-locked {
   }
 
   .lobby-shell__content {
-    margin-top: 200px;
+    margin-top: 10px;
   }
 
   .site-toolbar__inner {
