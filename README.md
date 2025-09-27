@@ -27,6 +27,10 @@ Open the printed local URL in your browser to explore the lobby during developme
 
 Add a `webpagebackground.png` file to the `public/` directory to replace the default gradient backdrop that surrounds the lobby canvas. The image is applied automatically when present and falls back to the gradient when removed.
 
+## Custom toolbar branding
+
+To replace the Astrocat Lobby wordmark in the navigation toolbar, add a `toolbar-brand.png` image to either the `public/` directory or the embedded mini game folder at `public/AstroCats3/`. The lobby prefers the root image when both exist and gracefully falls back to text when no custom graphic is supplied.
+
 ## Embedding the AstroCats3 mini game
 
 1. Copy the production build of the **AstroCats3** mini game into `public/AstroCats3/`, replacing the placeholder `index.html` with your own entry point and keeping all referenced assets alongside it.
