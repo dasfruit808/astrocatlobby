@@ -348,9 +348,17 @@ const baseCanvasHeight = 540;
 // the gradient page backdrop.
 
 const customPageBackgroundUrl = resolvePublicAssetUrl("webpagebackground.png");
-const toolbarBrandImageUrl =
-  resolvePublicAssetUrl("toolbar-brand.png") ??
-  resolvePublicAssetUrl("AstroCats3/toolbar-brand.png");
+const toolbarBrandImageSources = [
+  resolvePublicAssetUrl("toolbar-brand.png"),
+  resolvePublicAssetUrl("AstroCats3/toolbar-brand.png")
+]
+  .filter((candidate, index, all) => {
+    if (typeof candidate !== "string" || !candidate) {
+      return false;
+    }
+
+    return all.indexOf(candidate) === index;
+  });
 let customBackgroundAvailabilityProbe = null;
 
 function shouldUseCustomPageBackground() {
@@ -6091,7 +6099,7 @@ function createInterface(stats, options = {}) {
   };
 
   function attachToolbarBrandImage(brandLink) {
-    if (!brandLink || !toolbarBrandImageUrl) {
+    if (!brandLink || toolbarBrandImageSources.length === 0) {
       return null;
     }
 
@@ -6103,6 +6111,17 @@ function createInterface(stats, options = {}) {
     image.loading = "lazy";
     image.hidden = true;
 
+    let sourceIndex = 0;
+
+    const tryAttachNextSource = () => {
+      if (sourceIndex >= toolbarBrandImageSources.length) {
+        handleError();
+        return;
+      }
+
+      image.src = toolbarBrandImageSources[sourceIndex++];
+    };
+
     const handleLoad = () => {
       image.hidden = false;
       brandLink.classList.add("site-toolbar__brand--has-image");
@@ -6111,15 +6130,20 @@ function createInterface(stats, options = {}) {
     };
 
     const handleError = () => {
-      brandLink.classList.remove("site-toolbar__brand--has-image");
-      image.removeEventListener("load", handleLoad);
-      image.removeEventListener("error", handleError);
-      image.remove();
+      if (sourceIndex >= toolbarBrandImageSources.length) {
+        brandLink.classList.remove("site-toolbar__brand--has-image");
+        image.removeEventListener("load", handleLoad);
+        image.removeEventListener("error", handleError);
+        image.remove();
+        return;
+      }
+
+      tryAttachNextSource();
     };
 
     image.addEventListener("load", handleLoad);
     image.addEventListener("error", handleError);
-    image.src = toolbarBrandImageUrl;
+    tryAttachNextSource();
     brandLink.prepend(image);
 
     return image;
