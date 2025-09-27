@@ -5455,6 +5455,7 @@ function createInterface(stats, options = {}) {
 
   const statsContainer = document.createElement("div");
   statsContainer.className = "stats-container";
+  statsContainer.classList.add("stats-modal__overview");
 
   const statsSummary = document.createElement("div");
   statsSummary.className = "stats-summary";
@@ -5492,6 +5493,7 @@ function createInterface(stats, options = {}) {
 
   const attributePanel = document.createElement("section");
   attributePanel.className = "attribute-panel";
+  attributePanel.classList.add("stats-modal__allocation");
 
   const attributeHeader = document.createElement("div");
   attributeHeader.className = "attribute-panel__header";
@@ -5855,11 +5857,15 @@ function createInterface(stats, options = {}) {
   profileSection.append(subtitle, accountCard, crystalsLabel, message);
   panel.insertBefore(profileSection, hudButtons);
 
+  const statsModal = document.createElement("div");
+  statsModal.className = "stats-modal";
+  statsModal.append(statsContainer, attributePanel);
+
   registerHudPopup({
     id: "hud-stats",
     label: "Stats",
     title: "Pilot Stats",
-    nodes: [statsContainer, attributePanel]
+    nodes: [statsModal]
   });
 
   registerHudPopup({
