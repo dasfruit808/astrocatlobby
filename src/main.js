@@ -348,7 +348,9 @@ const baseCanvasHeight = 540;
 // the gradient page backdrop.
 
 const customPageBackgroundUrl = resolvePublicAssetUrl("webpagebackground.png");
-const toolbarBrandImageUrl = resolvePublicAssetUrl("toolbar-brand.png");
+const toolbarBrandImageUrl =
+  resolvePublicAssetUrl("toolbar-brand.png") ??
+  resolvePublicAssetUrl("AstroCats3/toolbar-brand.png");
 let customBackgroundAvailabilityProbe = null;
 
 function shouldUseCustomPageBackground() {
