@@ -348,6 +348,16 @@ const baseCanvasHeight = 540;
 // the gradient page backdrop.
 
 const customPageBackgroundUrl = resolvePublicAssetUrl("webpagebackground.png");
+const toolbarBackgroundImageSources = [
+  resolvePublicAssetUrl("toolbar-background.png"),
+  resolvePublicAssetUrl("AstroCats3/toolbar-background.png")
+].filter((candidate, index, all) => {
+  if (typeof candidate !== "string" || !candidate) {
+    return false;
+  }
+
+  return all.indexOf(candidate) === index;
+});
 const toolbarBrandImageSources = [
   resolvePublicAssetUrl("toolbar-brand.png"),
   resolvePublicAssetUrl("AstroCats3/toolbar-brand.png")
@@ -6073,6 +6083,67 @@ function createInterface(stats, options = {}) {
     }
   };
 
+  function applyToolbarBackground(header) {
+    if (!header || toolbarBackgroundImageSources.length === 0) {
+      return null;
+    }
+
+    const probe = new Image();
+    probe.decoding = "async";
+    probe.loading = "eager";
+
+    let sourceIndex = 0;
+
+    const cleanup = () => {
+      probe.removeEventListener("load", handleLoad);
+      probe.removeEventListener("error", handleError);
+    };
+
+    const tryAttachNextSource = () => {
+      if (sourceIndex >= toolbarBackgroundImageSources.length) {
+        cleanup();
+        return;
+      }
+
+      probe.src = toolbarBackgroundImageSources[sourceIndex++];
+    };
+
+    const handleLoad = () => {
+      const resolvedUrl = probe.currentSrc || probe.src;
+
+      if (typeof resolvedUrl === "string" && resolvedUrl) {
+        const escaped = resolvedUrl.replace(/"/g, '\\"');
+        header.style.setProperty(
+          "--site-toolbar-background-image",
+          `url("${escaped}")`
+        );
+        header.style.setProperty(
+          "--site-toolbar-background-overlay",
+          "linear-gradient(rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.4))"
+        );
+        header.style.setProperty("--site-toolbar-background-overlay-size", "cover");
+        header.classList.add("site-toolbar--has-image-background");
+      }
+
+      cleanup();
+    };
+
+    const handleError = () => {
+      if (sourceIndex >= toolbarBackgroundImageSources.length) {
+        cleanup();
+        return;
+      }
+
+      tryAttachNextSource();
+    };
+
+    probe.addEventListener("load", handleLoad);
+    probe.addEventListener("error", handleError);
+    tryAttachNextSource();
+
+    return probe;
+  }
+
   function attachToolbarBrandImage(brandLink) {
     if (!brandLink || toolbarBrandImageSources.length === 0) {
       return null;
@@ -6127,6 +6198,8 @@ function createInterface(stats, options = {}) {
   function createToolbar() {
     const header = document.createElement("header");
     header.className = "site-toolbar";
+
+    applyToolbarBackground(header);
 
     const inner = document.createElement("div");
     inner.className = "site-toolbar__inner";
