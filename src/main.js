@@ -2187,7 +2187,6 @@ function applyAttributeScaling(stats, options = {}) {
   stats.mp = clamp(Math.round(newMaxMp * mpRatio), 0, newMaxMp);
   stats.attackPower = 8 + strength * 3;
   stats.speedRating = 8 + agility * 2;
-  stats.weightedLevel = calculateWeightedPlayerLevel(stats);
 }
 
 function getBonusStatPointsForLevel(level) {
@@ -2218,33 +2217,6 @@ function calculateTotalStatPointsEarned(level) {
   return total;
 }
 
-function calculateWeightedPlayerLevel(stats) {
-  if (!stats || typeof stats !== "object") {
-    return 1;
-  }
-
-  const baseLevel = Math.max(1, Math.floor(stats.level ?? 1));
-  const exp = typeof stats.exp === "number" ? stats.exp : 0;
-  const maxExp = typeof stats.maxExp === "number" ? stats.maxExp : 0;
-  const expRatio = maxExp > 0 ? clamp(exp, 0, maxExp) / maxExp : 0;
-
-  const totalPointsEarned = calculateTotalStatPointsEarned(baseLevel);
-  const availablePoints = Math.max(
-    0,
-    Math.min(totalPointsEarned, stats.statPoints ?? 0)
-  );
-  const spentPoints = totalPointsEarned - availablePoints;
-  const allocationScore =
-    totalPointsEarned > 0 ? clamp(spentPoints / totalPointsEarned, 0, 1) : 0;
-
-  const xpWeight = 0.7;
-  const allocationWeight = 0.3;
-  const weightedProgress = expRatio * xpWeight + allocationScore * allocationWeight;
-  const weightedLevel = baseLevel + weightedProgress;
-
-  return Math.round(weightedLevel * 100) / 100;
-}
-
 function getExpForNextLevel(level) {
   if (typeof level !== "number" || !Number.isFinite(level)) {
     return Math.round(BASE_EXP_REQUIREMENT);
@@ -2272,8 +2244,7 @@ const playerStats = {
   statPoints: getStatPointsForLevel(1),
   attributes: createInitialAttributeState(),
   attackPower: 0,
-  speedRating: 0,
-  weightedLevel: 1
+  speedRating: 0
 };
 
 applyAttributeScaling(playerStats, { preservePercent: true });
@@ -2475,7 +2446,6 @@ function syncMiniGameProfile() {
     rank: playerStats.rank,
     exp: playerStats.exp,
     maxExp: playerStats.maxExp,
-    weightedLevel: playerStats.weightedLevel,
     statPoints: playerStats.statPoints
   };
 
@@ -4254,7 +4224,6 @@ function gainExperience(amount) {
   if (levelsGained > 0) {
     applyAttributeScaling(playerStats);
   }
-  playerStats.weightedLevel = calculateWeightedPlayerLevel(playerStats);
   updateRankFromLevel();
   if (leveledUp) {
     audio.playEffect("levelUp");
@@ -5454,11 +5423,6 @@ function createInterface(stats, options = {}) {
   const statsSummaryRows = new Map();
   const statsSummaryDefinitions = [
     { key: "level", label: "Level", valueClass: "stats-summary__value--accent" },
-    {
-      key: "weightedLevel",
-      label: "Weighted Level",
-      valueClass: "stats-summary__value--accent"
-    },
     { key: "rank", label: "Rank" },
     { key: "statPoints", label: "Unspent Points" },
     { key: "expProgress", label: "EXP Progress", fullWidth: true }
@@ -5898,17 +5862,6 @@ function createInterface(stats, options = {}) {
     target.textContent = text;
   }
 
-  function formatNumberDisplay(value, decimals = 2) {
-    if (typeof value !== "number" || !Number.isFinite(value)) {
-      return "—";
-    }
-    const fixed = value.toFixed(decimals);
-    if (decimals <= 0) {
-      return fixed;
-    }
-    return fixed.replace(/(?:\.\d*?)0+$/, "$1").replace(/\.$/, "");
-  }
-
   function updateStatsSummary(updatedStats) {
     if (!updatedStats || typeof updatedStats !== "object") {
       for (const value of statsSummaryRows.values()) {
@@ -5919,12 +5872,6 @@ function createInterface(stats, options = {}) {
 
     const baseLevel = Math.max(1, Math.floor(updatedStats.level ?? 1));
     setStatsSummaryValue("level", baseLevel.toString());
-
-    const weightedLevel =
-      typeof updatedStats.weightedLevel === "number"
-        ? updatedStats.weightedLevel
-        : calculateWeightedPlayerLevel(updatedStats);
-    setStatsSummaryValue("weightedLevel", formatNumberDisplay(weightedLevel));
 
     const rank = updatedStats.rank;
     setStatsSummaryValue("rank", rank ? `${rank}` : "—");
