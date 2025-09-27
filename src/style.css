@@ -61,13 +61,30 @@ body.is-scroll-locked {
 }
 
 .site-toolbar {
+  --site-toolbar-background-base: linear-gradient(
+    90deg,
+    #ffad5c 0%,
+    #ffe17d 34%,
+    #ff8ed1 72%,
+    #7fd7ff 100%
+  );
   position: static;
   margin: 24px auto 0;
   width: min(calc(100% - 64px), 1280px);
   z-index: 20;
   padding: 18px 32px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #ffad5c 0%, #ffe17d 34%, #ff8ed1 72%, #7fd7ff 100%);
+  background-image:
+    var(
+      --site-toolbar-background-overlay,
+      linear-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0))
+    ),
+    var(--site-toolbar-background-image, var(--site-toolbar-background-base));
+  background-size:
+    var(--site-toolbar-background-overlay-size, cover),
+    cover;
+  background-position: center;
+  background-repeat: no-repeat;
   box-shadow:
     0 20px 36px rgba(31, 20, 68, 0.3),
     inset 0 -6px 12px rgba(255, 255, 255, 0.5);
