@@ -45,15 +45,15 @@ const environmentPhysicsPresets = {
         swayFrequency: 0.0009
     },
     [ENVIRONMENT_UNDERWATER]: {
-        accelerationMultiplier: 0.62,
-        dragMultiplier: 1.45,
-        verticalDragMultiplier: 1.28,
-        maxSpeedMultiplier: 0.72,
-        dashSpeedMultiplier: 0.86,
-        buoyancy: 18,
-        inputResponsiveness: 0.82,
-        swayStrength: 34,
-        swayFrequency: 0.0016
+        accelerationMultiplier: 0.85,
+        dragMultiplier: 1.15,
+        verticalDragMultiplier: 1.05,
+        maxSpeedMultiplier: 0.9,
+        dashSpeedMultiplier: 1.05,
+        buoyancy: 12,
+        inputResponsiveness: 0.92,
+        swayStrength: 18,
+        swayFrequency: 0.0012
     }
 };
 let environmentState = {
