@@ -134,7 +134,7 @@ function publicManifestPlugin() {
             tag: "script",
             attrs: { id: "astrocat-public-manifest" },
             children: `window.__ASTROCAT_PUBLIC_MANIFEST__ = ${serialized};`,
-            injectTo: "head"
+            injectTo: "head-prepend"
           }
         ]
       } satisfies import("vite").IndexHtmlTransformResult;
