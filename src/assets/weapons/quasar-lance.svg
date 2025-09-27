@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 140" role="img" aria-labelledby="title desc">
+  <title id="title">Quasar Lance Weapon Animation</title>
+  <desc id="desc">A focused quasar beam streaking forward with trailing energy arcs for the unlockable weapon animation.</desc>
+  <defs>
+    <linearGradient id="lance-beam" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#fffce6" stop-opacity="0.95" />
+      <stop offset="40%" stop-color="#7ff3ff" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#16a9ff" stop-opacity="0.8" />
+    </linearGradient>
+    <linearGradient id="lance-core" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#ffd17b" stop-opacity="0.95" />
+      <stop offset="60%" stop-color="#ffffff" stop-opacity="0.95" />
+      <stop offset="100%" stop-color="#a1e8ff" stop-opacity="0.9" />
+    </linearGradient>
+    <filter id="beam-glow" x="-10%" y="-40%" width="140%" height="180%">
+      <feGaussianBlur stdDeviation="7" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="200" height="140" rx="24" fill="#0a1229" opacity="0.95" />
+  <g filter="url(#beam-glow)">
+    <path d="M20 70 L160 44 Q186 50 188 70 Q186 90 160 96 Z" fill="url(#lance-beam)" opacity="0.8" />
+    <path d="M24 70 L156 52 Q176 58 178 70 Q176 82 156 88 Z" fill="url(#lance-core)" />
+  </g>
+  <g stroke-linecap="round" fill="none">
+    <path d="M36 46 C68 24 122 22 162 38" stroke="#4ff1ff" stroke-width="6" opacity="0.5" />
+    <path d="M32 94 C72 112 126 114 168 100" stroke="#ff9df7" stroke-width="6" opacity="0.45" />
+    <path d="M46 62 C94 50 134 50 166 60" stroke="#ffe072" stroke-width="4" opacity="0.6" />
+    <path d="M44 78 C90 88 134 88 170 76" stroke="#7ce3ff" stroke-width="4" opacity="0.55" />
+  </g>
+  <circle cx="26" cy="70" r="18" fill="#fff6db" stroke="#ffe082" stroke-width="3" />
+  <circle cx="26" cy="70" r="9" fill="#ff9e4f" />
+</svg>

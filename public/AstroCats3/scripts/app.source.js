@@ -5,6 +5,48 @@ let config = null;
 let basePlayerConfig = null;
 let baseDashConfig = null;
 let baseProjectileSettings = null;
+let basePowerUpDurations = null;
+let baseDefenseConfig = null;
+let baseComboDecayWindow = null;
+let baseHyperBeamConfig = null;
+
+const DEFAULT_PILOT_ATTRIBUTES = Object.freeze({
+    vitality: 5,
+    strength: 5,
+    agility: 5,
+    focus: 5
+});
+
+const DEFAULT_PILOT_STATS = Object.freeze({
+    maxHp: 100,
+    maxMp: 60,
+    attackPower: 23,
+    speedRating: 18
+});
+
+const DEFAULT_SKILL_BONUSES = Object.freeze({
+    damageMultiplier: 1,
+    fireRateMultiplier: 1,
+    xpMultiplier: 1,
+    energyRegenBonus: 0,
+    projectilePierce: 0,
+    weaponUnlocks: []
+});
+
+const pilotProfileSnapshot = {
+    attributes: { ...DEFAULT_PILOT_ATTRIBUTES },
+    attackPower: DEFAULT_PILOT_STATS.attackPower,
+    speedRating: DEFAULT_PILOT_STATS.speedRating,
+    maxHp: DEFAULT_PILOT_STATS.maxHp,
+    maxMp: DEFAULT_PILOT_STATS.maxMp,
+    skillBonuses: { ...DEFAULT_SKILL_BONUSES }
+};
+
+let activeSkillBonuses = { ...DEFAULT_SKILL_BONUSES };
+let projectileDamageMultiplier = 1;
+let projectilePierceBonus = 0;
+let projectileFireRateMultiplier = 1;
+let energyRegenMultiplier = 1;
 let activeDifficultyPreset = 'medium';
 let spawnTimers = { obstacle: 0, collectible: 0, powerUp: 0 };
 let shellScale = 1;
@@ -2231,6 +2273,14 @@ document.addEventListener('DOMContentLoaded', () => {
         speed: baseGameConfig.projectileSpeed,
         cooldown: baseGameConfig.projectileCooldown
     };
+    basePowerUpDurations = cloneConfig(baseGameConfig.powerUp?.duration ?? {});
+    baseDefenseConfig = cloneConfig(baseGameConfig.defensePower ?? {});
+    baseComboDecayWindow = Number.isFinite(baseGameConfig.comboDecayWindow)
+        ? baseGameConfig.comboDecayWindow
+        : config.comboDecayWindow;
+    baseHyperBeamConfig = cloneConfig(baseGameConfig.hyperBeam ?? {});
+
+    applyPilotStatsToConfig();
 
     const projectileArchetypes = Object.freeze({
         standard: {
@@ -2368,6 +2418,246 @@ document.addEventListener('DOMContentLoaded', () => {
         statPoints: null,
         rank: null
     };
+
+    function sanitizeSkillBonuses(bonuses) {
+        const sanitized = {
+            damageMultiplier: DEFAULT_SKILL_BONUSES.damageMultiplier,
+            fireRateMultiplier: DEFAULT_SKILL_BONUSES.fireRateMultiplier,
+            xpMultiplier: DEFAULT_SKILL_BONUSES.xpMultiplier,
+            energyRegenBonus: DEFAULT_SKILL_BONUSES.energyRegenBonus,
+            projectilePierce: DEFAULT_SKILL_BONUSES.projectilePierce,
+            weaponUnlocks: []
+        };
+        if (!bonuses || typeof bonuses !== 'object') {
+            return sanitized;
+        }
+        if (Number.isFinite(bonuses.damageMultiplier)) {
+            sanitized.damageMultiplier = Math.max(0.1, bonuses.damageMultiplier);
+        }
+        if (Number.isFinite(bonuses.fireRateMultiplier)) {
+            sanitized.fireRateMultiplier = Math.max(0.1, bonuses.fireRateMultiplier);
+        }
+        if (Number.isFinite(bonuses.xpMultiplier)) {
+            sanitized.xpMultiplier = Math.max(0, bonuses.xpMultiplier);
+        }
+        if (Number.isFinite(bonuses.energyRegenBonus)) {
+            sanitized.energyRegenBonus = Math.max(-0.9, bonuses.energyRegenBonus);
+        }
+        if (Number.isFinite(bonuses.projectilePierce)) {
+            sanitized.projectilePierce = Math.max(0, Math.floor(bonuses.projectilePierce));
+        }
+        if (Array.isArray(bonuses.weaponUnlocks)) {
+            sanitized.weaponUnlocks = bonuses.weaponUnlocks
+                .filter((value) => typeof value === 'string' && value.length)
+                .map((value) => value.trim());
+        }
+        return sanitized;
+    }
+
+    function updatePilotProfile(partial = {}) {
+        if (!partial || typeof partial !== 'object') {
+            return false;
+        }
+        let changed = false;
+        if (isPlainObject(partial.attributes)) {
+            const attributes = pilotProfileSnapshot.attributes;
+            for (const [key, baseValue] of Object.entries(DEFAULT_PILOT_ATTRIBUTES)) {
+                const nextValue = partial.attributes[key];
+                if (!Number.isFinite(nextValue)) {
+                    continue;
+                }
+                const normalized = Math.max(0, Math.floor(nextValue));
+                if (attributes[key] !== normalized) {
+                    attributes[key] = normalized;
+                    changed = true;
+                }
+            }
+        }
+        if (Number.isFinite(partial.attackPower)) {
+            const normalized = Math.max(1, partial.attackPower);
+            if (pilotProfileSnapshot.attackPower !== normalized) {
+                pilotProfileSnapshot.attackPower = normalized;
+                changed = true;
+            }
+        }
+        if (Number.isFinite(partial.speedRating)) {
+            const normalized = Math.max(1, partial.speedRating);
+            if (pilotProfileSnapshot.speedRating !== normalized) {
+                pilotProfileSnapshot.speedRating = normalized;
+                changed = true;
+            }
+        }
+        if (Number.isFinite(partial.maxHp)) {
+            const normalized = Math.max(1, partial.maxHp);
+            if (pilotProfileSnapshot.maxHp !== normalized) {
+                pilotProfileSnapshot.maxHp = normalized;
+                changed = true;
+            }
+        }
+        if (Number.isFinite(partial.maxMp)) {
+            const normalized = Math.max(0, partial.maxMp);
+            if (pilotProfileSnapshot.maxMp !== normalized) {
+                pilotProfileSnapshot.maxMp = normalized;
+                changed = true;
+            }
+        }
+        if (partial.skillBonuses) {
+            const sanitized = sanitizeSkillBonuses(partial.skillBonuses);
+            const previous = pilotProfileSnapshot.skillBonuses;
+            const weaponUnlocksEqual =
+                Array.isArray(previous.weaponUnlocks) &&
+                previous.weaponUnlocks.length === sanitized.weaponUnlocks.length &&
+                previous.weaponUnlocks.every((value, index) => value === sanitized.weaponUnlocks[index]);
+            if (
+                previous.damageMultiplier !== sanitized.damageMultiplier ||
+                previous.fireRateMultiplier !== sanitized.fireRateMultiplier ||
+                previous.xpMultiplier !== sanitized.xpMultiplier ||
+                previous.energyRegenBonus !== sanitized.energyRegenBonus ||
+                previous.projectilePierce !== sanitized.projectilePierce ||
+                !weaponUnlocksEqual
+            ) {
+                pilotProfileSnapshot.skillBonuses = sanitized;
+                changed = true;
+            }
+        }
+        if (changed) {
+            applyPilotStatsToConfig();
+        }
+        return changed;
+    }
+
+    function applyPilotStatsToConfig() {
+        const attackPower = Number.isFinite(pilotProfileSnapshot.attackPower)
+            ? pilotProfileSnapshot.attackPower
+            : DEFAULT_PILOT_STATS.attackPower;
+        const speedRating = Number.isFinite(pilotProfileSnapshot.speedRating)
+            ? pilotProfileSnapshot.speedRating
+            : DEFAULT_PILOT_STATS.speedRating;
+        const maxHp = Number.isFinite(pilotProfileSnapshot.maxHp)
+            ? pilotProfileSnapshot.maxHp
+            : DEFAULT_PILOT_STATS.maxHp;
+        const maxMp = Number.isFinite(pilotProfileSnapshot.maxMp)
+            ? pilotProfileSnapshot.maxMp
+            : DEFAULT_PILOT_STATS.maxMp;
+
+        const attackScale = clamp(attackPower / DEFAULT_PILOT_STATS.attackPower, 0.4, 4);
+        const speedScale = clamp(speedRating / DEFAULT_PILOT_STATS.speedRating, 0.4, 2.6);
+        const vitalityScale = clamp(maxHp / DEFAULT_PILOT_STATS.maxHp, 0.4, 3);
+        const focusScale = clamp(maxMp / DEFAULT_PILOT_STATS.maxMp, 0.4, 3);
+
+        activeSkillBonuses = sanitizeSkillBonuses(pilotProfileSnapshot.skillBonuses);
+        projectileDamageMultiplier = clamp(
+            attackScale * (activeSkillBonuses.damageMultiplier ?? DEFAULT_SKILL_BONUSES.damageMultiplier),
+            0.5,
+            6
+        );
+        projectilePierceBonus = Math.max(0, Math.floor(activeSkillBonuses.projectilePierce ?? 0));
+        projectileFireRateMultiplier = clamp(activeSkillBonuses.fireRateMultiplier ?? 1, 0.5, 4);
+        energyRegenMultiplier = clamp(
+            1 + (activeSkillBonuses.energyRegenBonus ?? 0) + Math.max(0, focusScale - 1) * 0.4,
+            0.5,
+            3
+        );
+
+        if (!config) {
+            return;
+        }
+
+        if (baseProjectileSettings && isPlainObject(config)) {
+            const baseSpeed = Number.isFinite(baseProjectileSettings.speed)
+                ? baseProjectileSettings.speed
+                : config.projectileSpeed ?? 760;
+            const baseCooldown = Number.isFinite(baseProjectileSettings.cooldown)
+                ? baseProjectileSettings.cooldown
+                : config.projectileCooldown ?? 180;
+            const speedMultiplier = clamp(0.8 + (speedScale - 1) * 0.45, 0.6, 2.5);
+            config.projectileSpeed = Math.round(baseSpeed * speedMultiplier);
+            const cooldownMultiplier = 1 / projectileFireRateMultiplier;
+            config.projectileCooldown = Math.max(60, Math.round(baseCooldown * clamp(cooldownMultiplier, 0.25, 2.8)));
+        }
+
+        if (basePlayerConfig && isPlainObject(config.player)) {
+            const accelerationScale = clamp(speedScale, 0.6, 2.4);
+            config.player.acceleration = Math.round(basePlayerConfig.acceleration * accelerationScale);
+            const maxSpeedScale = clamp(speedScale * (1 + (projectileFireRateMultiplier - 1) * 0.08), 0.6, 2.2);
+            config.player.maxSpeed = Math.round(basePlayerConfig.maxSpeed * maxSpeedScale);
+            const dragScale = clamp(0.9 + (speedScale - 1) * 0.25, 0.5, 1.8);
+            config.player.drag = basePlayerConfig.drag / dragScale;
+        }
+
+        if (baseDashConfig && isPlainObject(config.player?.dash)) {
+            const dashSpeedScale = clamp(
+                speedScale * (1 + (activeSkillBonuses.energyRegenBonus ?? 0) * 0.25),
+                0.6,
+                2.4
+            );
+            config.player.dash.boostSpeed = Math.round(baseDashConfig.boostSpeed * dashSpeedScale);
+            const dashDurationScale = clamp(energyRegenMultiplier, 0.6, 2.4);
+            config.player.dash.duration = Math.round(baseDashConfig.duration * dashDurationScale);
+            const dashDragScale = clamp(speedScale, 0.6, 2.2);
+            config.player.dash.dragMultiplier = baseDashConfig.dragMultiplier / dashDragScale;
+            config.player.dash.doubleTapWindow = Math.round(
+                baseDashConfig.doubleTapWindow / clamp(speedScale, 0.7, 1.8)
+            );
+        }
+
+        if (baseDefenseConfig && isPlainObject(config.defensePower)) {
+            const clearanceBase = Number.isFinite(baseDefenseConfig.clearance)
+                ? baseDefenseConfig.clearance
+                : config.defensePower.clearance ?? 48;
+            config.defensePower.clearance = Math.round(
+                clearanceBase * clamp(0.9 + (vitalityScale - 1) * 0.55, 0.6, 2.6)
+            );
+            const hitCooldownBase = Number.isFinite(baseDefenseConfig.hitCooldown)
+                ? baseDefenseConfig.hitCooldown
+                : config.defensePower.hitCooldown ?? 600;
+            config.defensePower.hitCooldown = Math.round(hitCooldownBase / clamp(vitalityScale, 0.6, 2.5));
+            const obstacleKnockbackBase = Number.isFinite(baseDefenseConfig.obstacleKnockback)
+                ? baseDefenseConfig.obstacleKnockback
+                : config.defensePower.obstacleKnockback ?? 540;
+            config.defensePower.obstacleKnockback = Math.round(
+                obstacleKnockbackBase * clamp(vitalityScale, 0.7, 2.5)
+            );
+            const asteroidKnockbackBase = Number.isFinite(baseDefenseConfig.asteroidKnockback)
+                ? baseDefenseConfig.asteroidKnockback
+                : config.defensePower.asteroidKnockback ?? 640;
+            config.defensePower.asteroidKnockback = Math.round(
+                asteroidKnockbackBase * clamp(vitalityScale, 0.7, 2.5)
+            );
+        }
+
+        if (basePowerUpDurations && isPlainObject(config.powerUp?.duration)) {
+            const durationScale = clamp(energyRegenMultiplier, 0.6, 2.6);
+            for (const [key, value] of Object.entries(basePowerUpDurations)) {
+                const numeric = Number(value);
+                if (!Number.isFinite(numeric)) {
+                    continue;
+                }
+                config.powerUp.duration[key] = Math.round(numeric * durationScale);
+            }
+        }
+
+        if (typeof baseComboDecayWindow === 'number') {
+            config.comboDecayWindow = Math.round(baseComboDecayWindow * clamp(energyRegenMultiplier, 0.7, 2));
+        }
+
+        if (baseHyperBeamConfig && isPlainObject(config.hyperBeam)) {
+            const baseDamage = Number.isFinite(baseHyperBeamConfig.damagePerSecond)
+                ? baseHyperBeamConfig.damagePerSecond
+                : config.hyperBeam.damagePerSecond;
+            const baseAsteroidDamage = Number.isFinite(baseHyperBeamConfig.asteroidDamagePerSecond)
+                ? baseHyperBeamConfig.asteroidDamagePerSecond
+                : config.hyperBeam.asteroidDamagePerSecond;
+            if (Number.isFinite(baseDamage)) {
+                config.hyperBeam.damagePerSecond = Math.round(baseDamage * projectileDamageMultiplier);
+            }
+            if (Number.isFinite(baseAsteroidDamage)) {
+                config.hyperBeam.asteroidDamagePerSecond = Math.round(
+                    baseAsteroidDamage * projectileDamageMultiplier
+                );
+            }
+        }
+    }
 
     function syncPilotTelemetry() {
         if (pilotLevelEl) {
@@ -8242,6 +8532,28 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
         if (typeof data.playerName === 'string') {
             updatePlayerName(data.playerName);
         }
+        const pilotPartial = {};
+        if (isPlainObject(data.attributes)) {
+            pilotPartial.attributes = data.attributes;
+        }
+        if (Number.isFinite(data.attackPower)) {
+            pilotPartial.attackPower = data.attackPower;
+        }
+        if (Number.isFinite(data.speedRating)) {
+            pilotPartial.speedRating = data.speedRating;
+        }
+        if (Number.isFinite(data.maxHp)) {
+            pilotPartial.maxHp = data.maxHp;
+        }
+        if (Number.isFinite(data.maxMp)) {
+            pilotPartial.maxMp = data.maxMp;
+        }
+        if (isPlainObject(data.skillBonuses)) {
+            pilotPartial.skillBonuses = data.skillBonuses;
+        }
+        if (Object.keys(pilotPartial).length > 0) {
+            updatePilotProfile(pilotPartial);
+        }
         const profileUpdate = {};
         let hasUpdate = false;
         if (Number.isFinite(data.level)) {
@@ -12611,6 +12923,8 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
                 shadowBlur: overrides.shadowBlur ?? archetype?.shadowBlur ?? 0,
                 shadowColor: overrides.shadowColor ?? archetype?.shadowColor ?? null
             };
+            const basePierce = Math.max(0, Math.floor(overrides.pierce ?? 0));
+            projectile.pierce = basePierce + projectilePierceBonus;
             if (overrides.wavePhase !== undefined) projectile.wavePhase = overrides.wavePhase;
             if (overrides.waveFrequency !== undefined) projectile.waveFrequency = overrides.waveFrequency;
             if (overrides.waveAmplitude !== undefined) projectile.waveAmplitude = overrides.waveAmplitude;
@@ -13212,6 +13526,8 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
         const deltaSeconds = delta / 1000;
         for (let i = projectiles.length - 1; i >= 0; i--) {
             const projectile = projectiles[i];
+
+            projectile.justPierced = false;
 
             if (projectile.type === 'missile') {
                 const target = findNearestObstacle(projectile);
@@ -14584,21 +14900,18 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
         if (!projectile) {
             return 1;
         }
+        let baseDamage = 1;
         if (Number.isFinite(projectile.damage)) {
-            return Math.max(1, projectile.damage);
+            baseDamage = Math.max(1, projectile.damage);
+        } else if (projectile.type === 'missile') {
+            baseDamage = 2;
         }
-        switch (projectile.type) {
-            case 'missile':
-                return 2;
-            default:
-                return 1;
-        }
+        return Math.max(1, Math.round(baseDamage * projectileDamageMultiplier));
     }
 
     function updateProjectilesCollisions() {
-        for (let i = projectiles.length - 1; i >= 0; i--) {
+        projectileLoop: for (let i = projectiles.length - 1; i >= 0; i--) {
             const projectile = projectiles[i];
-            let projectileRemoved = false;
             for (let j = obstacles.length - 1; j >= 0; j--) {
                 const obstacle = obstacles[j];
                 if (!rectOverlap(projectile, obstacle)) continue;
@@ -14607,8 +14920,15 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
                 obstacle.health -= damage;
                 obstacle.hitFlash = 160;
 
-                projectiles.splice(i, 1);
-                projectileRemoved = true;
+                const pierceRemaining = Number.isFinite(projectile.pierce) ? Math.max(0, projectile.pierce) : 0;
+                if (pierceRemaining <= 0) {
+                    projectiles.splice(i, 1);
+                } else {
+                    projectile.pierce = Math.max(0, pierceRemaining - 1);
+                    projectile.justPierced = true;
+                    projectile.x += projectile.vx * 0.016;
+                    projectile.y += projectile.vy * 0.016;
+                }
 
                 if (obstacle.health <= 0) {
                     obstacles.splice(j, 1);
@@ -14621,11 +14941,8 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
                         color: { r: 159, g: 168, b: 218 }
                     });
                 }
-                break;
-            }
 
-            if (projectileRemoved) {
-                continue;
+                continue projectileLoop;
             }
 
             for (let j = asteroids.length - 1; j >= 0; j--) {
@@ -14634,10 +14951,17 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
                 if (!circleRectOverlap({ x: asteroid.x, y: asteroid.y, radius }, projectile)) continue;
 
                 const damage = getProjectileDamage(projectile);
-                projectiles.splice(i, 1);
+                const pierceRemaining = Number.isFinite(projectile.pierce) ? Math.max(0, projectile.pierce) : 0;
+                if (pierceRemaining <= 0) {
+                    projectiles.splice(i, 1);
+                } else {
+                    projectile.pierce = Math.max(0, pierceRemaining - 1);
+                    projectile.justPierced = true;
+                    projectile.x += projectile.vx * 0.016;
+                    projectile.y += projectile.vy * 0.016;
+                }
                 damageAsteroid(asteroid, damage, j);
-                projectileRemoved = true;
-                break;
+                continue projectileLoop;
             }
         }
     }

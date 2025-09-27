@@ -1740,6 +1740,18 @@ function resolvePanelSpriteAsset(relativePath) {
   return "";
 }
 
+function resolveWeaponAnimationAsset(relativePath) {
+  const assetPath = `./assets/weapons/${relativePath}`;
+  try {
+    return new URL(assetPath, import.meta.url).href;
+  } catch (error) {
+    if (typeof console !== "undefined" && error) {
+      console.warn(`Failed to resolve weapon animation at ${assetPath}`, error);
+    }
+  }
+  return "";
+}
+
 function createSvgDataUrl(svgMarkup) {
   if (typeof svgMarkup !== "string" || !svgMarkup.trim()) {
     return "";
@@ -1864,8 +1876,100 @@ const miniGameWeaponOptions = [
       focus: "#fffbf2",
       trace: "#c8f0ff"
     })
+  },
+  {
+    id: "nebulaBloom",
+    name: "Nebula Bloom",
+    summary: "Radiant petals spiral outward, saturating lanes with cosmic pollen.",
+    classification: "Orbiting burst",
+    unlock: { level: 4, skill: "auroraArsenal" },
+    image: resolveWeaponAnimationAsset("nebula-bloom.svg")
+  },
+  {
+    id: "quasarLance",
+    name: "Quasar Lance",
+    summary: "A focused singularity beam that pierces straight through platoons.",
+    classification: "Piercing beam",
+    unlock: { level: 6, skill: "quantumCascade" },
+    image: resolveWeaponAnimationAsset("quasar-lance.svg")
   }
 ];
+
+function isWeaponUnlocked(option, stats) {
+  if (!option) {
+    return false;
+  }
+  const requirements = option.unlock;
+  if (!requirements) {
+    return true;
+  }
+  if (!stats) {
+    return false;
+  }
+
+  const level = Math.max(1, Math.floor(stats.level ?? 1));
+  if (typeof requirements.level === "number" && level < requirements.level) {
+    return false;
+  }
+
+  const unlockedSkills = new Set(stats.skills?.unlocked ?? []);
+  const unlockedWeapons = new Set(
+    Array.isArray(stats.skillBonuses?.weaponUnlocks)
+      ? stats.skillBonuses.weaponUnlocks
+      : []
+  );
+
+  const requiredSkillIds = [];
+  if (typeof requirements.skill === "string" && requirements.skill) {
+    requiredSkillIds.push(requirements.skill);
+  }
+  if (Array.isArray(requirements.skills)) {
+    for (const skillId of requirements.skills) {
+      if (typeof skillId === "string" && skillId) {
+        requiredSkillIds.push(skillId);
+      }
+    }
+  }
+
+  if (requiredSkillIds.length > 0) {
+    const hasAllSkills = requiredSkillIds.every((skillId) => unlockedSkills.has(skillId));
+    if (!hasAllSkills && !unlockedWeapons.has(option.id)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function formatWeaponRequirement(option) {
+  if (!option || !option.unlock) {
+    return "Locked";
+  }
+  const requirements = option.unlock;
+  const parts = [];
+  if (typeof requirements.level === "number") {
+    parts.push(`Level ${requirements.level}`);
+  }
+  const skillIds = [];
+  if (typeof requirements.skill === "string" && requirements.skill) {
+    skillIds.push(requirements.skill);
+  }
+  if (Array.isArray(requirements.skills)) {
+    for (const skillId of requirements.skills) {
+      if (typeof skillId === "string" && skillId) {
+        skillIds.push(skillId);
+      }
+    }
+  }
+  if (skillIds.length > 0) {
+    const names = skillIds.map((skillId) => skillTreeLookup.get(skillId)?.name ?? skillId);
+    parts.push(names.join(" + "));
+  }
+  if (parts.length === 0) {
+    return "Locked";
+  }
+  return `Requires ${parts.join(" · ")}`;
+}
 
 const miniGameSuitOptions = [
   { id: "default", name: "Aurora Standard" },
@@ -2143,12 +2247,163 @@ const attributeDefinitions = [
     base: 5
   }
 ];
+
+const attributeLabelLookup = new Map(
+  attributeDefinitions.map((definition) => [definition.key, definition.label])
+);
+
+const skillTreeNodes = [
+  {
+    id: "plasmaAmplifier",
+    name: "Plasma Amplifier",
+    description: "Projectiles deal 15% more damage once your strength is honed.",
+    cost: 2,
+    requires: { level: 2, attributes: { strength: 7 } },
+    rewards: { damageMultiplier: 0.15 }
+  },
+  {
+    id: "luminousBarrier",
+    name: "Luminous Barrier",
+    description: "Hard-light plating expands maximum health by 12%.",
+    cost: 2,
+    requires: { level: 3, attributes: { vitality: 7 } },
+    rewards: { maxHpMultiplier: 0.12 }
+  },
+  {
+    id: "stellarEngineer",
+    name: "Stellar Engineer",
+    description: "Core tuning increases energy reserves by 20% and boosts regen.",
+    cost: 2,
+    requires: { level: 3, attributes: { focus: 7 } },
+    rewards: { maxMpMultiplier: 0.2, energyRegenBonus: 0.15 }
+  },
+  {
+    id: "rapidReactor",
+    name: "Rapid Reactor",
+    description: "Thruster calibration adds 10% fire rate and 8% movement speed.",
+    cost: 2,
+    requires: { level: 3, attributes: { agility: 7 } },
+    rewards: { fireRateMultiplier: 0.1, speedMultiplier: 0.08 }
+  },
+  {
+    id: "auroraArsenal",
+    name: "Aurora Arsenal",
+    description: "Unlocks the Nebula Bloom weapon animation and adds 5% damage.",
+    cost: 3,
+    requires: { level: 4, skills: ["plasmaAmplifier"] },
+    rewards: { damageMultiplier: 0.05, weaponUnlocks: ["nebulaBloom"] }
+  },
+  {
+    id: "quantumCascade",
+    name: "Quantum Cascade",
+    description:
+      "Quantum vents allow the Quasar Lance animation, +10% fire rate and a piercing shot.",
+    cost: 3,
+    requires: { level: 6, skills: ["auroraArsenal", "rapidReactor"] },
+    rewards: {
+      fireRateMultiplier: 0.1,
+      projectilePierce: 1,
+      weaponUnlocks: ["quasarLance"]
+    }
+  },
+  {
+    id: "dataMiner",
+    name: "Data Miner",
+    description: "Telemetry crunching adds 20% experience from every sortie.",
+    cost: 2,
+    requires: { level: 5, skills: ["stellarEngineer"] },
+    rewards: { xpMultiplier: 0.2 }
+  }
+];
+
+const skillTreeLookup = new Map(skillTreeNodes.map((node) => [node.id, node]));
+
 function createInitialAttributeState() {
   const attributes = {};
   for (const definition of attributeDefinitions) {
     attributes[definition.key] = definition.base;
   }
   return attributes;
+}
+
+function createInitialSkillState() {
+  return { unlocked: [] };
+}
+
+function sanitizeSkillState(skillState) {
+  if (!skillState || typeof skillState !== "object") {
+    return createInitialSkillState();
+  }
+
+  const unlocked = Array.isArray(skillState.unlocked) ? skillState.unlocked : [];
+  const filtered = unlocked.filter((id) => skillTreeLookup.has(id));
+  const unique = Array.from(new Set(filtered));
+  return { unlocked: unique };
+}
+
+function getSkillRequirementDescriptors(node) {
+  const descriptors = [];
+  const requires = node.requires ?? {};
+  if (typeof requires.level === "number") {
+    descriptors.push({ type: "level", value: requires.level, label: `Level ${requires.level}` });
+  }
+  if (requires.attributes && typeof requires.attributes === "object") {
+    for (const [attributeKey, value] of Object.entries(requires.attributes)) {
+      if (typeof value !== "number") {
+        continue;
+      }
+      const label = attributeLabelLookup.get(attributeKey) ?? attributeKey;
+      descriptors.push({
+        type: "attribute",
+        key: attributeKey,
+        value,
+        label: `${label} ${value}+`
+      });
+    }
+  }
+  if (Array.isArray(requires.skills)) {
+    for (const skillId of requires.skills) {
+      const referenced = skillTreeLookup.get(skillId);
+      if (referenced) {
+        descriptors.push({
+          type: "skill",
+          value: skillId,
+          label: referenced.name
+        });
+      }
+    }
+  }
+  return descriptors;
+}
+
+function meetsSkillRequirements(stats, node) {
+  if (!stats || !node) {
+    return false;
+  }
+  const descriptors = getSkillRequirementDescriptors(node);
+  if (descriptors.length === 0) {
+    return true;
+  }
+
+  const unlocked = new Set(stats.skills?.unlocked ?? []);
+  for (const descriptor of descriptors) {
+    if (descriptor.type === "level") {
+      const currentLevel = Math.max(1, Math.floor(stats.level ?? 1));
+      if (currentLevel < descriptor.value) {
+        return false;
+      }
+    } else if (descriptor.type === "attribute") {
+      const current = stats.attributes?.[descriptor.key] ?? attributeDefinitions.find((def) => def.key === descriptor.key)?.base ?? 0;
+      if (current < descriptor.value) {
+        return false;
+      }
+    } else if (descriptor.type === "skill") {
+      if (!unlocked.has(descriptor.value)) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 function applyAttributeScaling(stats, options = {}) {
@@ -2187,6 +2442,113 @@ function applyAttributeScaling(stats, options = {}) {
   stats.mp = clamp(Math.round(newMaxMp * mpRatio), 0, newMaxMp);
   stats.attackPower = 8 + strength * 3;
   stats.speedRating = 8 + agility * 2;
+}
+
+function applySkillEffects(stats) {
+  if (!stats) {
+    return;
+  }
+
+  stats.skills = sanitizeSkillState(stats.skills);
+  const unlockedSet = new Set(stats.skills.unlocked);
+  const baseMaxHp = stats.maxHp ?? 0;
+  const baseMaxMp = stats.maxMp ?? 0;
+  const baseAttack = stats.attackPower ?? 0;
+  const baseSpeed = stats.speedRating ?? 0;
+  const hpValue = clamp(stats.hp ?? baseMaxHp, 0, baseMaxHp);
+  const mpValue = clamp(stats.mp ?? baseMaxMp, 0, baseMaxMp);
+
+  let hpMultiplier = 1;
+  let hpBonus = 0;
+  let mpMultiplier = 1;
+  let mpBonus = 0;
+  let attackMultiplier = 1;
+  let attackBonus = 0;
+  let speedMultiplier = 1;
+
+  const weaponUnlocks = new Set();
+  const skillBonuses = {
+    damageMultiplier: 1,
+    fireRateMultiplier: 1,
+    xpMultiplier: 1,
+    energyRegenBonus: 0,
+    projectilePierce: 0,
+    weaponUnlocks: []
+  };
+
+  for (const skillId of unlockedSet) {
+    const node = skillTreeLookup.get(skillId);
+    if (!node || !node.rewards) {
+      continue;
+    }
+    const rewards = node.rewards;
+    if (typeof rewards.maxHpMultiplier === "number") {
+      hpMultiplier *= 1 + rewards.maxHpMultiplier;
+    }
+    if (typeof rewards.maxHpBonus === "number") {
+      hpBonus += rewards.maxHpBonus;
+    }
+    if (typeof rewards.maxMpMultiplier === "number") {
+      mpMultiplier *= 1 + rewards.maxMpMultiplier;
+    }
+    if (typeof rewards.maxMpBonus === "number") {
+      mpBonus += rewards.maxMpBonus;
+    }
+    if (typeof rewards.damageMultiplier === "number") {
+      skillBonuses.damageMultiplier *= 1 + rewards.damageMultiplier;
+    }
+    if (typeof rewards.fireRateMultiplier === "number") {
+      skillBonuses.fireRateMultiplier *= 1 + rewards.fireRateMultiplier;
+    }
+    if (typeof rewards.xpMultiplier === "number") {
+      skillBonuses.xpMultiplier *= 1 + rewards.xpMultiplier;
+    }
+    if (typeof rewards.energyRegenBonus === "number") {
+      skillBonuses.energyRegenBonus += rewards.energyRegenBonus;
+    }
+    if (typeof rewards.projectilePierce === "number") {
+      skillBonuses.projectilePierce += rewards.projectilePierce;
+    }
+    if (Array.isArray(rewards.weaponUnlocks)) {
+      for (const weaponId of rewards.weaponUnlocks) {
+        if (typeof weaponId === "string" && weaponId) {
+          weaponUnlocks.add(weaponId);
+        }
+      }
+    }
+    if (typeof rewards.attackMultiplier === "number") {
+      attackMultiplier *= 1 + rewards.attackMultiplier;
+    }
+    if (typeof rewards.attackBonus === "number") {
+      attackBonus += rewards.attackBonus;
+    }
+    if (typeof rewards.speedMultiplier === "number") {
+      speedMultiplier *= 1 + rewards.speedMultiplier;
+    }
+  }
+
+  const adjustedMaxHp = Math.round(baseMaxHp * hpMultiplier + hpBonus);
+  const adjustedMaxMp = Math.round(baseMaxMp * mpMultiplier + mpBonus);
+  stats.maxHp = Math.max(0, adjustedMaxHp);
+  stats.maxMp = Math.max(0, adjustedMaxMp);
+
+  const hpRatio = baseMaxHp > 0 ? hpValue / baseMaxHp : 1;
+  const mpRatio = baseMaxMp > 0 ? mpValue / baseMaxMp : 1;
+  stats.hp = clamp(Math.round(stats.maxHp * hpRatio), 0, stats.maxHp);
+  stats.mp = clamp(Math.round(stats.maxMp * mpRatio), 0, stats.maxMp);
+
+  const adjustedAttack = Math.round(baseAttack * attackMultiplier + attackBonus);
+  stats.attackPower = Math.max(0, adjustedAttack);
+  const adjustedSpeed = Math.round(baseSpeed * speedMultiplier);
+  stats.speedRating = Math.max(0, adjustedSpeed);
+
+  skillBonuses.weaponUnlocks = Array.from(weaponUnlocks);
+  stats.skillBonuses = skillBonuses;
+}
+
+function applyProgressionScaling(stats, options = {}) {
+  applyAttributeScaling(stats, options);
+  applySkillEffects(stats);
 }
 
 function getBonusStatPointsForLevel(level) {
@@ -2243,11 +2605,20 @@ const playerStats = {
   maxMp: 60,
   statPoints: getStatPointsForLevel(1),
   attributes: createInitialAttributeState(),
+  skills: createInitialSkillState(),
   attackPower: 0,
-  speedRating: 0
+  speedRating: 0,
+  skillBonuses: {
+    damageMultiplier: 1,
+    fireRateMultiplier: 1,
+    xpMultiplier: 1,
+    energyRegenBonus: 0,
+    projectilePierce: 0,
+    weaponUnlocks: []
+  }
 };
 
-applyAttributeScaling(playerStats, { preservePercent: true });
+applyProgressionScaling(playerStats, { preservePercent: true });
 
 const playerSpriteState = createSpriteState("starter sprite");
 let activePlayerSpriteSource = null;
@@ -2446,7 +2817,25 @@ function syncMiniGameProfile() {
     rank: playerStats.rank,
     exp: playerStats.exp,
     maxExp: playerStats.maxExp,
-    statPoints: playerStats.statPoints
+    statPoints: playerStats.statPoints,
+    attributes: { ...playerStats.attributes },
+    skills: Array.isArray(playerStats.skills?.unlocked)
+      ? [...playerStats.skills.unlocked]
+      : [],
+    skillBonuses: {
+      damageMultiplier: playerStats.skillBonuses?.damageMultiplier ?? 1,
+      fireRateMultiplier: playerStats.skillBonuses?.fireRateMultiplier ?? 1,
+      xpMultiplier: playerStats.skillBonuses?.xpMultiplier ?? 1,
+      energyRegenBonus: playerStats.skillBonuses?.energyRegenBonus ?? 0,
+      projectilePierce: playerStats.skillBonuses?.projectilePierce ?? 0,
+      weaponUnlocks: Array.isArray(playerStats.skillBonuses?.weaponUnlocks)
+        ? [...playerStats.skillBonuses.weaponUnlocks]
+        : []
+    },
+    attackPower: playerStats.attackPower,
+    speedRating: playerStats.speedRating,
+    maxHp: playerStats.maxHp,
+    maxMp: playerStats.maxMp
   };
 
   const activeLoadout = getMiniGameLoadoutBySlot(
@@ -2984,6 +3373,7 @@ function completeMission(missionId) {
       completed: false,
       alreadyComplete: false,
       leveledUp: false,
+      xpAward: 0,
       mission: null
     };
   }
@@ -2994,6 +3384,7 @@ function completeMission(missionId) {
       completed: false,
       alreadyComplete: false,
       leveledUp: false,
+      xpAward: 0,
       mission: null
     };
   }
@@ -3003,17 +3394,19 @@ function completeMission(missionId) {
       completed: false,
       alreadyComplete: true,
       leveledUp: false,
+      xpAward: 0,
       mission
     };
   }
 
   mission.completed = true;
-  const leveledUp = gainExperience(mission.xp);
+  const xpResult = gainExperience(mission.xp);
   refreshMissionDisplay();
   return {
     completed: true,
     alreadyComplete: false,
-    leveledUp,
+    leveledUp: xpResult.leveledUp,
+    xpAward: xpResult.xpAward,
     mission
   };
 }
@@ -3341,17 +3734,17 @@ function update(delta) {
         }
         portalCharged = true;
       }
-      const leveledUp = gainExperience(60);
-      let message = "Crystal energy surges through you! +60 EXP.";
+      const xpResult = gainExperience(60);
+      let message = `Crystal energy surges through you! +${xpResult.xpAward} EXP.`;
       if (fullyCharged) {
         const portalReady = playerStats.level >= portalRequiredLevel;
         message = portalReady
           ? "The final crystal ignites the portal! Return and press E to travel onward."
           : `The final crystal ignites the portal! Reach Level ${portalRequiredLevel} before entering.`;
-        if (leveledUp) {
+        if (xpResult.leveledUp) {
           message += ` Level up! You reached level ${playerStats.level}.`;
         }
-      } else if (leveledUp) {
+      } else if (xpResult.leveledUp) {
         message += ` Level up! You reached level ${playerStats.level}.`;
       }
       showMessage(
@@ -3378,7 +3771,7 @@ function update(delta) {
         const result = completeMission(interactable.missionId);
         audio.playEffect("dialogue");
         if (result.completed) {
-          const xpAward = result.mission?.xp ?? 0;
+          const xpAward = result.xpAward ?? result.mission?.xp ?? 0;
           let message =
             `You craft a triumphant enlistment post for the cosmos. +${xpAward} EXP.`;
           if (result.leveledUp) {
@@ -3490,7 +3883,7 @@ function update(delta) {
         const missionResult = completeMission(interactable.missionId);
         audio.playEffect("dialogue");
         if (missionResult.completed) {
-          const xpAward = missionResult.mission?.xp ?? 0;
+          const xpAward = missionResult.xpAward ?? missionResult.mission?.xp ?? 0;
           const briefingLine = interactable.dialogue[0];
           interactable.lineIndex = Math.min(1, interactable.dialogue.length - 1);
           let message = `${briefingLine} +${xpAward} EXP.`;
@@ -3518,7 +3911,7 @@ function update(delta) {
         const result = completeMission(interactable.missionId);
         audio.playEffect("dialogue");
         if (result.completed) {
-          const xpAward = result.mission?.xp ?? 0;
+          const xpAward = result.xpAward ?? result.mission?.xp ?? 0;
           let message =
             `You sync with the Astronaut account. Mission Control now follows your journey. +${xpAward} EXP.`;
           if (result.leveledUp) {
@@ -3577,13 +3970,13 @@ function update(delta) {
         if (justPressed.has("KeyE")) {
           audio.playEffect("portalActivate");
           portalCompleted = true;
-          const bonusExp = gainExperience(120);
+          const xpResult = gainExperience(120);
           playerStats.hp = playerStats.maxHp;
           playerStats.mp = playerStats.maxMp;
           ui.refresh(playerStats);
           let completionMessage =
             "You stride into the energized portal! All stats restored for the journey ahead.";
-          if (bonusExp) {
+          if (xpResult.leveledUp) {
             completionMessage += ` Level up! You reached level ${playerStats.level}.`;
           }
           audio.playEffect("portalComplete");
@@ -4209,7 +4602,10 @@ function isNear(playerEntity, object, padding) {
 }
 
 function gainExperience(amount) {
-  playerStats.exp += amount;
+  const normalized = Number.isFinite(amount) ? Math.max(0, Math.round(amount)) : 0;
+  const xpMultiplier = playerStats.skillBonuses?.xpMultiplier ?? 1;
+  const adjustedAward = Math.max(0, Math.round(normalized * xpMultiplier));
+  playerStats.exp += adjustedAward;
   let leveledUp = false;
   let levelsGained = 0;
   while (playerStats.exp >= playerStats.maxExp) {
@@ -4222,7 +4618,7 @@ function gainExperience(amount) {
     levelsGained += 1;
   }
   if (levelsGained > 0) {
-    applyAttributeScaling(playerStats);
+    applyProgressionScaling(playerStats);
   }
   updateRankFromLevel();
   if (leveledUp) {
@@ -4230,7 +4626,7 @@ function gainExperience(amount) {
   }
   ui.refresh(playerStats);
   syncMiniGameProfile();
-  return leveledUp;
+  return { leveledUp, xpAward: adjustedAward };
 }
 
 function clamp(value, min, max) {
@@ -4374,7 +4770,7 @@ if (typeof window !== "undefined") {
         0,
         Math.round(Number.isFinite(summary.xpAward) ? summary.xpAward : Number(summary.xpAward) || 0)
       );
-      const leveledUp = gainExperience(normalizedXp);
+      const xpResult = gainExperience(normalizedXp);
 
       const playerName =
         typeof summary.player === "string" && summary.player.trim().length
@@ -4391,9 +4787,10 @@ if (typeof window !== "undefined") {
         typeof summary.formattedTime === "string" && summary.formattedTime.length
           ? summary.formattedTime
           : formatRunDuration(timeMs);
-      const xpLine = normalizedXp > 0 ? ` +${normalizedXp} XP` : "";
+      const xpAward = xpResult.xpAward ?? normalizedXp;
+      const xpLine = xpAward > 0 ? ` +${xpAward} XP` : "";
       let messageText = `${playerName} logged ${formattedScore} pts in ${formattedTime} (x${bestStreak} streak).${xpLine}`;
-      if (leveledUp) {
+      if (xpResult.leveledUp) {
         messageText += ` Level up! You reached level ${playerStats.level}.`;
       }
       showMessage(
@@ -4728,11 +5125,13 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
   const weaponSelect = document.createElement("select");
   weaponSelect.id = `miniGameLoadoutWeapon-${idSuffix}`;
   weaponSelect.className = "loadout-panel__select";
+  const weaponOptionElements = new Map();
   for (const option of miniGameWeaponOptions) {
     const element = document.createElement("option");
     element.value = option.id;
     element.textContent = option.name;
     weaponSelect.append(element);
+    weaponOptionElements.set(option.id, element);
   }
   const weaponField = createField("Weapon", weaponSelect);
   form.append(weaponField);
@@ -4767,6 +5166,10 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
   const weaponPreview = createPreviewItem("Weapon profile", "weapon");
   previewContainer.append(pilotPreview.root, weaponPreview.root);
   form.append(previewContainer);
+
+  let lastProgressStats = null;
+  let previousWeaponValue = weaponSelect.value;
+  let currentWeaponLocked = false;
 
   const summary = document.createElement("div");
   summary.className = "loadout-summary";
@@ -4918,6 +5321,18 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
     previewRoot.classList.add("is-empty");
   }
 
+  function updateWeaponPreviewLockState(weapon, stats) {
+    const locked = Boolean(weapon) && !isWeaponUnlocked(weapon, stats);
+    weaponPreview.root.classList.toggle("is-locked", locked);
+    if (locked && weapon) {
+      const classification = weapon.classification ?? "Weapon";
+      weaponPreview.meta.hidden = false;
+      weaponPreview.meta.textContent = `${classification} · Locked`;
+      weaponPreview.summary.hidden = false;
+      weaponPreview.summary.textContent = formatWeaponRequirement(weapon);
+    }
+  }
+
   function updatePreviewDisplays(pilot, weapon) {
     applyPreview(pilotPreview, pilot, {
       fallbackName: "Select a pilot",
@@ -4929,6 +5344,28 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
       altPrefix: "Weapon hologram for",
       metaKey: "classification"
     });
+    updateWeaponPreviewLockState(weapon, lastProgressStats);
+  }
+
+  function updateWeaponAvailability(progressStats) {
+    if (progressStats) {
+      lastProgressStats = progressStats;
+    }
+    const stats = lastProgressStats;
+    for (const option of miniGameWeaponOptions) {
+      const element = weaponOptionElements.get(option.id);
+      if (!element) {
+        continue;
+      }
+      const unlocked = isWeaponUnlocked(option, stats);
+      element.classList.toggle("is-locked-option", !unlocked);
+      element.dataset.locked = unlocked ? "false" : "true";
+      element.textContent = unlocked ? option.name : `${option.name} (Locked)`;
+    }
+
+    const currentOption = miniGameWeaponOptions.find((option) => option.id === weaponSelect.value) ?? null;
+    updateWeaponPreviewLockState(currentOption, stats);
+    updateActiveIndicators();
   }
 
   function rebuildSlotOptions() {
@@ -4972,9 +5409,24 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
   function updateActiveIndicators() {
     const activeLoadout = getCurrentLoadout();
     const isActive = Boolean(activeLoadout && currentState.activeSlot === activeLoadout.slot);
+    const activeWeapon =
+      activeLoadout &&
+      miniGameWeaponOptions.find((option) => option.id === activeLoadout.weaponId);
+    const lockedSelection = Boolean(activeWeapon && !isWeaponUnlocked(activeWeapon, lastProgressStats));
     activeBadge.hidden = !isActive;
-    equipButton.disabled = !storageAvailable || !activeLoadout || isActive;
-    equipButton.textContent = isActive ? "Equipped" : "Equip this preset";
+    if (isActive) {
+      equipButton.disabled = true;
+      equipButton.textContent = "Equipped";
+    } else if (!storageAvailable || !activeLoadout) {
+      equipButton.disabled = true;
+      equipButton.textContent = "Equip this preset";
+    } else if (lockedSelection) {
+      equipButton.disabled = true;
+      equipButton.textContent = "Unlock to equip";
+    } else {
+      equipButton.disabled = false;
+      equipButton.textContent = "Equip this preset";
+    }
   }
 
   function updateSummary(loadout) {
@@ -5002,8 +5454,17 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
       : "—";
     summaryValues.pilot.title = pilot?.summary ?? "";
 
-    summaryValues.weapon.textContent = weapon ? weapon.name : "—";
-    summaryValues.weapon.title = weapon?.summary ?? "";
+    currentWeaponLocked = Boolean(weapon) && !isWeaponUnlocked(weapon, lastProgressStats);
+    summaryValues.weapon.textContent = weapon
+      ? currentWeaponLocked
+        ? `${weapon.name} (Locked)`
+        : weapon.name
+      : "—";
+    summaryValues.weapon.title = weapon
+      ? currentWeaponLocked
+        ? formatWeaponRequirement(weapon)
+        : weapon.summary ?? ""
+      : "";
 
     summaryValues.suit.textContent = suit ? suit.name : "—";
     summaryValues.stream.textContent = stream ? stream.name : "—";
@@ -5023,6 +5484,8 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
     if (activeSlotId) {
       slotSelect.value = activeSlotId;
     }
+    previousWeaponValue = weaponSelect.value;
+    updateWeaponAvailability(lastProgressStats);
     updateSummary(resolved);
     updateActiveIndicators();
   }
@@ -5115,7 +5578,16 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
     updateSlot({ characterId: pilotSelect.value });
   });
   weaponSelect.addEventListener("change", () => {
-    updateSlot({ weaponId: weaponSelect.value });
+    const selectedId = weaponSelect.value;
+    const selectedOption = miniGameWeaponOptions.find((option) => option.id === selectedId) ?? null;
+    if (selectedOption && !isWeaponUnlocked(selectedOption, lastProgressStats)) {
+      const requirementText = formatWeaponRequirement(selectedOption);
+      setStatus(requirementText, "error");
+      weaponSelect.value = previousWeaponValue;
+      return;
+    }
+    previousWeaponValue = selectedId;
+    updateSlot({ weaponId: selectedId });
   });
   suitSelect.addEventListener("change", () => {
     updateSlot({ skinId: suitSelect.value });
@@ -5152,6 +5624,11 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
           ? currentState.activeSlot
           : currentState.slots[0]?.slot ?? activeSlotId;
       rebuildSlotOptions();
+      applyFormValues(getCurrentLoadout());
+      setStatus(baseStatusMessage);
+    },
+    updateAvailability(progressStats) {
+      updateWeaponAvailability(progressStats);
       applyFormValues(getCurrentLoadout());
       setStatus(baseStatusMessage);
     },
@@ -5425,6 +5902,7 @@ function createInterface(stats, options = {}) {
     { key: "level", label: "Level", valueClass: "stats-summary__value--accent" },
     { key: "rank", label: "Rank" },
     { key: "statPoints", label: "Unspent Points" },
+    { key: "skillBoosts", label: "Skill Boosts", fullWidth: true },
     { key: "expProgress", label: "EXP Progress", fullWidth: true }
   ];
   for (const definition of statsSummaryDefinitions) {
@@ -5531,6 +6009,95 @@ function createInterface(stats, options = {}) {
   }
   attributePanel.append(derivedStatsList);
 
+  const skillTreePanel = document.createElement("section");
+  skillTreePanel.className = "skill-tree";
+
+  const skillHeader = document.createElement("div");
+  skillHeader.className = "skill-tree__header";
+  const skillTitle = document.createElement("h2");
+  skillTitle.className = "skill-tree__title";
+  skillTitle.textContent = "Specializations";
+  const skillIntro = document.createElement("p");
+  skillIntro.className = "skill-tree__hint";
+  skillIntro.textContent =
+    "Unlock perks that empower the arcade run. Requirements update as your stats grow.";
+  skillHeader.append(skillTitle, skillIntro);
+  skillTreePanel.append(skillHeader);
+
+  const skillGrid = document.createElement("div");
+  skillGrid.className = "skill-tree__grid";
+  skillTreePanel.append(skillGrid);
+
+  const skillNodeViews = new Map();
+
+  for (const node of skillTreeNodes) {
+    const card = document.createElement("article");
+    card.className = "skill-tree__node";
+
+    const heading = document.createElement("div");
+    heading.className = "skill-tree__heading";
+
+    const name = document.createElement("h3");
+    name.className = "skill-tree__name";
+    name.textContent = node.name;
+
+    const costBadge = document.createElement("span");
+    costBadge.className = "skill-tree__cost";
+    costBadge.textContent = `${node.cost} pts`;
+
+    heading.append(name, costBadge);
+    card.append(heading);
+
+    const description = document.createElement("p");
+    description.className = "skill-tree__description";
+    description.textContent = node.description;
+    card.append(description);
+
+    const requirementList = document.createElement("ul");
+    requirementList.className = "skill-tree__requirements";
+    const descriptorItems = [];
+    const descriptors = getSkillRequirementDescriptors(node);
+    if (descriptors.length === 0) {
+      const item = document.createElement("li");
+      item.className = "skill-tree__requirement is-met";
+      item.textContent = "No prerequisites";
+      requirementList.append(item);
+    } else {
+      for (const descriptor of descriptors) {
+        const item = document.createElement("li");
+        item.className = "skill-tree__requirement";
+        item.textContent = descriptor.label;
+        requirementList.append(item);
+        descriptorItems.push({ descriptor, element: item });
+      }
+    }
+    card.append(requirementList);
+
+    const status = document.createElement("p");
+    status.className = "skill-tree__status";
+    status.hidden = true;
+    card.append(status);
+
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "skill-tree__action";
+    action.textContent = `Unlock (-${node.cost})`;
+    action.addEventListener("click", () => {
+      attemptUnlockSkill(node.id);
+    });
+    card.append(action);
+
+    skillGrid.append(card);
+
+    skillNodeViews.set(node.id, {
+      root: card,
+      button: action,
+      status,
+      descriptors: descriptorItems,
+      cost: costBadge
+    });
+  }
+
   const loadoutPanel = createMiniGameLoadoutPanel(miniGameLoadoutState, {
     onLoadoutsChange(nextState) {
       miniGameLoadoutState = nextState;
@@ -5538,6 +6105,133 @@ function createInterface(stats, options = {}) {
     }
   });
   miniGameLoadoutState = loadoutPanel.getState();
+  loadoutPanel.updateAvailability(stats);
+
+  function updateSkillTreeInterface(updatedStats) {
+    const workingStats = updatedStats ?? stats;
+    workingStats.skills = sanitizeSkillState(workingStats.skills);
+    const unlockedSet = new Set(workingStats.skills.unlocked);
+    const availablePoints = Math.max(0, workingStats.statPoints ?? 0);
+    const currentLevel = Math.max(1, Math.floor(workingStats.level ?? 1));
+
+    for (const node of skillTreeNodes) {
+      const view = skillNodeViews.get(node.id);
+      if (!view) {
+        continue;
+      }
+      const unlocked = unlockedSet.has(node.id);
+      const meetsRequirements = meetsSkillRequirements(workingStats, node);
+      view.root.classList.toggle("is-unlocked", unlocked);
+      view.root.classList.toggle("is-locked", !unlocked);
+      view.root.classList.toggle("is-available", !unlocked && meetsRequirements);
+      if (view.button) {
+        view.button.disabled = unlocked || !meetsRequirements || availablePoints < node.cost;
+        view.button.textContent = unlocked ? "Unlocked" : `Unlock (-${node.cost})`;
+      }
+      if (view.status) {
+        if (unlocked) {
+          view.status.textContent = "Unlocked";
+          view.status.classList.remove("is-error");
+          view.status.classList.add("is-success");
+          view.status.hidden = false;
+        } else if (view.status.classList.contains("is-error")) {
+          if (meetsRequirements) {
+            view.status.classList.remove("is-error");
+            view.status.hidden = true;
+          }
+        } else {
+          view.status.hidden = true;
+          view.status.classList.remove("is-success");
+        }
+      }
+      if (view.cost) {
+        view.cost.textContent = `${node.cost} pts`;
+      }
+      if (Array.isArray(view.descriptors)) {
+        for (const entry of view.descriptors) {
+          const descriptor = entry.descriptor;
+          const element = entry.element;
+          if (!descriptor || !element) {
+            continue;
+          }
+          let met = false;
+          if (descriptor.type === "level") {
+            met = currentLevel >= descriptor.value;
+          } else if (descriptor.type === "attribute") {
+            const attributeValue =
+              workingStats.attributes?.[descriptor.key] ??
+              attributeDefinitions.find((definition) => definition.key === descriptor.key)?.base ??
+              0;
+            met = attributeValue >= descriptor.value;
+          } else if (descriptor.type === "skill") {
+            met = unlockedSet.has(descriptor.value);
+          }
+          element.classList.toggle("is-met", met);
+        }
+      }
+    }
+  }
+
+  function attemptUnlockSkill(skillId) {
+    if (!stats) {
+      return;
+    }
+    const node = skillTreeLookup.get(skillId);
+    if (!node) {
+      return;
+    }
+    stats.skills = sanitizeSkillState(stats.skills);
+    const unlockedSet = new Set(stats.skills.unlocked);
+    const view = skillNodeViews.get(skillId);
+    if (unlockedSet.has(skillId)) {
+      if (view?.status) {
+        view.status.textContent = "Already unlocked.";
+        view.status.classList.remove("is-error");
+        view.status.classList.add("is-success");
+        view.status.hidden = false;
+      }
+      return;
+    }
+    const availablePoints = Math.max(0, stats.statPoints ?? 0);
+    const meetsRequirements = meetsSkillRequirements(stats, node);
+    if (!meetsRequirements) {
+      if (view?.status) {
+        view.status.textContent = "Meet the requirements to unlock this perk.";
+        view.status.classList.add("is-error");
+        view.status.hidden = false;
+      }
+      updateSkillTreeInterface(stats);
+      return;
+    }
+    if (availablePoints < node.cost) {
+      if (view?.status) {
+        view.status.textContent = `Requires ${node.cost} stat points.`;
+        view.status.classList.add("is-error");
+        view.status.hidden = false;
+      }
+      pulseStatPointBadge();
+      return;
+    }
+    stats.statPoints = availablePoints - node.cost;
+    unlockedSet.add(skillId);
+    stats.skills.unlocked = Array.from(unlockedSet);
+    applyProgressionScaling(stats);
+    updateAttributeInterface(stats);
+    updateDerivedStatsInterface(stats);
+    updateStatsSummary(stats);
+    updateSkillTreeInterface(stats);
+    updateBar(hpBar, stats.hp, stats.maxHp);
+    updateBar(mpBar, stats.mp, stats.maxMp);
+    loadoutPanel.updateAvailability(stats);
+    syncMiniGameProfile();
+    audio.playEffect("dialogue");
+    if (view?.status) {
+      view.status.textContent = "Unlocked!";
+      view.status.classList.remove("is-error");
+      view.status.classList.add("is-success");
+      view.status.hidden = false;
+    }
+  }
 
   const crystalsLabel = document.createElement("p");
   crystalsLabel.className = "crystal-label";
@@ -5821,7 +6515,7 @@ function createInterface(stats, options = {}) {
     id: "hud-stats",
     label: "Stats",
     title: "Pilot Stats",
-    nodes: [statsContainer, attributePanel]
+    nodes: [statsContainer, attributePanel, skillTreePanel]
   });
 
   registerHudPopup({
@@ -5862,6 +6556,32 @@ function createInterface(stats, options = {}) {
     target.textContent = text;
   }
 
+  function formatSkillBoostSummary(bonuses) {
+    if (!bonuses || typeof bonuses !== "object") {
+      return "—";
+    }
+    const parts = [];
+    if (typeof bonuses.damageMultiplier === "number" && bonuses.damageMultiplier > 1) {
+      parts.push(`DMG +${Math.round((bonuses.damageMultiplier - 1) * 100)}%`);
+    }
+    if (typeof bonuses.fireRateMultiplier === "number" && bonuses.fireRateMultiplier > 1) {
+      parts.push(`Rate +${Math.round((bonuses.fireRateMultiplier - 1) * 100)}%`);
+    }
+    if (typeof bonuses.xpMultiplier === "number" && bonuses.xpMultiplier > 1) {
+      parts.push(`XP +${Math.round((bonuses.xpMultiplier - 1) * 100)}%`);
+    }
+    if (typeof bonuses.energyRegenBonus === "number" && bonuses.energyRegenBonus > 0) {
+      parts.push(`Regen +${Math.round(bonuses.energyRegenBonus * 100)}%`);
+    }
+    if (typeof bonuses.projectilePierce === "number" && bonuses.projectilePierce > 0) {
+      parts.push(`Pierce +${Math.round(bonuses.projectilePierce)}`);
+    }
+    if (parts.length === 0) {
+      return "—";
+    }
+    return parts.join(" · ");
+  }
+
   function updateStatsSummary(updatedStats) {
     if (!updatedStats || typeof updatedStats !== "object") {
       for (const value of statsSummaryRows.values()) {
@@ -5878,6 +6598,7 @@ function createInterface(stats, options = {}) {
 
     const unspentPoints = Math.max(0, Math.floor(updatedStats.statPoints ?? 0));
     setStatsSummaryValue("statPoints", `${unspentPoints} pts`);
+    setStatsSummaryValue("skillBoosts", formatSkillBoostSummary(updatedStats.skillBonuses));
 
     const exp = typeof updatedStats.exp === "number" ? updatedStats.exp : null;
     const maxExp = typeof updatedStats.maxExp === "number" ? updatedStats.maxExp : null;
@@ -5900,8 +6621,8 @@ function createInterface(stats, options = {}) {
     statPointsBadge.classList.toggle("is-empty", availablePoints === 0);
     attributeHint.textContent =
       availablePoints > 0
-        ? `You have ${availablePoints} stat ${availablePoints === 1 ? "point" : "points"} to spend. Bonus caches unlock every ${STAT_POINT_MILESTONE_INTERVAL} levels.`
-        : `Complete missions to earn stat points. Bonus caches unlock every ${STAT_POINT_MILESTONE_INTERVAL} levels.`;
+        ? `You have ${availablePoints} stat ${availablePoints === 1 ? "point" : "points"} to invest in attributes or specializations. Bonus caches unlock every ${STAT_POINT_MILESTONE_INTERVAL} levels.`
+        : `Complete missions to earn stat points for attributes and the specialization tree. Bonus caches unlock every ${STAT_POINT_MILESTONE_INTERVAL} levels.`;
 
     for (const definition of attributeDefinitions) {
       const row = attributeRows.get(definition.key);
@@ -5913,6 +6634,15 @@ function createInterface(stats, options = {}) {
       row.value.textContent = value.toString();
       row.button.disabled = availablePoints === 0;
     }
+
+    updateSkillTreeInterface(updatedStats);
+  }
+
+  function pulseStatPointBadge() {
+    statPointsBadge.classList.add("attribute-panel__points--pulse");
+    setTimeout(() => {
+      statPointsBadge.classList.remove("attribute-panel__points--pulse");
+    }, 320);
   }
 
   function updateDerivedStatsInterface(updatedStats) {
@@ -5933,10 +6663,7 @@ function createInterface(stats, options = {}) {
     }
     const availablePoints = Math.max(0, stats.statPoints ?? 0);
     if (availablePoints <= 0) {
-      statPointsBadge.classList.add("attribute-panel__points--pulse");
-      setTimeout(() => {
-        statPointsBadge.classList.remove("attribute-panel__points--pulse");
-      }, 320);
+      pulseStatPointBadge();
       return;
     }
     if (!stats.attributes) {
@@ -5945,7 +6672,7 @@ function createInterface(stats, options = {}) {
     const currentValue = stats.attributes[attributeKey] ?? 0;
     stats.attributes[attributeKey] = currentValue + 1;
     stats.statPoints = availablePoints - 1;
-    applyAttributeScaling(stats);
+    applyProgressionScaling(stats);
     updateBar(hpBar, stats.hp, stats.maxHp);
     updateBar(mpBar, stats.mp, stats.maxMp);
     updateAttributeInterface(stats);
@@ -5973,6 +6700,7 @@ function createInterface(stats, options = {}) {
         `${updatedStats.name} — Level ${updatedStats.level} ${updatedStats.rank}`
       );
       subtitle.textContent = subtitleParts.join(" · ");
+      loadoutPanel.updateAvailability(updatedStats);
       updateBar(hpBar, updatedStats.hp, updatedStats.maxHp);
       updateBar(mpBar, updatedStats.mp, updatedStats.maxMp);
       updateBar(expBar, updatedStats.exp, updatedStats.maxExp);

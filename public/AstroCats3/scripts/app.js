@@ -17,6 +17,43 @@ let config = null;
 let basePlayerConfig = null;
 let baseDashConfig = null;
 let baseProjectileSettings = null;
+let basePowerUpDurations = null;
+let baseDefenseConfig = null;
+let baseComboDecayWindow = null;
+let baseHyperBeamConfig = null;
+const DEFAULT_PILOT_ATTRIBUTES = Object.freeze({
+    vitality: 5,
+    strength: 5,
+    agility: 5,
+    focus: 5
+});
+const DEFAULT_PILOT_STATS = Object.freeze({
+    maxHp: 100,
+    maxMp: 60,
+    attackPower: 23,
+    speedRating: 18
+});
+const DEFAULT_SKILL_BONUSES = Object.freeze({
+    damageMultiplier: 1,
+    fireRateMultiplier: 1,
+    xpMultiplier: 1,
+    energyRegenBonus: 0,
+    projectilePierce: 0,
+    weaponUnlocks: []
+});
+const pilotProfileSnapshot = {
+    attributes: Object.assign({}, DEFAULT_PILOT_ATTRIBUTES),
+    attackPower: DEFAULT_PILOT_STATS.attackPower,
+    speedRating: DEFAULT_PILOT_STATS.speedRating,
+    maxHp: DEFAULT_PILOT_STATS.maxHp,
+    maxMp: DEFAULT_PILOT_STATS.maxMp,
+    skillBonuses: Object.assign({}, DEFAULT_SKILL_BONUSES)
+};
+let activeSkillBonuses = Object.assign({}, DEFAULT_SKILL_BONUSES);
+let projectileDamageMultiplier = 1;
+let projectilePierceBonus = 0;
+let projectileFireRateMultiplier = 1;
+let energyRegenMultiplier = 1;
 let activeDifficultyPreset = 'medium';
 let spawnTimers = { obstacle: 0, collectible: 0, powerUp: 0 };
 let shellScale = 1;
@@ -30,8 +67,8 @@ let openWeaponSelectButton = null;
 const weaponPatternStates = new Map();
 const weaponLoadouts = {};
 const LOADOUTS_MANAGED_EXTERNALLY = true;
-const ENVIRONMENT_SPACE = 'space';
-const ENVIRONMENT_UNDERWATER = 'underwater';
+const ENVIRONMENT_SPACE = "space";
+const ENVIRONMENT_UNDERWATER = "underwater";
 const environmentPhysicsPresets = {
     [ENVIRONMENT_SPACE]: {
         accelerationMultiplier: 1,
@@ -432,7 +469,7 @@ function loadCustomFont(fontFamily) {
     return loadPromise;
 }
 document.addEventListener('DOMContentLoaded', () => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32, _33, _34;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, _38;
     const GAMEPAD_CURSOR_HALF_SIZE = 11;
     // Reset onboarding flags whenever the game reinitializes. This ensures that
     // subsequent reloads (such as during development hot-reloads) don't carry
@@ -2060,6 +2097,13 @@ document.addEventListener('DOMContentLoaded', () => {
         speed: baseGameConfig.projectileSpeed,
         cooldown: baseGameConfig.projectileCooldown
     };
+    basePowerUpDurations = cloneConfig((_b = (_a = baseGameConfig.powerUp) === null || _a === void 0 ? void 0 : _a.duration) !== null && _b !== void 0 ? _b : {});
+    baseDefenseConfig = cloneConfig((_c = baseGameConfig.defensePower) !== null && _c !== void 0 ? _c : {});
+    baseComboDecayWindow = Number.isFinite(baseGameConfig.comboDecayWindow)
+        ? baseGameConfig.comboDecayWindow
+        : config.comboDecayWindow;
+    baseHyperBeamConfig = cloneConfig((_d = baseGameConfig.hyperBeam) !== null && _d !== void 0 ? _d : {});
+    applyPilotStatsToConfig();
     const projectileArchetypes = Object.freeze({
         standard: {
             width: 24,
@@ -2174,7 +2218,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const comboFillEl = document.getElementById('comboFill');
     const comboMeterEl = document.getElementById('comboMeter');
     const joystickZone = document.getElementById('joystickZone');
-    const joystickThumb = (_a = joystickZone === null || joystickZone === void 0 ? void 0 : joystickZone.querySelector('.joystick-thumb')) !== null && _a !== void 0 ? _a : null;
+    const joystickThumb = (_e = joystickZone === null || joystickZone === void 0 ? void 0 : joystickZone.querySelector('.joystick-thumb')) !== null && _e !== void 0 ? _e : null;
     const fireButton = document.getElementById('fireButton');
     const touchControls = document.getElementById('touchControls');
     const debugOverlayEl = document.getElementById('debugOverlay');
@@ -2192,6 +2236,209 @@ document.addEventListener('DOMContentLoaded', () => {
         statPoints: null,
         rank: null
     };
+    function sanitizeSkillBonuses(bonuses) {
+        const sanitized = {
+            damageMultiplier: DEFAULT_SKILL_BONUSES.damageMultiplier,
+            fireRateMultiplier: DEFAULT_SKILL_BONUSES.fireRateMultiplier,
+            xpMultiplier: DEFAULT_SKILL_BONUSES.xpMultiplier,
+            energyRegenBonus: DEFAULT_SKILL_BONUSES.energyRegenBonus,
+            projectilePierce: DEFAULT_SKILL_BONUSES.projectilePierce,
+            weaponUnlocks: []
+        };
+        if (!bonuses || typeof bonuses !== 'object') {
+            return sanitized;
+        }
+        if (Number.isFinite(bonuses.damageMultiplier)) {
+            sanitized.damageMultiplier = Math.max(0.1, bonuses.damageMultiplier);
+        }
+        if (Number.isFinite(bonuses.fireRateMultiplier)) {
+            sanitized.fireRateMultiplier = Math.max(0.1, bonuses.fireRateMultiplier);
+        }
+        if (Number.isFinite(bonuses.xpMultiplier)) {
+            sanitized.xpMultiplier = Math.max(0, bonuses.xpMultiplier);
+        }
+        if (Number.isFinite(bonuses.energyRegenBonus)) {
+            sanitized.energyRegenBonus = Math.max(-0.9, bonuses.energyRegenBonus);
+        }
+        if (Number.isFinite(bonuses.projectilePierce)) {
+            sanitized.projectilePierce = Math.max(0, Math.floor(bonuses.projectilePierce));
+        }
+        if (Array.isArray(bonuses.weaponUnlocks)) {
+            sanitized.weaponUnlocks = bonuses.weaponUnlocks
+                .filter((value) => typeof value === 'string' && value.length)
+                .map((value) => value.trim());
+        }
+        return sanitized;
+    }
+    function updatePilotProfile(partial = {}) {
+        if (!partial || typeof partial !== 'object') {
+            return false;
+        }
+        let changed = false;
+        if (isPlainObject(partial.attributes)) {
+            const attributes = pilotProfileSnapshot.attributes;
+            for (const [key, baseValue] of Object.entries(DEFAULT_PILOT_ATTRIBUTES)) {
+                const nextValue = partial.attributes[key];
+                if (!Number.isFinite(nextValue)) {
+                    continue;
+                }
+                const normalized = Math.max(0, Math.floor(nextValue));
+                if (attributes[key] !== normalized) {
+                    attributes[key] = normalized;
+                    changed = true;
+                }
+            }
+        }
+        if (Number.isFinite(partial.attackPower)) {
+            const normalized = Math.max(1, partial.attackPower);
+            if (pilotProfileSnapshot.attackPower !== normalized) {
+                pilotProfileSnapshot.attackPower = normalized;
+                changed = true;
+            }
+        }
+        if (Number.isFinite(partial.speedRating)) {
+            const normalized = Math.max(1, partial.speedRating);
+            if (pilotProfileSnapshot.speedRating !== normalized) {
+                pilotProfileSnapshot.speedRating = normalized;
+                changed = true;
+            }
+        }
+        if (Number.isFinite(partial.maxHp)) {
+            const normalized = Math.max(1, partial.maxHp);
+            if (pilotProfileSnapshot.maxHp !== normalized) {
+                pilotProfileSnapshot.maxHp = normalized;
+                changed = true;
+            }
+        }
+        if (Number.isFinite(partial.maxMp)) {
+            const normalized = Math.max(0, partial.maxMp);
+            if (pilotProfileSnapshot.maxMp !== normalized) {
+                pilotProfileSnapshot.maxMp = normalized;
+                changed = true;
+            }
+        }
+        if (partial.skillBonuses) {
+            const sanitized = sanitizeSkillBonuses(partial.skillBonuses);
+            const previous = pilotProfileSnapshot.skillBonuses;
+            const weaponUnlocksEqual = Array.isArray(previous.weaponUnlocks) &&
+                previous.weaponUnlocks.length === sanitized.weaponUnlocks.length &&
+                previous.weaponUnlocks.every((value, index) => value === sanitized.weaponUnlocks[index]);
+            if (previous.damageMultiplier !== sanitized.damageMultiplier ||
+                previous.fireRateMultiplier !== sanitized.fireRateMultiplier ||
+                previous.xpMultiplier !== sanitized.xpMultiplier ||
+                previous.energyRegenBonus !== sanitized.energyRegenBonus ||
+                previous.projectilePierce !== sanitized.projectilePierce ||
+                !weaponUnlocksEqual) {
+                pilotProfileSnapshot.skillBonuses = sanitized;
+                changed = true;
+            }
+        }
+        if (changed) {
+            applyPilotStatsToConfig();
+        }
+        return changed;
+    }
+    function applyPilotStatsToConfig() {
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o;
+        const attackPower = Number.isFinite(pilotProfileSnapshot.attackPower)
+            ? pilotProfileSnapshot.attackPower
+            : DEFAULT_PILOT_STATS.attackPower;
+        const speedRating = Number.isFinite(pilotProfileSnapshot.speedRating)
+            ? pilotProfileSnapshot.speedRating
+            : DEFAULT_PILOT_STATS.speedRating;
+        const maxHp = Number.isFinite(pilotProfileSnapshot.maxHp)
+            ? pilotProfileSnapshot.maxHp
+            : DEFAULT_PILOT_STATS.maxHp;
+        const maxMp = Number.isFinite(pilotProfileSnapshot.maxMp)
+            ? pilotProfileSnapshot.maxMp
+            : DEFAULT_PILOT_STATS.maxMp;
+        const attackScale = clamp(attackPower / DEFAULT_PILOT_STATS.attackPower, 0.4, 4);
+        const speedScale = clamp(speedRating / DEFAULT_PILOT_STATS.speedRating, 0.4, 2.6);
+        const vitalityScale = clamp(maxHp / DEFAULT_PILOT_STATS.maxHp, 0.4, 3);
+        const focusScale = clamp(maxMp / DEFAULT_PILOT_STATS.maxMp, 0.4, 3);
+        activeSkillBonuses = sanitizeSkillBonuses(pilotProfileSnapshot.skillBonuses);
+        projectileDamageMultiplier = clamp(attackScale * ((_a = activeSkillBonuses.damageMultiplier) !== null && _a !== void 0 ? _a : DEFAULT_SKILL_BONUSES.damageMultiplier), 0.5, 6);
+        projectilePierceBonus = Math.max(0, Math.floor((_b = activeSkillBonuses.projectilePierce) !== null && _b !== void 0 ? _b : 0));
+        projectileFireRateMultiplier = clamp((_c = activeSkillBonuses.fireRateMultiplier) !== null && _c !== void 0 ? _c : 1, 0.5, 4);
+        energyRegenMultiplier = clamp(1 + ((_d = activeSkillBonuses.energyRegenBonus) !== null && _d !== void 0 ? _d : 0) + Math.max(0, focusScale - 1) * 0.4, 0.5, 3);
+        if (!config) {
+            return;
+        }
+        if (baseProjectileSettings && isPlainObject(config)) {
+            const baseSpeed = Number.isFinite(baseProjectileSettings.speed)
+                ? baseProjectileSettings.speed
+                : (_e = config.projectileSpeed) !== null && _e !== void 0 ? _e : 760;
+            const baseCooldown = Number.isFinite(baseProjectileSettings.cooldown)
+                ? baseProjectileSettings.cooldown
+                : (_f = config.projectileCooldown) !== null && _f !== void 0 ? _f : 180;
+            const speedMultiplier = clamp(0.8 + (speedScale - 1) * 0.45, 0.6, 2.5);
+            config.projectileSpeed = Math.round(baseSpeed * speedMultiplier);
+            const cooldownMultiplier = 1 / projectileFireRateMultiplier;
+            config.projectileCooldown = Math.max(60, Math.round(baseCooldown * clamp(cooldownMultiplier, 0.25, 2.8)));
+        }
+        if (basePlayerConfig && isPlainObject(config.player)) {
+            const accelerationScale = clamp(speedScale, 0.6, 2.4);
+            config.player.acceleration = Math.round(basePlayerConfig.acceleration * accelerationScale);
+            const maxSpeedScale = clamp(speedScale * (1 + (projectileFireRateMultiplier - 1) * 0.08), 0.6, 2.2);
+            config.player.maxSpeed = Math.round(basePlayerConfig.maxSpeed * maxSpeedScale);
+            const dragScale = clamp(0.9 + (speedScale - 1) * 0.25, 0.5, 1.8);
+            config.player.drag = basePlayerConfig.drag / dragScale;
+        }
+        if (baseDashConfig && isPlainObject((_g = config.player) === null || _g === void 0 ? void 0 : _g.dash)) {
+            const dashSpeedScale = clamp(speedScale * (1 + ((_h = activeSkillBonuses.energyRegenBonus) !== null && _h !== void 0 ? _h : 0) * 0.25), 0.6, 2.4);
+            config.player.dash.boostSpeed = Math.round(baseDashConfig.boostSpeed * dashSpeedScale);
+            const dashDurationScale = clamp(energyRegenMultiplier, 0.6, 2.4);
+            config.player.dash.duration = Math.round(baseDashConfig.duration * dashDurationScale);
+            const dashDragScale = clamp(speedScale, 0.6, 2.2);
+            config.player.dash.dragMultiplier = baseDashConfig.dragMultiplier / dashDragScale;
+            config.player.dash.doubleTapWindow = Math.round(baseDashConfig.doubleTapWindow / clamp(speedScale, 0.7, 1.8));
+        }
+        if (baseDefenseConfig && isPlainObject(config.defensePower)) {
+            const clearanceBase = Number.isFinite(baseDefenseConfig.clearance)
+                ? baseDefenseConfig.clearance
+                : (_j = config.defensePower.clearance) !== null && _j !== void 0 ? _j : 48;
+            config.defensePower.clearance = Math.round(clearanceBase * clamp(0.9 + (vitalityScale - 1) * 0.55, 0.6, 2.6));
+            const hitCooldownBase = Number.isFinite(baseDefenseConfig.hitCooldown)
+                ? baseDefenseConfig.hitCooldown
+                : (_k = config.defensePower.hitCooldown) !== null && _k !== void 0 ? _k : 600;
+            config.defensePower.hitCooldown = Math.round(hitCooldownBase / clamp(vitalityScale, 0.6, 2.5));
+            const obstacleKnockbackBase = Number.isFinite(baseDefenseConfig.obstacleKnockback)
+                ? baseDefenseConfig.obstacleKnockback
+                : (_l = config.defensePower.obstacleKnockback) !== null && _l !== void 0 ? _l : 540;
+            config.defensePower.obstacleKnockback = Math.round(obstacleKnockbackBase * clamp(vitalityScale, 0.7, 2.5));
+            const asteroidKnockbackBase = Number.isFinite(baseDefenseConfig.asteroidKnockback)
+                ? baseDefenseConfig.asteroidKnockback
+                : (_m = config.defensePower.asteroidKnockback) !== null && _m !== void 0 ? _m : 640;
+            config.defensePower.asteroidKnockback = Math.round(asteroidKnockbackBase * clamp(vitalityScale, 0.7, 2.5));
+        }
+        if (basePowerUpDurations && isPlainObject((_o = config.powerUp) === null || _o === void 0 ? void 0 : _o.duration)) {
+            const durationScale = clamp(energyRegenMultiplier, 0.6, 2.6);
+            for (const [key, value] of Object.entries(basePowerUpDurations)) {
+                const numeric = Number(value);
+                if (!Number.isFinite(numeric)) {
+                    continue;
+                }
+                config.powerUp.duration[key] = Math.round(numeric * durationScale);
+            }
+        }
+        if (typeof baseComboDecayWindow === 'number') {
+            config.comboDecayWindow = Math.round(baseComboDecayWindow * clamp(energyRegenMultiplier, 0.7, 2));
+        }
+        if (baseHyperBeamConfig && isPlainObject(config.hyperBeam)) {
+            const baseDamage = Number.isFinite(baseHyperBeamConfig.damagePerSecond)
+                ? baseHyperBeamConfig.damagePerSecond
+                : config.hyperBeam.damagePerSecond;
+            const baseAsteroidDamage = Number.isFinite(baseHyperBeamConfig.asteroidDamagePerSecond)
+                ? baseHyperBeamConfig.asteroidDamagePerSecond
+                : config.hyperBeam.asteroidDamagePerSecond;
+            if (Number.isFinite(baseDamage)) {
+                config.hyperBeam.damagePerSecond = Math.round(baseDamage * projectileDamageMultiplier);
+            }
+            if (Number.isFinite(baseAsteroidDamage)) {
+                config.hyperBeam.asteroidDamagePerSecond = Math.round(baseAsteroidDamage * projectileDamageMultiplier);
+            }
+        }
+    }
     function syncPilotTelemetry() {
         if (pilotLevelEl) {
             if (Number.isFinite(pilotProgressState.level)) {
@@ -2260,9 +2507,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const preflightPrompt = document.getElementById('preflightPrompt');
     const mobilePreflightButton = document.getElementById('mobilePreflightButton');
     const comicIntro = document.getElementById('comicIntro');
-    const overlayTitle = (_b = overlay === null || overlay === void 0 ? void 0 : overlay.querySelector('h1')) !== null && _b !== void 0 ? _b : null;
-    const overlayDefaultTitle = (_c = overlayTitle === null || overlayTitle === void 0 ? void 0 : overlayTitle.textContent) !== null && _c !== void 0 ? _c : '';
-    const overlayDefaultMessage = (_d = overlayMessage === null || overlayMessage === void 0 ? void 0 : overlayMessage.textContent) !== null && _d !== void 0 ? _d : '';
+    const overlayTitle = (_f = overlay === null || overlay === void 0 ? void 0 : overlay.querySelector('h1')) !== null && _f !== void 0 ? _f : null;
+    const overlayDefaultTitle = (_g = overlayTitle === null || overlayTitle === void 0 ? void 0 : overlayTitle.textContent) !== null && _g !== void 0 ? _g : '';
+    const overlayDefaultMessage = (_h = overlayMessage === null || overlayMessage === void 0 ? void 0 : overlayMessage.textContent) !== null && _h !== void 0 ? _h : '';
     const characterSelectModal = document.getElementById('characterSelectModal');
     const characterSelectConfirm = document.getElementById('characterSelectConfirm');
     const characterSelectCancel = document.getElementById('characterSelectCancel');
@@ -2278,7 +2525,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const characterSelectSummary = document.getElementById('characterSelectSummary');
     const characterSelectSummaryDescription = characterSelectSummary === null || characterSelectSummary === void 0 ? void 0 : characterSelectSummary.querySelector('[data-character-summary-description]');
     const characterSelectSummaryOngoing = characterSelectSummary === null || characterSelectSummary === void 0 ? void 0 : characterSelectSummary.querySelector('[data-character-summary-ongoing]');
-    const characterSelectGrid = (_f = (_e = characterSelectModal === null || characterSelectModal === void 0 ? void 0 : characterSelectModal.querySelector('[data-character-grid]')) !== null && _e !== void 0 ? _e : characterSelectModal === null || characterSelectModal === void 0 ? void 0 : characterSelectModal.querySelector('.character-grid')) !== null && _f !== void 0 ? _f : null;
+    const characterSelectGrid = (_k = (_j = characterSelectModal === null || characterSelectModal === void 0 ? void 0 : characterSelectModal.querySelector('[data-character-grid]')) !== null && _j !== void 0 ? _j : characterSelectModal === null || characterSelectModal === void 0 ? void 0 : characterSelectModal.querySelector('.character-grid')) !== null && _k !== void 0 ? _k : null;
     let characterCards = [];
     const weaponSelectModal = document.getElementById('weaponSelectModal');
     const weaponSelectConfirm = document.getElementById('weaponSelectConfirm');
@@ -2288,7 +2535,7 @@ document.addEventListener('DOMContentLoaded', () => {
     openWeaponSelectButton = document.getElementById('openWeaponSelectButton');
     const weaponSelectSummary = document.getElementById('weaponSelectSummary');
     const weaponSelectSummaryDescription = weaponSelectSummary === null || weaponSelectSummary === void 0 ? void 0 : weaponSelectSummary.querySelector('[data-weapon-summary-description]');
-    const weaponSelectGrid = (_h = (_g = weaponSelectModal === null || weaponSelectModal === void 0 ? void 0 : weaponSelectModal.querySelector('[data-weapon-grid]')) !== null && _g !== void 0 ? _g : weaponSelectModal === null || weaponSelectModal === void 0 ? void 0 : weaponSelectModal.querySelector('.character-grid')) !== null && _h !== void 0 ? _h : null;
+    const weaponSelectGrid = (_m = (_l = weaponSelectModal === null || weaponSelectModal === void 0 ? void 0 : weaponSelectModal.querySelector('[data-weapon-grid]')) !== null && _l !== void 0 ? _l : weaponSelectModal === null || weaponSelectModal === void 0 ? void 0 : weaponSelectModal.querySelector('.character-grid')) !== null && _m !== void 0 ? _m : null;
     let weaponCards = [];
     const loadingScreen = document.getElementById('loadingScreen');
     const loadingStatus = document.getElementById('loadingStatus');
@@ -2497,11 +2744,11 @@ document.addEventListener('DOMContentLoaded', () => {
             restoreFocus: options.restoreFocus !== false
         });
     }
-    const characterSelectBackdrop = (_j = characterSelectModal === null || characterSelectModal === void 0 ? void 0 : characterSelectModal.querySelector('.character-select-backdrop')) !== null && _j !== void 0 ? _j : null;
+    const characterSelectBackdrop = (_o = characterSelectModal === null || characterSelectModal === void 0 ? void 0 : characterSelectModal.querySelector('.character-select-backdrop')) !== null && _o !== void 0 ? _o : null;
     if (characterSelectBackdrop) {
         characterSelectBackdrop.addEventListener('click', () => closeCharacterSelect());
     }
-    const weaponSelectBackdrop = (_k = weaponSelectModal === null || weaponSelectModal === void 0 ? void 0 : weaponSelectModal.querySelector('.character-select-backdrop')) !== null && _k !== void 0 ? _k : null;
+    const weaponSelectBackdrop = (_p = weaponSelectModal === null || weaponSelectModal === void 0 ? void 0 : weaponSelectModal.querySelector('.character-select-backdrop')) !== null && _p !== void 0 ? _p : null;
     if (weaponSelectBackdrop) {
         weaponSelectBackdrop.addEventListener('click', () => closeWeaponSelect());
     }
@@ -2613,7 +2860,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const weaponSummaryImage = document.getElementById('weaponSummaryImage');
     const pilotPreviewGrid = document.getElementById('pilotPreviewGrid');
     const pilotPreviewDescription = document.getElementById('pilotPreviewDescription');
-    const defaultPilotPreviewDescription = ((_l = pilotPreviewDescription === null || pilotPreviewDescription === void 0 ? void 0 : pilotPreviewDescription.textContent) !== null && _l !== void 0 ? _l : '').trim() ||
+    const defaultPilotPreviewDescription = ((_q = pilotPreviewDescription === null || pilotPreviewDescription === void 0 ? void 0 : pilotPreviewDescription.textContent) !== null && _q !== void 0 ? _q : '').trim() ||
         'Equip one of your saved presets instantly before launch. Manage your presets from the Astrocat Lobby before stepping into the Starcade.';
     const loadoutCreationPromptText = 'Loadouts are managed in the Astrocat Lobby. Equip a preset there before launch.';
     const shareButton = document.getElementById('shareButton');
@@ -2625,21 +2872,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const challengeListEl = document.getElementById('challengeList');
     const skinOptionsEl = document.getElementById('skinOptions');
     const trailOptionsEl = document.getElementById('trailOptions');
-    const customLoadoutGrid = (_o = (_m = document.getElementById('customLoadoutSection')) === null || _m === void 0 ? void 0 : _m.querySelector('[data-loadout-grid]')) !== null && _o !== void 0 ? _o : null;
+    const customLoadoutGrid = (_s = (_r = document.getElementById('customLoadoutSection')) === null || _r === void 0 ? void 0 : _r.querySelector('[data-loadout-grid]')) !== null && _s !== void 0 ? _s : null;
     const loadoutEditorModal = document.getElementById('loadoutEditorModal');
-    const loadoutEditorContent = (_p = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('.loadout-editor-content')) !== null && _p !== void 0 ? _p : null;
-    const loadoutEditorBackdrop = (_q = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-dismiss="backdrop"]')) !== null && _q !== void 0 ? _q : null;
+    const loadoutEditorContent = (_t = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('.loadout-editor-content')) !== null && _t !== void 0 ? _t : null;
+    const loadoutEditorBackdrop = (_u = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-dismiss="backdrop"]')) !== null && _u !== void 0 ? _u : null;
     const loadoutEditorTitle = document.getElementById('loadoutEditorTitle');
     const loadoutEditorSubtitle = document.getElementById('loadoutEditorSubtitle');
-    const loadoutEditorPilotGrid = (_r = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-pilots]')) !== null && _r !== void 0 ? _r : null;
-    const loadoutEditorWeaponGrid = (_s = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-weapons]')) !== null && _s !== void 0 ? _s : null;
-    const loadoutEditorSkinGrid = (_t = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-skins]')) !== null && _t !== void 0 ? _t : null;
-    const loadoutEditorTrailGrid = (_u = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-trails]')) !== null && _u !== void 0 ? _u : null;
+    const loadoutEditorPilotGrid = (_v = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-pilots]')) !== null && _v !== void 0 ? _v : null;
+    const loadoutEditorWeaponGrid = (_w = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-weapons]')) !== null && _w !== void 0 ? _w : null;
+    const loadoutEditorSkinGrid = (_x = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-skins]')) !== null && _x !== void 0 ? _x : null;
+    const loadoutEditorTrailGrid = (_y = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-trails]')) !== null && _y !== void 0 ? _y : null;
     const loadoutEditorSummaryValues = {
-        pilot: (_v = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-summary="pilot"]')) !== null && _v !== void 0 ? _v : null,
-        weapon: (_w = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-summary="weapon"]')) !== null && _w !== void 0 ? _w : null,
-        skin: (_x = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-summary="skin"]')) !== null && _x !== void 0 ? _x : null,
-        trail: (_y = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-summary="trail"]')) !== null && _y !== void 0 ? _y : null
+        pilot: (_z = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-summary="pilot"]')) !== null && _z !== void 0 ? _z : null,
+        weapon: (_0 = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-summary="weapon"]')) !== null && _0 !== void 0 ? _0 : null,
+        skin: (_1 = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-summary="skin"]')) !== null && _1 !== void 0 ? _1 : null,
+        trail: (_2 = loadoutEditorModal === null || loadoutEditorModal === void 0 ? void 0 : loadoutEditorModal.querySelector('[data-loadout-editor-summary="trail"]')) !== null && _2 !== void 0 ? _2 : null
     };
     const loadoutEditorSaveButton = document.getElementById('loadoutEditorSave');
     const loadoutEditorCancelButton = document.getElementById('loadoutEditorCancel');
@@ -2718,7 +2965,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const coarsePointerQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
         ? window.matchMedia('(pointer: coarse)')
         : null;
-    let isTouchInterface = (_z = coarsePointerQuery === null || coarsePointerQuery === void 0 ? void 0 : coarsePointerQuery.matches) !== null && _z !== void 0 ? _z : ('ontouchstart' in window);
+    let isTouchInterface = (_3 = coarsePointerQuery === null || coarsePointerQuery === void 0 ? void 0 : coarsePointerQuery.matches) !== null && _3 !== void 0 ? _3 : ('ontouchstart' in window);
     function getPauseOverlayContent(reason = lastPauseReason) {
         const touchResume = isTouchInterface ? 'Tap Resume' : 'Press Resume or P';
         const controllerResume = isTouchInterface
@@ -2827,24 +3074,25 @@ document.addEventListener('DOMContentLoaded', () => {
         ? performance.now()
         : Date.now();
     function getCurrentEnvironment() {
+        var _a;
         if (state && typeof state === 'object' && typeof state.environment === 'string') {
             return state.environment;
         }
-        return (environmentState && environmentState.current) || ENVIRONMENT_SPACE;
+        return (_a = environmentState.current) !== null && _a !== void 0 ? _a : ENVIRONMENT_SPACE;
     }
     function isUnderwaterEnvironment() {
         return getCurrentEnvironment() === ENVIRONMENT_UNDERWATER;
     }
     function getEnvironmentPhysics(environment = getCurrentEnvironment()) {
-        return environmentPhysicsPresets[environment] || environmentPhysicsPresets[ENVIRONMENT_SPACE];
+        var _a;
+        return (_a = environmentPhysicsPresets[environment]) !== null && _a !== void 0 ? _a : environmentPhysicsPresets[ENVIRONMENT_SPACE];
     }
     function reseedStarsForEnvironment(environment = getCurrentEnvironment()) {
+        var _a;
         if (!Array.isArray(stars) || stars.length === 0) {
             return;
         }
-        const starConfig = config && typeof config === 'object' ? config.star : undefined;
-        const starBase = starConfig && typeof starConfig.baseSpeed === 'number' ? starConfig.baseSpeed : NaN;
-        const baseSpeed = Number.isFinite(starBase) ? starBase : 80;
+        const baseSpeed = Number.isFinite((_a = config === null || config === void 0 ? void 0 : config.star) === null || _a === void 0 ? void 0 : _a.baseSpeed) ? config.star.baseSpeed : 80;
         if (environment === ENVIRONMENT_UNDERWATER) {
             for (const star of stars) {
                 star.speed = (Math.random() * 0.8 + 0.5) * baseSpeed * 0.6;
@@ -2852,7 +3100,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 star.drift = (Math.random() * 18 + 8) * (Math.random() < 0.5 ? -1 : 1);
                 star.rippleOffset = Math.random() * Math.PI * 2;
             }
-        } else {
+        }
+        else {
             for (const star of stars) {
                 star.speed = (Math.random() * 0.8 + 0.4) * baseSpeed;
                 star.size = Math.random() * 2.5 + 0.6;
@@ -2861,8 +3110,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
-    function setEnvironment(nextEnvironment, options) {
-        const force = (options && options.force) || false;
+    function setEnvironment(nextEnvironment, { force = false } = {}) {
         const normalized = nextEnvironment === ENVIRONMENT_UNDERWATER ? ENVIRONMENT_UNDERWATER : ENVIRONMENT_SPACE;
         const previous = environmentState.current;
         environmentState.current = normalized;
@@ -2901,7 +3149,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
         debugOverlayEnabled = window.localStorage.getItem(DEBUG_OVERLAY_STORAGE_KEY) === '1';
     }
-    catch (_35) {
+    catch (_39) {
         debugOverlayEnabled = false;
     }
     let pendingResizeFrame = null;
@@ -4098,7 +4346,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let loadoutEditorTrailButtons = [];
     let loadoutEditorPendingSkinId = null;
     let loadoutEditorPendingTrailId = null;
-    let activePilotId = (_1 = (_0 = pilotRoster[0]) === null || _0 === void 0 ? void 0 : _0.id) !== null && _1 !== void 0 ? _1 : 'nova';
+    let activePilotId = (_5 = (_4 = pilotRoster[0]) === null || _4 === void 0 ? void 0 : _4.id) !== null && _5 !== void 0 ? _5 : 'nova';
     let pendingPilotId = activePilotId;
     let activeWeaponId = 'pulse';
     let pendingWeaponId = activeWeaponId;
@@ -7641,6 +7889,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof data.playerName === 'string') {
             updatePlayerName(data.playerName);
         }
+        const pilotPartial = {};
+        if (isPlainObject(data.attributes)) {
+            pilotPartial.attributes = data.attributes;
+        }
+        if (Number.isFinite(data.attackPower)) {
+            pilotPartial.attackPower = data.attackPower;
+        }
+        if (Number.isFinite(data.speedRating)) {
+            pilotPartial.speedRating = data.speedRating;
+        }
+        if (Number.isFinite(data.maxHp)) {
+            pilotPartial.maxHp = data.maxHp;
+        }
+        if (Number.isFinite(data.maxMp)) {
+            pilotPartial.maxMp = data.maxMp;
+        }
+        if (isPlainObject(data.skillBonuses)) {
+            pilotPartial.skillBonuses = data.skillBonuses;
+        }
+        if (Object.keys(pilotPartial).length > 0) {
+            updatePilotProfile(pilotPartial);
+        }
         const profileUpdate = {};
         let hasUpdate = false;
         if (Number.isFinite(data.level)) {
@@ -7677,15 +7947,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const cachedLeaderboards = loadLeaderboard();
     const leaderboardState = {
         scopes: {
-            global: (_2 = cachedLeaderboards.global) !== null && _2 !== void 0 ? _2 : [],
-            weekly: (_3 = cachedLeaderboards.weekly) !== null && _3 !== void 0 ? _3 : []
+            global: (_6 = cachedLeaderboards.global) !== null && _6 !== void 0 ? _6 : [],
+            weekly: (_7 = cachedLeaderboards.weekly) !== null && _7 !== void 0 ? _7 : []
         },
-        fetchedAt: (_4 = cachedLeaderboards.fetchedAt) !== null && _4 !== void 0 ? _4 : 0,
+        fetchedAt: (_8 = cachedLeaderboards.fetchedAt) !== null && _8 !== void 0 ? _8 : 0,
         source: cachedLeaderboards.fetchedAt ? 'cache' : 'empty',
         error: null
     };
     let activeLeaderboardScope = 'global';
-    let leaderboardEntries = (_5 = leaderboardState.scopes[activeLeaderboardScope]) !== null && _5 !== void 0 ? _5 : [];
+    let leaderboardEntries = (_9 = leaderboardState.scopes[activeLeaderboardScope]) !== null && _9 !== void 0 ? _9 : [];
     const leaderboardStatusState = { message: '', type: 'info' };
     let leaderboardFetchPromise = null;
     let offlineModeActive = false;
@@ -7916,7 +8186,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let preflightReady = false;
     let tutorialFlightActive = false;
     let tutorialCallsign = null;
-    let activeSummaryTab = summarySections.has('run') ? 'run' : (_6 = summarySections.keys().next().value) !== null && _6 !== void 0 ? _6 : null;
+    let activeSummaryTab = summarySections.has('run') ? 'run' : (_10 = summarySections.keys().next().value) !== null && _10 !== void 0 ? _10 : null;
     let resumeAfterSettingsClose = false;
     function setActiveSummaryTab(tabId, { focusTab = false } = {}) {
         if (!tabId || !summarySections.has(tabId)) {
@@ -8639,7 +8909,7 @@ document.addEventListener('DOMContentLoaded', () => {
         config = {};
     }
     const defaultCollectScore = 84;
-    const baseCollectScoreRaw = (_7 = config === null || config === void 0 ? void 0 : config.score) === null || _7 === void 0 ? void 0 : _7.collect;
+    const baseCollectScoreRaw = (_11 = config === null || config === void 0 ? void 0 : config.score) === null || _11 === void 0 ? void 0 : _11.collect;
     const baseCollectScore = Number.isFinite(Number(baseCollectScoreRaw))
         ? Math.max(1, Number(baseCollectScoreRaw))
         : defaultCollectScore;
@@ -8695,7 +8965,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ? assetOverrides.collectibles
         : {};
     for (const tier of collectibleTiers) {
-        tier.asset = resolveAssetConfig(collectibleOverrides[tier.key], (_8 = tier.src) !== null && _8 !== void 0 ? _8 : null);
+        tier.asset = resolveAssetConfig(collectibleOverrides[tier.key], (_12 = tier.src) !== null && _12 !== void 0 ? _12 : null);
         if (typeof tier.asset === 'string') {
             tier.src = tier.asset;
         }
@@ -8706,7 +8976,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const collectibleImages = {};
     for (const tier of collectibleTiers) {
         const fallbackSrc = createCollectibleFallbackDataUrl(tier);
-        const assetConfig = (_10 = (_9 = tier.asset) !== null && _9 !== void 0 ? _9 : tier.src) !== null && _10 !== void 0 ? _10 : null;
+        const assetConfig = (_14 = (_13 = tier.asset) !== null && _13 !== void 0 ? _13 : tier.src) !== null && _14 !== void 0 ? _14 : null;
         collectibleImages[tier.key] = loadImageWithFallback(assetConfig !== null && assetConfig !== void 0 ? assetConfig : fallbackSrc, () => { var _a; return (_a = fallbackSrc !== null && fallbackSrc !== void 0 ? fallbackSrc : tier.src) !== null && _a !== void 0 ? _a : null; });
     }
     const totalCollectibleWeight = collectibleTiers.reduce((sum, tier) => sum + tier.weight, 0);
@@ -9504,8 +9774,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     const BOSS_ALERT_DURATION = 2000;
-    const bossSizeProfiles = (_11 = balancedSpriteSizing.bosses) !== null && _11 !== void 0 ? _11 : [];
-    const villainSizeProfiles = (_12 = balancedSpriteSizing.villains) !== null && _12 !== void 0 ? _12 : {};
+    const bossSizeProfiles = (_15 = balancedSpriteSizing.bosses) !== null && _15 !== void 0 ? _15 : [];
+    const villainSizeProfiles = (_16 = balancedSpriteSizing.villains) !== null && _16 !== void 0 ? _16 : {};
     const bossBattleDefinitions = [
         {
             timeMs: 60000,
@@ -9513,8 +9783,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 key: 'bossAlpha',
                 name: 'Celestial Behemoth',
                 imageSrc: 'assets/boss1.png',
-                width: (_14 = (_13 = bossSizeProfiles[0]) === null || _13 === void 0 ? void 0 : _13.width) !== null && _14 !== void 0 ? _14 : Math.round(((_15 = balancedSpriteSizing.referenceWidth) !== null && _15 !== void 0 ? _15 : 96) * 2.3),
-                height: (_17 = (_16 = bossSizeProfiles[0]) === null || _16 === void 0 ? void 0 : _16.height) !== null && _17 !== void 0 ? _17 : Math.round(((_18 = balancedSpriteSizing.referenceWidth) !== null && _18 !== void 0 ? _18 : 96) * 2.3),
+                width: (_18 = (_17 = bossSizeProfiles[0]) === null || _17 === void 0 ? void 0 : _17.width) !== null && _18 !== void 0 ? _18 : Math.round(((_19 = balancedSpriteSizing.referenceWidth) !== null && _19 !== void 0 ? _19 : 96) * 2.3),
+                height: (_21 = (_20 = bossSizeProfiles[0]) === null || _20 === void 0 ? void 0 : _20.height) !== null && _21 !== void 0 ? _21 : Math.round(((_22 = balancedSpriteSizing.referenceWidth) !== null && _22 !== void 0 ? _22 : 96) * 2.3),
                 health: 36,
                 speed: 110,
                 rotation: { min: 0, max: 0 },
@@ -9536,8 +9806,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 key: 'bossBeta',
                 name: 'Solar Basilisk',
                 imageSrc: 'assets/boss1.png',
-                width: (_20 = (_19 = bossSizeProfiles[1]) === null || _19 === void 0 ? void 0 : _19.width) !== null && _20 !== void 0 ? _20 : Math.round(((_21 = balancedSpriteSizing.referenceWidth) !== null && _21 !== void 0 ? _21 : 96) * 2.55),
-                height: (_23 = (_22 = bossSizeProfiles[1]) === null || _22 === void 0 ? void 0 : _22.height) !== null && _23 !== void 0 ? _23 : Math.round(((_24 = balancedSpriteSizing.referenceWidth) !== null && _24 !== void 0 ? _24 : 96) * 2.55),
+                width: (_24 = (_23 = bossSizeProfiles[1]) === null || _23 === void 0 ? void 0 : _23.width) !== null && _24 !== void 0 ? _24 : Math.round(((_25 = balancedSpriteSizing.referenceWidth) !== null && _25 !== void 0 ? _25 : 96) * 2.55),
+                height: (_27 = (_26 = bossSizeProfiles[1]) === null || _26 === void 0 ? void 0 : _26.height) !== null && _27 !== void 0 ? _27 : Math.round(((_28 = balancedSpriteSizing.referenceWidth) !== null && _28 !== void 0 ? _28 : 96) * 2.55),
                 health: 52,
                 speed: 125,
                 rotation: { min: 0, max: 0 },
@@ -9561,8 +9831,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 key: 'bossOmega',
                 name: 'Void Hydra',
                 imageSrc: 'assets/boss1.png',
-                width: (_26 = (_25 = bossSizeProfiles[2]) === null || _25 === void 0 ? void 0 : _25.width) !== null && _26 !== void 0 ? _26 : Math.round(((_27 = balancedSpriteSizing.referenceWidth) !== null && _27 !== void 0 ? _27 : 96) * 2.8),
-                height: (_29 = (_28 = bossSizeProfiles[2]) === null || _28 === void 0 ? void 0 : _28.height) !== null && _29 !== void 0 ? _29 : Math.round(((_30 = balancedSpriteSizing.referenceWidth) !== null && _30 !== void 0 ? _30 : 96) * 2.8),
+                width: (_30 = (_29 = bossSizeProfiles[2]) === null || _29 === void 0 ? void 0 : _29.width) !== null && _30 !== void 0 ? _30 : Math.round(((_31 = balancedSpriteSizing.referenceWidth) !== null && _31 !== void 0 ? _31 : 96) * 2.8),
+                height: (_33 = (_32 = bossSizeProfiles[2]) === null || _32 === void 0 ? void 0 : _32.height) !== null && _33 !== void 0 ? _33 : Math.round(((_34 = balancedSpriteSizing.referenceWidth) !== null && _34 !== void 0 ? _34 : 96) * 2.8),
                 health: 72,
                 speed: 140,
                 rotation: { min: 0, max: 0 },
@@ -9586,7 +9856,7 @@ document.addEventListener('DOMContentLoaded', () => {
             key: 'villain1',
             name: 'Void Raider',
             imageSrc: 'assets/villain1.png',
-            size: Object.assign({}, ((_31 = villainSizeProfiles.small) !== null && _31 !== void 0 ? _31 : { min: 59, max: 77 })),
+            size: Object.assign({}, ((_35 = villainSizeProfiles.small) !== null && _35 !== void 0 ? _35 : { min: 59, max: 77 })),
             speedOffset: { min: 14, max: 34 },
             rotation: { min: -1.8, max: 1.8 },
             baseHealth: 1,
@@ -9597,7 +9867,7 @@ document.addEventListener('DOMContentLoaded', () => {
             key: 'villain2',
             name: 'Nebula Marauder',
             imageSrc: 'assets/villain2.png',
-            size: Object.assign({}, ((_32 = villainSizeProfiles.medium) !== null && _32 !== void 0 ? _32 : { min: 93, max: 126 })),
+            size: Object.assign({}, ((_36 = villainSizeProfiles.medium) !== null && _36 !== void 0 ? _36 : { min: 93, max: 126 })),
             speedOffset: { min: 8, max: 30 },
             rotation: { min: -1.4, max: 1.4 },
             baseHealth: 2.3,
@@ -9608,7 +9878,7 @@ document.addEventListener('DOMContentLoaded', () => {
             key: 'villain3',
             name: 'Abyss Overlord',
             imageSrc: 'assets/villain3.png',
-            size: Object.assign({}, ((_33 = villainSizeProfiles.large) !== null && _33 !== void 0 ? _33 : { min: 135, max: 183 })),
+            size: Object.assign({}, ((_37 = villainSizeProfiles.large) !== null && _37 !== void 0 ? _37 : { min: 135, max: 183 })),
             speedOffset: { min: -2, max: 32 },
             rotation: { min: -1, max: 1 },
             baseHealth: 3.4,
@@ -9684,7 +9954,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const villainImages = {};
     for (const [index, villain] of villainTypes.entries()) {
-        const image = loadImageWithFallback((_34 = villain.asset) !== null && _34 !== void 0 ? _34 : villain.imageSrc, () => { var _a; return (_a = createVillainFallbackDataUrl(index)) !== null && _a !== void 0 ? _a : villain.imageSrc; });
+        const image = loadImageWithFallback((_38 = villain.asset) !== null && _38 !== void 0 ? _38 : villain.imageSrc, () => { var _a; return (_a = createVillainFallbackDataUrl(index)) !== null && _a !== void 0 ? _a : villain.imageSrc; });
         villainImages[villain.key] = image;
         villain.image = image;
     }
@@ -11690,7 +11960,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const patternState = getWeaponPatternState(weaponId);
         const loadoutSpeedMultiplier = (_b = loadout === null || loadout === void 0 ? void 0 : loadout.speedMultiplier) !== null && _b !== void 0 ? _b : 1;
         const createProjectile = (angle, type = 'standard', overrides = {}) => {
-            var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z;
+            var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0;
             const archetype = (_a = projectileArchetypes[type]) !== null && _a !== void 0 ? _a : projectileArchetypes.standard;
             const applyLoadoutSpeed = overrides.applyLoadoutSpeed !== false;
             const speedMultiplier = ((_c = (_b = overrides.speedMultiplier) !== null && _b !== void 0 ? _b : archetype === null || archetype === void 0 ? void 0 : archetype.speedMultiplier) !== null && _c !== void 0 ? _c : 1) *
@@ -11714,6 +11984,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 shadowBlur: (_w = (_v = overrides.shadowBlur) !== null && _v !== void 0 ? _v : archetype === null || archetype === void 0 ? void 0 : archetype.shadowBlur) !== null && _w !== void 0 ? _w : 0,
                 shadowColor: (_y = (_x = overrides.shadowColor) !== null && _x !== void 0 ? _x : archetype === null || archetype === void 0 ? void 0 : archetype.shadowColor) !== null && _y !== void 0 ? _y : null
             };
+            const basePierce = Math.max(0, Math.floor((_z = overrides.pierce) !== null && _z !== void 0 ? _z : 0));
+            projectile.pierce = basePierce + projectilePierceBonus;
             if (overrides.wavePhase !== undefined)
                 projectile.wavePhase = overrides.wavePhase;
             if (overrides.waveFrequency !== undefined)
@@ -11732,7 +12004,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 projectile.curve = overrides.curve;
             projectiles.push(projectile);
             if (firedTypes) {
-                firedTypes.add((_z = overrides.audioType) !== null && _z !== void 0 ? _z : type);
+                firedTypes.add((_0 = overrides.audioType) !== null && _0 !== void 0 ? _0 : type);
             }
             return projectile;
         };
@@ -11965,6 +12237,7 @@ document.addEventListener('DOMContentLoaded', () => {
         doubleTeamState.linkPulse = force ? 0 : Math.max(doubleTeamState.linkPulse, 0.5);
     }
     function updatePlayer(delta) {
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
         const deltaSeconds = delta / 1000;
         const keyboardX = (keys.has('ArrowRight') || keys.has('KeyD') ? 1 : 0) - (keys.has('ArrowLeft') || keys.has('KeyA') ? 1 : 0);
         const keyboardY = (keys.has('ArrowDown') || keys.has('KeyS') ? 1 : 0) - (keys.has('ArrowUp') || keys.has('KeyW') ? 1 : 0);
@@ -12006,23 +12279,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const baseInputX = clamp(keyboardX + virtualX + gamepadInput.moveX + motionX, -1, 1);
         const baseInputY = clamp(keyboardY + virtualY + gamepadInput.moveY + motionY, -1, 1);
         const environmentPhysics = getEnvironmentPhysics();
-        const inputScale = environmentPhysics.inputResponsiveness !== undefined ? environmentPhysics.inputResponsiveness : 1;
+        const inputScale = (_a = environmentPhysics.inputResponsiveness) !== null && _a !== void 0 ? _a : 1;
         const inputX = baseInputX * inputScale;
         const inputY = baseInputY * inputScale;
-        const accel = config.player.acceleration * (environmentPhysics.accelerationMultiplier !== undefined ? environmentPhysics.accelerationMultiplier : 1);
-        const baseDrag = config.player.drag * (environmentPhysics.dragMultiplier !== undefined ? environmentPhysics.dragMultiplier : 1);
-        const dashConfig = config.player.dash || { boostSpeed: config.player.maxSpeed, dragMultiplier: 1 };
+        const accel = config.player.acceleration * ((_b = environmentPhysics.accelerationMultiplier) !== null && _b !== void 0 ? _b : 1);
+        const baseDrag = config.player.drag * ((_c = environmentPhysics.dragMultiplier) !== null && _c !== void 0 ? _c : 1);
+        const dashConfig = (_d = config.player.dash) !== null && _d !== void 0 ? _d : { boostSpeed: config.player.maxSpeed, dragMultiplier: 1 };
         const isDashing = state.dashTimer > 0;
-        const dashDragMultiplier = dashConfig.dragMultiplier !== undefined ? dashConfig.dragMultiplier : 1;
+        const dashDragMultiplier = (_e = dashConfig.dragMultiplier) !== null && _e !== void 0 ? _e : 1;
         const horizontalDrag = isDashing ? baseDrag * dashDragMultiplier : baseDrag;
-        const verticalDrag = horizontalDrag * (environmentPhysics.verticalDragMultiplier !== undefined ? environmentPhysics.verticalDragMultiplier : 1);
-        const baseMaxSpeed = config.player.maxSpeed * (environmentPhysics.maxSpeedMultiplier !== undefined ? environmentPhysics.maxSpeedMultiplier : 1);
-        const dashSpeed = (dashConfig.boostSpeed !== undefined ? dashConfig.boostSpeed : config.player.maxSpeed) * (environmentPhysics.dashSpeedMultiplier !== undefined ? environmentPhysics.dashSpeedMultiplier : 1);
+        const verticalDrag = horizontalDrag * ((_f = environmentPhysics.verticalDragMultiplier) !== null && _f !== void 0 ? _f : 1);
+        const baseMaxSpeed = config.player.maxSpeed * ((_g = environmentPhysics.maxSpeedMultiplier) !== null && _g !== void 0 ? _g : 1);
+        const dashSpeed = ((_h = dashConfig.boostSpeed) !== null && _h !== void 0 ? _h : config.player.maxSpeed) * ((_j = environmentPhysics.dashSpeedMultiplier) !== null && _j !== void 0 ? _j : 1);
         const maxSpeed = isDashing ? dashSpeed : baseMaxSpeed;
-        const buoyancy = environmentPhysics.buoyancy !== undefined ? environmentPhysics.buoyancy : 0;
-        const swayStrength = environmentPhysics.swayStrength !== undefined ? environmentPhysics.swayStrength : 0;
-        const swayFrequency = environmentPhysics.swayFrequency !== undefined ? environmentPhysics.swayFrequency : 0.0012;
+        const buoyancy = (_k = environmentPhysics.buoyancy) !== null && _k !== void 0 ? _k : 0;
+        const swayStrength = (_l = environmentPhysics.swayStrength) !== null && _l !== void 0 ? _l : 0;
+        const swayFrequency = (_m = environmentPhysics.swayFrequency) !== null && _m !== void 0 ? _m : 0.0012;
         const moveEntity = (entity) => {
+            var _a, _b;
             if (!entity) {
                 return;
             }
@@ -12037,8 +12311,8 @@ document.addEventListener('DOMContentLoaded', () => {
             entity.x += entity.vx * deltaSeconds;
             entity.y += entity.vy * deltaSeconds;
             if (swayStrength !== 0) {
-                const elapsed = state && typeof state.elapsedTime === 'number' ? state.elapsedTime : 0;
-                const swayPhase = elapsed * swayFrequency + (environmentState.swaySeed || 0) + entity.y * 0.015;
+                const elapsed = (_a = state === null || state === void 0 ? void 0 : state.elapsedTime) !== null && _a !== void 0 ? _a : 0;
+                const swayPhase = elapsed * swayFrequency + ((_b = environmentState.swaySeed) !== null && _b !== void 0 ? _b : 0) + entity.y * 0.015;
                 entity.x += Math.sin(swayPhase) * swayStrength * deltaSeconds;
             }
             entity.x = clamp(entity.x, 0, viewport.width - entity.width);
@@ -12250,6 +12524,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const deltaSeconds = delta / 1000;
         for (let i = projectiles.length - 1; i >= 0; i--) {
             const projectile = projectiles[i];
+            projectile.justPierced = false;
             if (projectile.type === 'missile') {
                 const target = findNearestObstacle(projectile);
                 if (target) {
@@ -13443,21 +13718,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     function updateStars(delta) {
+        var _a, _b, _c, _d;
         const scaledDelta = getScaledDelta(delta);
         const deltaSeconds = scaledDelta / 1000;
         if (isUnderwaterEnvironment()) {
-            const starConfig = config && typeof config === 'object' ? config.star : undefined;
-            const starBase = starConfig && typeof starConfig.baseSpeed === 'number' ? starConfig.baseSpeed : NaN;
-            const baseSpeed = Number.isFinite(starBase) ? starBase : 80;
-            const elapsed = (state && typeof state === 'object' && typeof state.elapsedTime === 'number')
-                ? state.elapsedTime
-                : 0;
+            const baseSpeed = Number.isFinite((_a = config === null || config === void 0 ? void 0 : config.star) === null || _a === void 0 ? void 0 : _a.baseSpeed) ? config.star.baseSpeed : 80;
+            const elapsed = (_b = state === null || state === void 0 ? void 0 : state.elapsedTime) !== null && _b !== void 0 ? _b : 0;
             const upwardFactor = 0.22 + state.gameSpeed / 900;
             for (let i = stars.length - 1; i >= 0; i--) {
                 const star = stars[i];
-                const rippleOffset = star.rippleOffset || 0;
+                const rippleOffset = (_c = star.rippleOffset) !== null && _c !== void 0 ? _c : 0;
                 star.y -= star.speed * deltaSeconds * upwardFactor;
-                const drift = star.drift || 0;
+                const drift = (_d = star.drift) !== null && _d !== void 0 ? _d : 0;
                 if (drift !== 0) {
                     const swayPhase = elapsed * 0.0012 + rippleOffset;
                     star.x += Math.sin(swayPhase) * drift * deltaSeconds;
@@ -13544,21 +13816,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!projectile) {
             return 1;
         }
+        let baseDamage = 1;
         if (Number.isFinite(projectile.damage)) {
-            return Math.max(1, projectile.damage);
+            baseDamage = Math.max(1, projectile.damage);
         }
-        switch (projectile.type) {
-            case 'missile':
-                return 2;
-            default:
-                return 1;
+        else if (projectile.type === 'missile') {
+            baseDamage = 2;
         }
+        return Math.max(1, Math.round(baseDamage * projectileDamageMultiplier));
     }
     function updateProjectilesCollisions() {
         var _a, _b;
-        for (let i = projectiles.length - 1; i >= 0; i--) {
+        projectileLoop: for (let i = projectiles.length - 1; i >= 0; i--) {
             const projectile = projectiles[i];
-            let projectileRemoved = false;
             for (let j = obstacles.length - 1; j >= 0; j--) {
                 const obstacle = obstacles[j];
                 if (!rectOverlap(projectile, obstacle))
@@ -13566,8 +13836,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const damage = getProjectileDamage(projectile);
                 obstacle.health -= damage;
                 obstacle.hitFlash = 160;
-                projectiles.splice(i, 1);
-                projectileRemoved = true;
+                const pierceRemaining = Number.isFinite(projectile.pierce) ? Math.max(0, projectile.pierce) : 0;
+                if (pierceRemaining <= 0) {
+                    projectiles.splice(i, 1);
+                }
+                else {
+                    projectile.pierce = Math.max(0, pierceRemaining - 1);
+                    projectile.justPierced = true;
+                    projectile.x += projectile.vx * 0.016;
+                    projectile.y += projectile.vy * 0.016;
+                }
                 if (obstacle.health <= 0) {
                     obstacles.splice(j, 1);
                     awardDestroy(obstacle);
@@ -13580,10 +13858,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         color: { r: 159, g: 168, b: 218 }
                     });
                 }
-                break;
-            }
-            if (projectileRemoved) {
-                continue;
+                continue projectileLoop;
             }
             for (let j = asteroids.length - 1; j >= 0; j--) {
                 const asteroid = asteroids[j];
@@ -13591,10 +13866,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!circleRectOverlap({ x: asteroid.x, y: asteroid.y, radius }, projectile))
                     continue;
                 const damage = getProjectileDamage(projectile);
-                projectiles.splice(i, 1);
+                const pierceRemaining = Number.isFinite(projectile.pierce) ? Math.max(0, projectile.pierce) : 0;
+                if (pierceRemaining <= 0) {
+                    projectiles.splice(i, 1);
+                }
+                else {
+                    projectile.pierce = Math.max(0, pierceRemaining - 1);
+                    projectile.justPierced = true;
+                    projectile.x += projectile.vx * 0.016;
+                    projectile.y += projectile.vy * 0.016;
+                }
                 damageAsteroid(asteroid, damage, j);
-                projectileRemoved = true;
-                break;
+                continue projectileLoop;
             }
         }
     }
@@ -14564,46 +14847,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const activeBoosts = powerUpTypes
             .filter((type) => isPowerUpActive(type))
-            .map((type) => {
-            const label = powerUpLabels[type];
-            const remainingSeconds = Math.max(0, state.powerUpTimers[type] / 1000);
-            return {
-                label,
-                remainingSeconds,
-                formatted: `${label} ${remainingSeconds.toFixed(1)}s`
-            };
-        });
-        const powerUpText = activeBoosts.length
-            ? activeBoosts.map((entry) => entry.formatted).join(' | ')
-            : 'None';
+            .map((type) => `${powerUpLabels[type]} ${(state.powerUpTimers[type] / 1000).toFixed(1)}s`);
+        const powerUpText = activeBoosts.length ? activeBoosts.join(' | ') : 'None';
         if (powerUpText !== hudCache.powerUps) {
             hudCache.powerUps = powerUpText;
             if (powerUpsEl) {
-                if (!activeBoosts.length) {
-                    powerUpsEl.textContent = 'None';
-                    powerUpsEl.classList.add('power-up-list--empty');
-                    powerUpsEl.setAttribute('aria-label', 'No boosts active');
-                    powerUpsEl.removeAttribute('data-count');
-                }
-                else {
-                    powerUpsEl.classList.remove('power-up-list--empty');
-                    powerUpsEl.textContent = '';
-                    powerUpsEl.setAttribute('aria-label', 'Active boosts');
-                    powerUpsEl.setAttribute('data-count', String(activeBoosts.length));
-                    for (const boost of activeBoosts) {
-                        const pill = document.createElement('span');
-                        pill.className = 'power-up-pill';
-                        pill.setAttribute('role', 'listitem');
-                        const labelEl = document.createElement('span');
-                        labelEl.className = 'power-up-pill__label';
-                        labelEl.textContent = boost.label;
-                        const timerEl = document.createElement('span');
-                        timerEl.className = 'power-up-pill__timer';
-                        timerEl.textContent = `${boost.remainingSeconds.toFixed(1)}s`;
-                        pill.append(labelEl, timerEl);
-                        powerUpsEl.appendChild(pill);
-                    }
-                }
+                powerUpsEl.textContent = powerUpText;
             }
         }
     }
@@ -14632,28 +14881,29 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillRect(0, 0, viewport.width, viewport.height);
     }
     function drawStars(time) {
+        var _a, _b;
         ctx.save();
         if (isUnderwaterEnvironment()) {
             ctx.globalCompositeOperation = 'screen';
             for (const star of stars) {
-                const rippleOffset = star.rippleOffset || 0;
+                const rippleOffset = (_a = star.rippleOffset) !== null && _a !== void 0 ? _a : 0;
                 const twinkle = (Math.sin(time * 0.002 + star.twinkleOffset) + 1) * 0.5;
-                const radius = Math.max(1.4, (star.size || 1.2) * (1.8 + twinkle * 0.5));
+                const radius = Math.max(1.4, ((_b = star.size) !== null && _b !== void 0 ? _b : 1.2) * (1.8 + twinkle * 0.5));
                 const wobble = Math.sin(time * 0.003 + rippleOffset) * 2.4;
                 const bubbleX = star.x + Math.sin(time * 0.0011 + rippleOffset) * 2.2;
                 const bubbleY = star.y + wobble;
                 const innerAlpha = 0.32 + twinkle * 0.22;
                 const shellAlpha = 0.24 + twinkle * 0.18;
                 const gradient = ctx.createRadialGradient(bubbleX, bubbleY, radius * 0.28, bubbleX, bubbleY, radius);
-                gradient.addColorStop(0, "rgba(214, 244, 255, " + innerAlpha + ")");
-                gradient.addColorStop(0.68, "rgba(154, 216, 255, " + shellAlpha * 0.55 + ")");
+                gradient.addColorStop(0, `rgba(214, 244, 255, ${innerAlpha})`);
+                gradient.addColorStop(0.68, `rgba(154, 216, 255, ${shellAlpha * 0.55})`);
                 gradient.addColorStop(1, 'rgba(120, 200, 255, 0)');
                 ctx.fillStyle = gradient;
                 ctx.beginPath();
                 ctx.arc(bubbleX, bubbleY, radius, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.lineWidth = Math.max(1.1, radius * 0.18);
-                ctx.strokeStyle = "rgba(182, 235, 255, " + (0.26 + twinkle * 0.22) + ")";
+                ctx.strokeStyle = `rgba(182, 235, 255, ${0.26 + twinkle * 0.22})`;
                 ctx.stroke();
             }
             ctx.restore();
@@ -14707,12 +14957,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         ctx.restore();
     }
-    function drawBubbleTrailSegments(points, now, options) {
-        const settings = options || {};
-        const baseRadius = settings.baseRadius !== undefined ? settings.baseRadius : 18;
-        const radiusJitter = settings.radiusJitter !== undefined ? settings.radiusJitter : 6;
-        const alphaScale = settings.alphaScale !== undefined ? settings.alphaScale : 1;
-        const sway = settings.sway !== undefined ? settings.sway : 3.4;
+    function drawBubbleTrailSegments(points, now, { baseRadius = 18, radiusJitter = 6, alphaScale = 1, sway = 3.4 } = {}) {
         if (!points || points.length < 2) {
             return;
         }
@@ -14734,15 +14979,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const innerAlpha = 0.32 * fade;
             const midAlpha = 0.18 * fade;
             const gradient = ctx.createRadialGradient(bubbleX, bubbleY, radius * 0.25, bubbleX, bubbleY, radius);
-            gradient.addColorStop(0, "rgba(214, 244, 255, " + innerAlpha + ")");
-            gradient.addColorStop(0.7, "rgba(154, 216, 255, " + midAlpha + ")");
+            gradient.addColorStop(0, `rgba(214, 244, 255, ${innerAlpha})`);
+            gradient.addColorStop(0.7, `rgba(154, 216, 255, ${midAlpha})`);
             gradient.addColorStop(1, 'rgba(120, 200, 255, 0)');
             ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.arc(bubbleX, bubbleY, radius, 0, Math.PI * 2);
             ctx.fill();
             ctx.lineWidth = Math.max(1, radius * 0.16);
-            ctx.strokeStyle = "rgba(182, 235, 255, " + 0.26 * fade + ")";
+            ctx.strokeStyle = `rgba(182, 235, 255, ${0.26 * fade})`;
             ctx.stroke();
         }
         ctx.restore();

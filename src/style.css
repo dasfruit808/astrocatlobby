@@ -1287,6 +1287,21 @@ body.is-scroll-locked {
   text-transform: uppercase;
 }
 
+.loadout-preview__item.is-locked {
+  border-color: rgba(255, 168, 164, 0.55);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 210, 210, 0.22),
+    0 0 22px rgba(255, 150, 170, 0.18);
+}
+
+.loadout-preview__item.is-locked .loadout-preview__name {
+  color: #ffc4d6;
+}
+
+.loadout-preview__item.is-locked .loadout-preview__summary {
+  color: rgba(255, 206, 218, 0.85);
+}
+
 .loadout-preview__name {
   margin: 0;
   font-size: 16px;
@@ -1333,6 +1348,11 @@ body.is-scroll-locked {
 
 .loadout-panel__select {
   cursor: pointer;
+}
+
+.loadout-panel__select option.is-locked-option {
+  color: rgba(205, 184, 202, 0.85);
+  font-style: italic;
 }
 
 .loadout-panel__input:focus-visible,
