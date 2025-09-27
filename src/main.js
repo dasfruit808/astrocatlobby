@@ -6108,7 +6108,7 @@ function createInterface(stats, options = {}) {
     image.alt = "";
     image.setAttribute("aria-hidden", "true");
     image.decoding = "async";
-    image.loading = "lazy";
+    image.loading = "eager";
     image.hidden = true;
 
     let sourceIndex = 0;
