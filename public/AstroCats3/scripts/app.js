@@ -30,6 +30,37 @@ let openWeaponSelectButton = null;
 const weaponPatternStates = new Map();
 const weaponLoadouts = {};
 const LOADOUTS_MANAGED_EXTERNALLY = true;
+const ENVIRONMENT_SPACE = 'space';
+const ENVIRONMENT_UNDERWATER = 'underwater';
+const environmentPhysicsPresets = {
+    [ENVIRONMENT_SPACE]: {
+        accelerationMultiplier: 1,
+        dragMultiplier: 1,
+        verticalDragMultiplier: 1,
+        maxSpeedMultiplier: 1,
+        dashSpeedMultiplier: 1,
+        buoyancy: 0,
+        inputResponsiveness: 1,
+        swayStrength: 0,
+        swayFrequency: 0.0009
+    },
+    [ENVIRONMENT_UNDERWATER]: {
+        accelerationMultiplier: 0.62,
+        dragMultiplier: 1.45,
+        verticalDragMultiplier: 1.28,
+        maxSpeedMultiplier: 0.72,
+        dashSpeedMultiplier: 0.86,
+        buoyancy: 18,
+        inputResponsiveness: 0.82,
+        swayStrength: 34,
+        swayFrequency: 0.0016
+    }
+};
+let environmentState = {
+    current: ENVIRONMENT_SPACE,
+    lastChange: 0,
+    swaySeed: Math.random() * Math.PI * 2
+};
 const serviceWorkerSupported = typeof window !== 'undefined' &&
     'serviceWorker' in navigator &&
     typeof ((_a = navigator.serviceWorker) === null || _a === void 0 ? void 0 : _a.register) === 'function';
@@ -2795,6 +2826,61 @@ document.addEventListener('DOMContentLoaded', () => {
     const getTimestamp = () => typeof performance !== 'undefined' && typeof performance.now === 'function'
         ? performance.now()
         : Date.now();
+    function getCurrentEnvironment() {
+        if (state && typeof state === 'object' && typeof state.environment === 'string') {
+            return state.environment;
+        }
+        return (environmentState && environmentState.current) || ENVIRONMENT_SPACE;
+    }
+    function isUnderwaterEnvironment() {
+        return getCurrentEnvironment() === ENVIRONMENT_UNDERWATER;
+    }
+    function getEnvironmentPhysics(environment = getCurrentEnvironment()) {
+        return environmentPhysicsPresets[environment] || environmentPhysicsPresets[ENVIRONMENT_SPACE];
+    }
+    function reseedStarsForEnvironment(environment = getCurrentEnvironment()) {
+        if (!Array.isArray(stars) || stars.length === 0) {
+            return;
+        }
+        const starConfig = config && typeof config === 'object' ? config.star : undefined;
+        const starBase = starConfig && typeof starConfig.baseSpeed === 'number' ? starConfig.baseSpeed : NaN;
+        const baseSpeed = Number.isFinite(starBase) ? starBase : 80;
+        if (environment === ENVIRONMENT_UNDERWATER) {
+            for (const star of stars) {
+                star.speed = (Math.random() * 0.8 + 0.5) * baseSpeed * 0.6;
+                star.size = Math.random() * 3 + 1.1;
+                star.drift = (Math.random() * 18 + 8) * (Math.random() < 0.5 ? -1 : 1);
+                star.rippleOffset = Math.random() * Math.PI * 2;
+            }
+        } else {
+            for (const star of stars) {
+                star.speed = (Math.random() * 0.8 + 0.4) * baseSpeed;
+                star.size = Math.random() * 2.5 + 0.6;
+                star.drift = 0;
+                star.rippleOffset = Math.random() * Math.PI * 2;
+            }
+        }
+    }
+    function setEnvironment(nextEnvironment, options) {
+        const force = (options && options.force) || false;
+        const normalized = nextEnvironment === ENVIRONMENT_UNDERWATER ? ENVIRONMENT_UNDERWATER : ENVIRONMENT_SPACE;
+        const previous = environmentState.current;
+        environmentState.current = normalized;
+        const now = typeof getTimestamp === 'function' ? getTimestamp() : Date.now();
+        environmentState.lastChange = now;
+        environmentState.swaySeed = Math.random() * Math.PI * 2;
+        if (state && typeof state === 'object') {
+            state.environment = normalized;
+        }
+        if (!force && previous === normalized) {
+            return normalized;
+        }
+        backgroundGradient = null;
+        backgroundGradientHeight = 0;
+        backgroundGradientKey = null;
+        reseedStarsForEnvironment(normalized);
+        return normalized;
+    }
     const DEBUG_OVERLAY_STORAGE_KEY = 'nyanEscape.debugOverlay';
     const TARGET_ASPECT_RATIO = 16 / 9;
     const gameShell = document.getElementById('gameShell');
@@ -2823,6 +2909,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let resizeObserver = null;
     let backgroundGradient = null;
     let backgroundGradientHeight = 0;
+    let backgroundGradientKey = null;
     function parsePixelValue(value, fallback = 0) {
         const numeric = Number.parseFloat(value);
         return Number.isFinite(numeric) ? numeric : fallback;
@@ -8665,7 +8752,8 @@ document.addEventListener('DOMContentLoaded', () => {
             nextEventIndex: 0,
             currentIndex: null,
             currentConfig: null
-        }
+        },
+        environment: environmentState.current
     };
     updateTimerDisplay();
     const keys = new Set();
@@ -9624,6 +9712,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     function resetGame() {
         storyManager.prepareForRun();
+        setEnvironment(ENVIRONMENT_SPACE, { force: true });
         state.score = 0;
         state.nyan = 0;
         state.streak = 0;
@@ -9730,9 +9819,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 y: Math.random() * viewport.height,
                 speed: (Math.random() * 0.8 + 0.4) * config.star.baseSpeed,
                 size: Math.random() * 2.5 + 0.6,
-                twinkleOffset: Math.random() * Math.PI * 2
+                twinkleOffset: Math.random() * Math.PI * 2,
+                drift: 0,
+                rippleOffset: Math.random() * Math.PI * 2
             });
         }
+        reseedStarsForEnvironment();
     }
     function createAsteroid(initial = false) {
         var _a, _b;
@@ -11911,25 +12003,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 motionInput.smoothedY = motionInput.moveY;
             }
         }
-        const inputX = clamp(keyboardX + virtualX + gamepadInput.moveX + motionX, -1, 1);
-        const inputY = clamp(keyboardY + virtualY + gamepadInput.moveY + motionY, -1, 1);
-        const accel = config.player.acceleration;
-        const drag = config.player.drag;
-        const dashConfig = config.player.dash;
+        const baseInputX = clamp(keyboardX + virtualX + gamepadInput.moveX + motionX, -1, 1);
+        const baseInputY = clamp(keyboardY + virtualY + gamepadInput.moveY + motionY, -1, 1);
+        const environmentPhysics = getEnvironmentPhysics();
+        const inputScale = environmentPhysics.inputResponsiveness !== undefined ? environmentPhysics.inputResponsiveness : 1;
+        const inputX = baseInputX * inputScale;
+        const inputY = baseInputY * inputScale;
+        const accel = config.player.acceleration * (environmentPhysics.accelerationMultiplier !== undefined ? environmentPhysics.accelerationMultiplier : 1);
+        const baseDrag = config.player.drag * (environmentPhysics.dragMultiplier !== undefined ? environmentPhysics.dragMultiplier : 1);
+        const dashConfig = config.player.dash || { boostSpeed: config.player.maxSpeed, dragMultiplier: 1 };
         const isDashing = state.dashTimer > 0;
-        const effectiveDrag = isDashing ? drag * dashConfig.dragMultiplier : drag;
-        const maxSpeed = isDashing ? dashConfig.boostSpeed : config.player.maxSpeed;
+        const dashDragMultiplier = dashConfig.dragMultiplier !== undefined ? dashConfig.dragMultiplier : 1;
+        const horizontalDrag = isDashing ? baseDrag * dashDragMultiplier : baseDrag;
+        const verticalDrag = horizontalDrag * (environmentPhysics.verticalDragMultiplier !== undefined ? environmentPhysics.verticalDragMultiplier : 1);
+        const baseMaxSpeed = config.player.maxSpeed * (environmentPhysics.maxSpeedMultiplier !== undefined ? environmentPhysics.maxSpeedMultiplier : 1);
+        const dashSpeed = (dashConfig.boostSpeed !== undefined ? dashConfig.boostSpeed : config.player.maxSpeed) * (environmentPhysics.dashSpeedMultiplier !== undefined ? environmentPhysics.dashSpeedMultiplier : 1);
+        const maxSpeed = isDashing ? dashSpeed : baseMaxSpeed;
+        const buoyancy = environmentPhysics.buoyancy !== undefined ? environmentPhysics.buoyancy : 0;
+        const swayStrength = environmentPhysics.swayStrength !== undefined ? environmentPhysics.swayStrength : 0;
+        const swayFrequency = environmentPhysics.swayFrequency !== undefined ? environmentPhysics.swayFrequency : 0.0012;
         const moveEntity = (entity) => {
             if (!entity) {
                 return;
             }
             const verticalBleed = getVerticalBleedForHeight(entity.height);
-            entity.vx += (inputX * accel - entity.vx * effectiveDrag) * deltaSeconds;
-            entity.vy += (inputY * accel - entity.vy * effectiveDrag) * deltaSeconds;
+            entity.vx += (inputX * accel - entity.vx * horizontalDrag) * deltaSeconds;
+            entity.vy += (inputY * accel - entity.vy * verticalDrag) * deltaSeconds;
+            if (buoyancy !== 0 && Math.abs(inputY) < 0.2) {
+                entity.vy -= buoyancy * deltaSeconds;
+            }
             entity.vx = clamp(entity.vx, -maxSpeed, maxSpeed);
             entity.vy = clamp(entity.vy, -maxSpeed, maxSpeed);
             entity.x += entity.vx * deltaSeconds;
             entity.y += entity.vy * deltaSeconds;
+            if (swayStrength !== 0) {
+                const elapsed = state && typeof state.elapsedTime === 'number' ? state.elapsedTime : 0;
+                const swayPhase = elapsed * swayFrequency + (environmentState.swaySeed || 0) + entity.y * 0.015;
+                entity.x += Math.sin(swayPhase) * swayStrength * deltaSeconds;
+            }
             entity.x = clamp(entity.x, 0, viewport.width - entity.width);
             entity.y = clamp(entity.y, -verticalBleed, viewport.height - entity.height + verticalBleed);
         };
@@ -12395,6 +12506,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const bossConfig = bossBattleDefinitions[nextIndex];
         if (!bossConfig) {
             return;
+        }
+        if (nextIndex === 0) {
+            setEnvironment(ENVIRONMENT_UNDERWATER);
+        }
+        else if (nextIndex === 1) {
+            setEnvironment(ENVIRONMENT_SPACE);
         }
         state.bossBattle.triggered = true;
         state.bossBattle.active = true;
@@ -13328,6 +13445,39 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateStars(delta) {
         const scaledDelta = getScaledDelta(delta);
         const deltaSeconds = scaledDelta / 1000;
+        if (isUnderwaterEnvironment()) {
+            const starConfig = config && typeof config === 'object' ? config.star : undefined;
+            const starBase = starConfig && typeof starConfig.baseSpeed === 'number' ? starConfig.baseSpeed : NaN;
+            const baseSpeed = Number.isFinite(starBase) ? starBase : 80;
+            const elapsed = (state && typeof state === 'object' && typeof state.elapsedTime === 'number')
+                ? state.elapsedTime
+                : 0;
+            const upwardFactor = 0.22 + state.gameSpeed / 900;
+            for (let i = stars.length - 1; i >= 0; i--) {
+                const star = stars[i];
+                const rippleOffset = star.rippleOffset || 0;
+                star.y -= star.speed * deltaSeconds * upwardFactor;
+                const drift = star.drift || 0;
+                if (drift !== 0) {
+                    const swayPhase = elapsed * 0.0012 + rippleOffset;
+                    star.x += Math.sin(swayPhase) * drift * deltaSeconds;
+                }
+                if (star.y + star.size < -4) {
+                    star.y = viewport.height + star.size;
+                    star.x = Math.random() * viewport.width;
+                    star.speed = (Math.random() * 0.8 + 0.5) * baseSpeed * 0.6;
+                    star.drift = (Math.random() * 18 + 8) * (Math.random() < 0.5 ? -1 : 1);
+                    star.rippleOffset = Math.random() * Math.PI * 2;
+                }
+                if (star.x < -16) {
+                    star.x = viewport.width + 16;
+                }
+                else if (star.x > viewport.width + 16) {
+                    star.x = -16;
+                }
+            }
+            return;
+        }
         for (let i = stars.length - 1; i >= 0; i--) {
             const star = stars[i];
             star.x -= star.speed * deltaSeconds * (0.4 + state.gameSpeed / 600);
@@ -14458,22 +14608,57 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     function drawBackground() {
-        ctx.fillStyle = '#05091f';
+        const environment = getCurrentEnvironment();
+        ctx.fillStyle = environment === ENVIRONMENT_UNDERWATER ? '#041521' : '#05091f';
         ctx.fillRect(0, 0, viewport.width, viewport.height);
         let gradient = backgroundGradient;
-        if (!gradient || backgroundGradientHeight !== viewport.height) {
+        if (!gradient || backgroundGradientHeight !== viewport.height || backgroundGradientKey !== environment) {
             gradient = ctx.createLinearGradient(0, 0, 0, viewport.height);
-            gradient.addColorStop(0, 'rgba(26, 35, 126, 0.85)');
-            gradient.addColorStop(0.5, 'rgba(21, 11, 45, 0.85)');
-            gradient.addColorStop(1, 'rgba(0, 2, 12, 0.95)');
+            if (environment === ENVIRONMENT_UNDERWATER) {
+                gradient.addColorStop(0, 'rgba(12, 42, 92, 0.9)');
+                gradient.addColorStop(0.45, 'rgba(10, 64, 102, 0.85)');
+                gradient.addColorStop(1, 'rgba(4, 24, 46, 0.98)');
+            }
+            else {
+                gradient.addColorStop(0, 'rgba(26, 35, 126, 0.85)');
+                gradient.addColorStop(0.5, 'rgba(21, 11, 45, 0.85)');
+                gradient.addColorStop(1, 'rgba(0, 2, 12, 0.95)');
+            }
             backgroundGradient = gradient;
             backgroundGradientHeight = viewport.height;
+            backgroundGradientKey = environment;
         }
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, viewport.width, viewport.height);
     }
     function drawStars(time) {
         ctx.save();
+        if (isUnderwaterEnvironment()) {
+            ctx.globalCompositeOperation = 'screen';
+            for (const star of stars) {
+                const rippleOffset = star.rippleOffset || 0;
+                const twinkle = (Math.sin(time * 0.002 + star.twinkleOffset) + 1) * 0.5;
+                const radius = Math.max(1.4, (star.size || 1.2) * (1.8 + twinkle * 0.5));
+                const wobble = Math.sin(time * 0.003 + rippleOffset) * 2.4;
+                const bubbleX = star.x + Math.sin(time * 0.0011 + rippleOffset) * 2.2;
+                const bubbleY = star.y + wobble;
+                const innerAlpha = 0.32 + twinkle * 0.22;
+                const shellAlpha = 0.24 + twinkle * 0.18;
+                const gradient = ctx.createRadialGradient(bubbleX, bubbleY, radius * 0.28, bubbleX, bubbleY, radius);
+                gradient.addColorStop(0, "rgba(214, 244, 255, " + innerAlpha + ")");
+                gradient.addColorStop(0.68, "rgba(154, 216, 255, " + shellAlpha * 0.55 + ")");
+                gradient.addColorStop(1, 'rgba(120, 200, 255, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(bubbleX, bubbleY, radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.lineWidth = Math.max(1.1, radius * 0.18);
+                ctx.strokeStyle = "rgba(182, 235, 255, " + (0.26 + twinkle * 0.22) + ")";
+                ctx.stroke();
+            }
+            ctx.restore();
+            return;
+        }
         ctx.globalCompositeOperation = 'lighter';
         ctx.fillStyle = STAR_FILL_COLOR;
         for (const star of stars) {
@@ -14522,10 +14707,63 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         ctx.restore();
     }
+    function drawBubbleTrailSegments(points, now, options) {
+        const settings = options || {};
+        const baseRadius = settings.baseRadius !== undefined ? settings.baseRadius : 18;
+        const radiusJitter = settings.radiusJitter !== undefined ? settings.radiusJitter : 6;
+        const alphaScale = settings.alphaScale !== undefined ? settings.alphaScale : 1;
+        const sway = settings.sway !== undefined ? settings.sway : 3.4;
+        if (!points || points.length < 2) {
+            return;
+        }
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        for (let i = 0; i < points.length; i++) {
+            const point = points[i];
+            const progress = i / points.length;
+            const fade = Math.max(0, Math.min(1, progress * alphaScale));
+            if (fade <= 0) {
+                continue;
+            }
+            const pulse = Math.sin(now * 0.002 + progress * 8);
+            const radius = Math.max(1.2, baseRadius * (0.42 + progress * 0.9) + pulse * radiusJitter);
+            const offsetX = Math.sin(now * 0.0015 + progress * 9) * sway;
+            const offsetY = Math.sin(now * 0.0024 + progress * 6) * (sway * 0.6);
+            const bubbleX = point.x + offsetX;
+            const bubbleY = point.y + offsetY;
+            const innerAlpha = 0.32 * fade;
+            const midAlpha = 0.18 * fade;
+            const gradient = ctx.createRadialGradient(bubbleX, bubbleY, radius * 0.25, bubbleX, bubbleY, radius);
+            gradient.addColorStop(0, "rgba(214, 244, 255, " + innerAlpha + ")");
+            gradient.addColorStop(0.7, "rgba(154, 216, 255, " + midAlpha + ")");
+            gradient.addColorStop(1, 'rgba(120, 200, 255, 0)');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(bubbleX, bubbleY, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.lineWidth = Math.max(1, radius * 0.16);
+            ctx.strokeStyle = "rgba(182, 235, 255, " + 0.26 * fade + ")";
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
     function drawTrail() {
         var _a;
         if (isPowerUpActive(PUMP_POWER) || pumpTailState.fade > 0) {
             drawPumpTail();
+            return;
+        }
+        if (isUnderwaterEnvironment()) {
+            const now = performance.now();
+            drawBubbleTrailSegments(trail, now, { baseRadius: 18, radiusJitter: 6, alphaScale: 1 });
+            if (doubleTeamState.trail.length >= 2) {
+                drawBubbleTrailSegments(doubleTeamState.trail, now, {
+                    baseRadius: 14,
+                    radiusJitter: 4,
+                    alphaScale: 0.9,
+                    sway: 2.4
+                });
+            }
             return;
         }
         const style = (_a = getActiveTrailStyle()) !== null && _a !== void 0 ? _a : trailStyles.rainbow;
