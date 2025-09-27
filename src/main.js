@@ -1192,11 +1192,17 @@ audio.playBackground();
 const backgroundImage = new Image();
 const backgroundSource = backgroundImageUrl;
 let backgroundReady = false;
+let backgroundDimensions = { width: 0, height: 0 };
 const markBackgroundReady = () => {
   backgroundReady = true;
+  backgroundDimensions = {
+    width: backgroundImage.naturalWidth || baseCanvasWidth,
+    height: backgroundImage.naturalHeight || baseCanvasHeight
+  };
 };
 const handleBackgroundError = () => {
   backgroundReady = false;
+  backgroundDimensions = { width: 0, height: 0 };
   console.warn(
     "Background image failed to load. The gradient fallback will be used instead."
   );
@@ -3648,11 +3654,33 @@ function render(timestamp) {
     0
   );
 
+  ctx.fillStyle = getFallbackBackgroundGradient();
+  ctx.fillRect(0, 0, viewport.width, viewport.height);
+
   if (backgroundReady) {
-    ctx.drawImage(backgroundImage, 0, 0, viewport.width, viewport.height);
-  } else {
-    ctx.fillStyle = getFallbackBackgroundGradient();
-    ctx.fillRect(0, 0, viewport.width, viewport.height);
+    const { width: sourceWidth, height: sourceHeight } = backgroundDimensions;
+    if (sourceWidth > 0 && sourceHeight > 0) {
+      const widthScale = viewport.width / sourceWidth;
+      const heightScale = viewport.height / sourceHeight;
+      const scale = Math.min(widthScale, heightScale);
+      const drawWidth = sourceWidth * scale;
+      const drawHeight = sourceHeight * scale;
+      const offsetX = (viewport.width - drawWidth) / 2;
+      const offsetY = (viewport.height - drawHeight) / 2;
+      ctx.drawImage(
+        backgroundImage,
+        0,
+        0,
+        sourceWidth,
+        sourceHeight,
+        offsetX,
+        offsetY,
+        drawWidth,
+        drawHeight
+      );
+    } else {
+      ctx.drawImage(backgroundImage, 0, 0, viewport.width, viewport.height);
+    }
   }
 
   ctx.fillStyle = "#1c2b33";
