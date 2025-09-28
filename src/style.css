@@ -1485,6 +1485,7 @@ body.is-scroll-locked {
   flex-direction: column;
   gap: 6px;
   width: 100%;
+  box-sizing: border-box;
   padding: 14px 16px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.06);
