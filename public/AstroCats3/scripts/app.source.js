@@ -252,6 +252,125 @@ Object.assign(weaponLoadouts, {
         pattern(createProjectile) {
             createProjectile(0, 'lance', { applyLoadoutSpeed: false, audioType: 'lance' });
         }
+    },
+    cyclone: {
+        id: 'cyclone',
+        name: 'Cyclone Twinstorm',
+        icon: 'assets/weapon-cyclone.svg',
+        rarity: 'legendary',
+        summary: 'Twin plasma ribbons spiral forward and wrap around threats.',
+        description:
+            'A tournament-grade emitter that spins paired bolts into a corkscrew. Excellent for carving tunnels through dense asteroid formations.',
+        highlights: [
+            'Fires two weaving projectiles that sweep a wide channel.',
+            'Maintains a brisk firing cadence despite the spiral arc.',
+            'Stacks power with strength-focused pilots for consistent pressure.'
+        ],
+        cooldownMultiplier: 0.94,
+        speedMultiplier: 1.08,
+        createPatternState: () => ({ spin: 0 }),
+        resetPatternState() {},
+        pattern(createProjectile, context = {}) {
+            const state = context?.state ?? context;
+            if (state.spin == null) {
+                state.spin = 0;
+            }
+            state.spin += 1;
+            const phase = (state.spin % 360) * (Math.PI / 180);
+            createProjectile(-0.2, 'cyclone', {
+                wavePhase: phase,
+                waveFrequency: 8.2,
+                waveAmplitude: 18,
+                waveDrift: 28,
+                audioType: 'scatter'
+            });
+            createProjectile(0.2, 'cyclone', {
+                wavePhase: phase + Math.PI,
+                waveFrequency: 8.2,
+                waveAmplitude: 18,
+                waveDrift: 28,
+                audioType: 'scatter'
+            });
+        }
+    },
+    nebula: {
+        id: 'nebula',
+        name: 'Nebula Bloom',
+        icon: 'assets/weapon-nebula.svg',
+        rarity: 'legendary',
+        summary: 'Pulsing plasma orbs drift forward and destabilise nearby foes.',
+        description:
+            'Condenses stellar dust into luminous orbs that pulse with gravitational shear. The slow march belies a devastating area sweep.',
+        highlights: [
+            'Launches dual orbs that pulse outward for reliable lane coverage.',
+            'Innate damage boost makes pickups and bosses melt faster.',
+            'Pairs beautifully with focus-heavy pilots chasing EXP bonuses.'
+        ],
+        cooldownMultiplier: 1.22,
+        speedMultiplier: 0.9,
+        createPatternState: () => ({ step: 0 }),
+        resetPatternState() {},
+        pattern(createProjectile, context = {}) {
+            const state = context?.state ?? context;
+            state.step = (state.step ?? 0) + 1;
+            const offset = ((state.step % 4) - 1.5) * 16;
+            createProjectile(0, 'nebula', {
+                offsetY: offset,
+                speedMultiplier: 0.94,
+                audioType: 'missile',
+                damage: 2
+            });
+            createProjectile(0, 'nebula', {
+                offsetY: -offset,
+                speedMultiplier: 0.94,
+                audioType: 'missile',
+                damage: 2
+            });
+        }
+    },
+    quasar: {
+        id: 'quasar',
+        name: 'Quasar Singularity',
+        icon: 'assets/weapon-quasar.svg',
+        rarity: 'mythic',
+        summary: 'Charged starbursts that detonate with overwhelming force.',
+        description:
+            'Harnesses a micro-singularity to fire unstable stars. Each detonation carves a path through elite foes and bosses alike.',
+        highlights: [
+            'High-impact star cores that cleave through shielded enemies.',
+            'Fires in charged bursts—time your volleys for maximum impact.',
+            'Rewarding payoff for resilience-focused pilots holding long combos.'
+        ],
+        cooldownMultiplier: 1.38,
+        speedMultiplier: 1.02,
+        createPatternState: () => ({ charge: 0 }),
+        resetPatternState() {},
+        pattern(createProjectile, context = {}) {
+            const state = context?.state ?? context;
+            state.charge = (state.charge ?? 0) + 1;
+            createProjectile(0, 'quasar', {
+                audioType: 'lance',
+                damage: 3,
+                life: 2600,
+                speedMultiplier: 1.05
+            });
+            if (state.charge % 3 === 0) {
+                createProjectile(0.14, 'quasar', {
+                    offsetY: 18,
+                    audioType: 'lance',
+                    damage: 3,
+                    life: 2400,
+                    speedMultiplier: 1.04
+                });
+                createProjectile(-0.14, 'quasar', {
+                    offsetY: -18,
+                    audioType: 'lance',
+                    damage: 3,
+                    life: 2400,
+                    speedMultiplier: 1.04
+                });
+            }
+        }
     }
 });
 
@@ -2288,6 +2407,39 @@ document.addEventListener('DOMContentLoaded', () => {
             shadowBlur: 16,
             shadowColor: 'rgba(56, 189, 248, 0.36)'
         },
+        cyclone: {
+            width: 26,
+            height: 18,
+            speedMultiplier: 1.04,
+            life: 2000,
+            damage: 1,
+            gradient: ['#bae6fd', '#38bdf8', '#0ea5e9'],
+            glow: 'rgba(14, 165, 233, 0.52)',
+            shadowBlur: 14,
+            shadowColor: 'rgba(14, 165, 233, 0.32)'
+        },
+        nebula: {
+            width: 34,
+            height: 24,
+            speedMultiplier: 0.92,
+            life: 2600,
+            damage: 2,
+            gradient: ['rgba(236, 72, 153, 0.9)', 'rgba(168, 85, 247, 0.6)', 'rgba(59, 130, 246, 0.25)'],
+            glow: 'rgba(168, 85, 247, 0.55)',
+            shadowBlur: 18,
+            shadowColor: 'rgba(129, 140, 248, 0.32)'
+        },
+        quasar: {
+            width: 30,
+            height: 30,
+            speedMultiplier: 0.96,
+            life: 2400,
+            damage: 3,
+            gradient: ['rgba(253, 230, 138, 0.95)', 'rgba(251, 191, 36, 0.75)', 'rgba(59, 130, 246, 0.28)'],
+            glow: 'rgba(251, 191, 36, 0.6)',
+            shadowBlur: 20,
+            shadowColor: 'rgba(251, 191, 36, 0.4)'
+        },
         flameWhip: {
             width: 48,
             height: 26,
@@ -2346,6 +2498,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const pilotLevelEl = document.getElementById('pilotLevel');
     const pilotExpEl = document.getElementById('pilotExp');
     const pilotStatPointsEl = document.getElementById('pilotStatPoints');
+    const skillTreeSection = document.getElementById('skillTree');
+    const skillTreeListEl = document.getElementById('skillNodeList');
+    const skillTreeHintEl = document.getElementById('skillTreeHint');
+    let skillTreeMessageTimer = null;
+
     const comboFillEl = document.getElementById('comboFill');
     const comboMeterEl = document.getElementById('comboMeter');
     const joystickZone = document.getElementById('joystickZone');
@@ -2368,6 +2525,96 @@ document.addEventListener('DOMContentLoaded', () => {
         statPoints: null,
         rank: null
     };
+
+    function renderSkillTreeUI() {
+        if (!(skillTreeListEl instanceof HTMLElement)) {
+            return;
+        }
+        const state = progressionSystem.getState();
+        const availablePoints = state?.statPoints ?? 0;
+        const allocations = state?.skillAllocations ?? {};
+        skillTreeListEl.textContent = '';
+        for (const node of SKILL_TREE_NODES) {
+            const rank = allocations[node.id] ?? 0;
+            const item = document.createElement('li');
+            item.className = 'skill-node';
+            item.dataset.skillId = node.id;
+            if (rank >= node.maxRank) {
+                item.classList.add('maxed');
+            }
+
+            const header = document.createElement('div');
+            header.className = 'skill-node-header';
+            const title = document.createElement('span');
+            title.className = 'skill-node-name';
+            title.textContent = node.label;
+            const rankEl = document.createElement('span');
+            rankEl.className = 'skill-node-rank';
+            rankEl.textContent = `${rank}/${node.maxRank}`;
+            header.append(title, rankEl);
+            item.appendChild(header);
+
+            const description = document.createElement('p');
+            description.className = 'skill-node-description';
+            description.textContent = node.description;
+            item.appendChild(description);
+
+            if (typeof node.effectText === 'function') {
+                const effect = document.createElement('p');
+                effect.className = 'skill-node-effect';
+                effect.textContent = node.effectText(rank);
+                item.appendChild(effect);
+            }
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'skill-node-upgrade';
+            button.dataset.skillUpgrade = node.id;
+            const isMaxed = rank >= node.maxRank;
+            button.textContent = isMaxed ? 'Maxed' : 'Invest';
+            const shouldDisable = isMaxed || availablePoints <= 0;
+            button.disabled = shouldDisable;
+            button.setAttribute('aria-disabled', shouldDisable ? 'true' : 'false');
+            item.appendChild(button);
+
+            skillTreeListEl.appendChild(item);
+        }
+
+        if (skillTreeHintEl instanceof HTMLElement && !skillTreeHintEl.classList.contains('message')) {
+            const available = availablePoints > 0;
+            skillTreeHintEl.textContent = available
+                ? availablePoints === 1
+                    ? '1 point available to invest.'
+                    : `${availablePoints} points available to invest.`
+                : 'Earn EXP in flights to unlock more stat points.';
+            skillTreeHintEl.classList.toggle('available', available);
+            skillTreeHintEl.dataset.status = available ? 'available' : '';
+        }
+
+        if (skillTreeSection instanceof HTMLElement) {
+            skillTreeSection.hidden = false;
+        }
+    }
+
+    function showSkillTreeMessage(message, type = 'info') {
+        if (!(skillTreeHintEl instanceof HTMLElement) || !message) {
+            return;
+        }
+        if (skillTreeMessageTimer != null) {
+            window.clearTimeout(skillTreeMessageTimer);
+            skillTreeMessageTimer = null;
+        }
+        skillTreeHintEl.textContent = message;
+        skillTreeHintEl.dataset.status = type;
+        skillTreeHintEl.classList.add('message');
+        skillTreeHintEl.classList.remove('available');
+        skillTreeMessageTimer = window.setTimeout(() => {
+            skillTreeHintEl.classList.remove('message');
+            skillTreeHintEl.dataset.status = '';
+            skillTreeMessageTimer = null;
+            renderSkillTreeUI();
+        }, 4200);
+    }
 
     function syncPilotTelemetry() {
         if (pilotLevelEl) {
@@ -2426,6 +2673,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         syncPilotTelemetry();
+    }
+
+    function updateProgressionTelemetry() {
+        const state = progressionSystem.getState();
+        if (!state) {
+            return;
+        }
+        applySharedProfile({
+            level: state.level,
+            exp: state.exp,
+            maxExp: getExpRequirement(state.level),
+            statPoints: state.statPoints,
+            rank: getRankLabel(state.level)
+        });
     }
 
     applySharedProfile();
@@ -4335,7 +4596,8 @@ document.addEventListener('DOMContentLoaded', () => {
         challenges: 'nyanEscape.challenges',
         deviceId: 'nyanEscape.deviceId',
         customLoadouts: 'nyanEscape.customLoadouts',
-        metaProgress: 'nyanEscape.metaProgress'
+        metaProgress: 'nyanEscape.metaProgress',
+        progression: 'nyanEscape.progression'
     };
 
     var storageAvailable = false;
@@ -4370,6 +4632,451 @@ document.addEventListener('DOMContentLoaded', () => {
             storageAvailable = false;
         }
     }
+
+    const LEVEL_CAP = 60;
+    const SKILL_TREE_NODES = [
+        {
+            id: 'strength',
+            label: 'Plasma Strength',
+            description: 'Supercharge the ship\'s primary cannons with heavier impact.',
+            maxRank: 12,
+            effectText(rank) {
+                const bonus = Math.round(rank * 6);
+                return `+${bonus}% projectile damage`;
+            }
+        },
+        {
+            id: 'agility',
+            label: 'Velocity Weave',
+            description: 'Tighten reactor timing to reduce weapon cooldowns.',
+            maxRank: 10,
+            effectText(rank) {
+                const bonus = Math.round(rank * 8);
+                return `-${bonus}% firing cooldown`;
+            }
+        },
+        {
+            id: 'focus',
+            label: 'Quantum Focus',
+            description: 'Accelerate bolts and channel additional combat telemetry.',
+            maxRank: 10,
+            effectText(rank) {
+                const speed = Math.round(rank * 5);
+                const exp = Math.round(rank * 3);
+                return `+${speed}% projectile speed, +${exp}% EXP gain`;
+            }
+        },
+        {
+            id: 'resilience',
+            label: 'Flux Shielding',
+            description: 'Stabilise combo timing and amplify score streak payouts.',
+            maxRank: 10,
+            effectText(rank) {
+                const windowBonus = Math.round(rank * 6);
+                const scoreBonus = Math.round(rank * 2);
+                return `+${windowBonus}% combo window, +${scoreBonus}% score`;
+            }
+        }
+    ];
+    const SKILL_NODE_INDEX = new Map(SKILL_TREE_NODES.map((node) => [node.id, node]));
+    const WEAPON_UNLOCK_RULES = [
+        { level: 2, weaponId: 'scatter' },
+        { level: 4, weaponId: 'lance' },
+        { level: 6, weaponId: 'cyclone' },
+        { level: 8, weaponId: 'nebula' },
+        { level: 12, weaponId: 'quasar' }
+    ];
+
+    function getWeaponUnlockRequirement(weaponId) {
+        const rule = WEAPON_UNLOCK_RULES.find((entry) => entry.weaponId === weaponId);
+        return rule ? rule.level : null;
+    }
+
+    let progressionState = null;
+    const progressionEffects = {
+        damageMultiplier: 1,
+        projectileSpeedMultiplier: 1,
+        cooldownMultiplier: 1,
+        comboWindowMultiplier: 1,
+        scoreMultiplier: 1,
+        expGainMultiplier: 1
+    };
+    let experienceCarryover = 0;
+    let updateProgressionTelemetryHook = null;
+    let renderSkillTreeHook = null;
+    let skillTreeMessageHook = null;
+
+    function getExpRequirement(level) {
+        const normalized = Math.max(1, Math.min(LEVEL_CAP, Number.isFinite(level) ? Math.floor(level) : 1));
+        const base = 320;
+        const curve = Math.pow(normalized + 4, 1.6) * 18;
+        return Math.max(120, Math.round(base + curve));
+    }
+
+    function getRankLabel(level) {
+        if (level >= 40) {
+            return 'Galaxy Legend';
+        }
+        if (level >= 30) {
+            return 'Star Commodore';
+        }
+        if (level >= 20) {
+            return 'Wing Commander';
+        }
+        if (level >= 10) {
+            return 'Squad Ace';
+        }
+        if (level >= 5) {
+            return 'Senior Cadet';
+        }
+        return 'Flight Cadet';
+    }
+
+    function createDefaultProgressionState() {
+        const allocations = {};
+        for (const node of SKILL_TREE_NODES) {
+            allocations[node.id] = 0;
+        }
+        return {
+            version: 1,
+            level: 1,
+            exp: 0,
+            totalExp: 0,
+            statPoints: 2,
+            skillAllocations: allocations,
+            unlockedWeapons: ['pulse']
+        };
+    }
+
+    function normalizeProgressionState(raw) {
+        const defaults = createDefaultProgressionState();
+        if (!raw || typeof raw !== 'object') {
+            return defaults;
+        }
+        const state = {
+            version: 1,
+            level: Number.isFinite(raw.level) ? Math.max(1, Math.min(LEVEL_CAP, Math.floor(raw.level))) : defaults.level,
+            exp: Number.isFinite(raw.exp) ? Math.max(0, Math.floor(raw.exp)) : defaults.exp,
+            totalExp: Number.isFinite(raw.totalExp) ? Math.max(0, Math.floor(raw.totalExp)) : defaults.totalExp,
+            statPoints: Number.isFinite(raw.statPoints) ? Math.max(0, Math.floor(raw.statPoints)) : defaults.statPoints,
+            skillAllocations: { ...defaults.skillAllocations },
+            unlockedWeapons: Array.isArray(raw.unlockedWeapons)
+                ? Array.from(new Set(raw.unlockedWeapons.map((value) => String(value)))).filter(Boolean)
+                : [...defaults.unlockedWeapons]
+        };
+        for (const node of SKILL_TREE_NODES) {
+            const rank = Number.isFinite(raw.skillAllocations?.[node.id])
+                ? Math.max(0, Math.min(node.maxRank, Math.floor(raw.skillAllocations[node.id])))
+                : defaults.skillAllocations[node.id];
+            state.skillAllocations[node.id] = rank;
+        }
+        return state;
+    }
+
+    function loadProgressionState() {
+        if (!storageAvailable) {
+            return normalizeProgressionState(null);
+        }
+        try {
+            const raw = readStorage(STORAGE_KEYS.progression);
+            if (!raw) {
+                return normalizeProgressionState(null);
+            }
+            const parsed = JSON.parse(raw);
+            return normalizeProgressionState(parsed);
+        } catch (error) {
+            return normalizeProgressionState(null);
+        }
+    }
+
+    function persistProgressionState() {
+        if (!storageAvailable || !progressionState) {
+            return;
+        }
+        try {
+            const payload = {
+                version: 1,
+                level: progressionState.level,
+                exp: progressionState.exp,
+                totalExp: progressionState.totalExp,
+                statPoints: progressionState.statPoints,
+                skillAllocations: { ...progressionState.skillAllocations },
+                unlockedWeapons: Array.from(new Set(progressionState.unlockedWeapons.map((value) => String(value))))
+            };
+            writeStorage(STORAGE_KEYS.progression, JSON.stringify(payload));
+        } catch (error) {
+            // Ignore persistence errors
+        }
+    }
+
+    function recalcProgressionEffects() {
+        const strength = progressionState?.skillAllocations?.strength ?? 0;
+        const agility = progressionState?.skillAllocations?.agility ?? 0;
+        const focus = progressionState?.skillAllocations?.focus ?? 0;
+        const resilience = progressionState?.skillAllocations?.resilience ?? 0;
+        progressionEffects.damageMultiplier = 1 + strength * 0.06;
+        progressionEffects.cooldownMultiplier = 1 / (1 + agility * 0.08);
+        progressionEffects.projectileSpeedMultiplier = 1 + focus * 0.05;
+        progressionEffects.expGainMultiplier = 1 + focus * 0.03;
+        progressionEffects.comboWindowMultiplier = 1 + resilience * 0.06;
+        progressionEffects.scoreMultiplier = 1 + resilience * 0.02;
+    }
+
+    function pushSkillTreeMessage(message, type = 'info') {
+        if (typeof skillTreeMessageHook === 'function' && message) {
+            try {
+                skillTreeMessageHook(message, type);
+            } catch (error) {
+                console.error('skill tree message error', error);
+            }
+        }
+    }
+
+    function syncProgressionToCosmetics({ silent = false } = {}) {
+        if (typeof ensureCosmeticsState !== 'function') {
+            return;
+        }
+        const cosmetics = ensureCosmeticsState();
+        if (!Array.isArray(cosmetics.ownedWeapons)) {
+            cosmetics.ownedWeapons = [];
+        }
+        const ownedSet = new Set(cosmetics.ownedWeapons.map((value) => String(value)));
+        let changed = false;
+        for (const weaponId of progressionState.unlockedWeapons) {
+            if (!ownedSet.has(weaponId)) {
+                cosmetics.ownedWeapons.push(weaponId);
+                ownedSet.add(weaponId);
+                changed = true;
+            }
+        }
+        for (const weaponId of cosmetics.ownedWeapons) {
+            if (!progressionState.unlockedWeapons.includes(weaponId)) {
+                progressionState.unlockedWeapons.push(weaponId);
+                changed = true;
+            }
+        }
+        if (changed && !silent) {
+            persistProgressionState();
+        }
+    }
+
+    function unlockWeaponsForLevel(level, { announce = false } = {}) {
+        const unlocked = [];
+        for (const rule of WEAPON_UNLOCK_RULES) {
+            if (level >= rule.level && !progressionState.unlockedWeapons.includes(rule.weaponId)) {
+                progressionState.unlockedWeapons.push(rule.weaponId);
+                unlocked.push(rule.weaponId);
+            }
+        }
+        if (unlocked.length) {
+            syncProgressionToCosmetics({ silent: true });
+            persistProgressionState();
+            if (announce) {
+                for (const weaponId of unlocked) {
+                    const definition = typeof getWeaponDefinition === 'function' ? getWeaponDefinition(weaponId) : null;
+                    const name = definition?.name ?? weaponId;
+                    pushSkillTreeMessage(`Unlocked weapon: ${name}`, 'success');
+                }
+                try {
+                    if (typeof renderWeaponSelectGrid === 'function') {
+                        renderWeaponSelectGrid();
+                    }
+                } catch (error) {
+                    console.error('weapon grid refresh failed', error);
+                }
+                try {
+                    if (typeof updatePreflightSummary === 'function') {
+                        updatePreflightSummary();
+                    }
+                } catch (error) {
+                    console.error('preflight summary refresh failed', error);
+                }
+            }
+        }
+        return unlocked;
+    }
+
+    function updateProgressionHooks({ announce = false } = {}) {
+        recalcProgressionEffects();
+        if (typeof updateProgressionTelemetryHook === 'function') {
+            try {
+                updateProgressionTelemetryHook();
+            } catch (error) {
+                console.error('progression telemetry update error', error);
+            }
+        }
+        if (typeof renderSkillTreeHook === 'function') {
+            try {
+                renderSkillTreeHook();
+            } catch (error) {
+                console.error('skill tree render error', error);
+            }
+        }
+        if (announce) {
+            const rank = getRankLabel(progressionState.level);
+            pushSkillTreeMessage(`Level ${progressionState.level} — ${rank}`, 'success');
+        }
+    }
+
+    function addProgressionExperience(amount, { source = 'score' } = {}) {
+        const numeric = Number(amount);
+        if (!Number.isFinite(numeric) || numeric <= 0 || !progressionState) {
+            return 0;
+        }
+        const rates = {
+            score: 1 / 28,
+            dodge: 1 / 18,
+            time: 0.08 / 1000,
+            boss: 12
+        };
+        const rate = rates[source] ?? rates.score;
+        const scaled = numeric * rate * progressionEffects.expGainMultiplier;
+        experienceCarryover += scaled;
+        const whole = Math.floor(experienceCarryover);
+        if (whole <= 0) {
+            return 0;
+        }
+        experienceCarryover -= whole;
+        let remaining = whole;
+        let leveled = false;
+        progressionState.totalExp += whole;
+        while (remaining > 0) {
+            const requirement = getExpRequirement(progressionState.level);
+            const needed = requirement - progressionState.exp;
+            if (remaining >= needed && progressionState.level < LEVEL_CAP) {
+                progressionState.exp = 0;
+                progressionState.level = Math.min(LEVEL_CAP, progressionState.level + 1);
+                progressionState.statPoints += 2;
+                remaining -= needed;
+                leveled = true;
+            } else {
+                progressionState.exp = Math.min(requirement, progressionState.exp + remaining);
+                remaining = 0;
+            }
+            if (progressionState.level >= LEVEL_CAP) {
+                progressionState.exp = Math.min(getExpRequirement(LEVEL_CAP), progressionState.exp);
+                remaining = 0;
+            }
+        }
+        persistProgressionState();
+        const unlocked = unlockWeaponsForLevel(progressionState.level, { announce: leveled });
+        updateProgressionHooks({ announce: leveled });
+        if (!leveled && unlocked.length) {
+            for (const weaponId of unlocked) {
+                const definition = typeof getWeaponDefinition === 'function' ? getWeaponDefinition(weaponId) : null;
+                const name = definition?.name ?? weaponId;
+                pushSkillTreeMessage(`Unlocked weapon: ${name}`, 'success');
+            }
+        }
+        return whole;
+    }
+
+    function allocateSkillPoint(skillId) {
+        if (!progressionState) {
+            return false;
+        }
+        const node = SKILL_NODE_INDEX.get(skillId);
+        if (!node) {
+            return false;
+        }
+        const current = progressionState.skillAllocations[skillId] ?? 0;
+        if (current >= node.maxRank || progressionState.statPoints <= 0) {
+            return false;
+        }
+        progressionState.skillAllocations[skillId] = current + 1;
+        progressionState.statPoints -= 1;
+        persistProgressionState();
+        recalcProgressionEffects();
+        if (typeof renderSkillTreeHook === 'function') {
+            try {
+                renderSkillTreeHook();
+            } catch (error) {
+                console.error('skill tree render error', error);
+            }
+        }
+        if (typeof updateProgressionTelemetryHook === 'function') {
+            try {
+                updateProgressionTelemetryHook();
+            } catch (error) {
+                console.error('progression telemetry update error', error);
+            }
+        }
+        const effectText = node.effectText ? node.effectText(progressionState.skillAllocations[skillId]) : '';
+        const message = effectText ? `${node.label} upgraded — ${effectText}` : `${node.label} upgraded`;
+        pushSkillTreeMessage(message, 'success');
+        return true;
+    }
+
+    function getProgressionState() {
+        return progressionState;
+    }
+
+    function setProgressionTelemetryUpdater(fn) {
+        updateProgressionTelemetryHook = typeof fn === 'function' ? fn : null;
+    }
+
+    function setSkillTreeRenderer(fn) {
+        renderSkillTreeHook = typeof fn === 'function' ? fn : null;
+    }
+
+    function setSkillTreeMessenger(fn) {
+        skillTreeMessageHook = typeof fn === 'function' ? fn : null;
+    }
+
+    progressionState = loadProgressionState();
+    const requiredExp = getExpRequirement(progressionState.level);
+    if (progressionState.exp >= requiredExp && progressionState.level < LEVEL_CAP) {
+        const surplus = Math.floor(progressionState.exp / requiredExp);
+        progressionState.level = Math.min(LEVEL_CAP, progressionState.level + surplus);
+        progressionState.statPoints += surplus * 2;
+        progressionState.exp = progressionState.exp % requiredExp;
+    } else if (progressionState.level >= LEVEL_CAP) {
+        progressionState.level = LEVEL_CAP;
+        progressionState.exp = Math.min(getExpRequirement(LEVEL_CAP), progressionState.exp);
+    }
+    syncProgressionToCosmetics({ silent: true });
+    unlockWeaponsForLevel(progressionState.level, { announce: false });
+    recalcProgressionEffects();
+
+    const progressionSystem = {
+        addExperience: addProgressionExperience,
+        allocateSkillPoint,
+        getState: getProgressionState,
+        getEffects: () => ({ ...progressionEffects }),
+        syncCosmetics: syncProgressionToCosmetics
+    };
+
+    if (typeof window !== 'undefined') {
+        window.astrocatProgression = progressionSystem;
+        window.registerProgressionTelemetryUpdater = setProgressionTelemetryUpdater;
+        window.registerSkillTreeRenderer = setSkillTreeRenderer;
+        window.registerSkillTreeMessenger = setSkillTreeMessenger;
+    }
+
+    setSkillTreeRenderer(renderSkillTreeUI);
+    setSkillTreeMessenger(showSkillTreeMessage);
+
+    if (skillTreeListEl) {
+        skillTreeListEl.addEventListener('click', (event) => {
+            const target = event.target instanceof HTMLElement ? event.target : null;
+            const button = target?.closest('[data-skill-upgrade]');
+            if (!(button instanceof HTMLButtonElement) || button.disabled) {
+                return;
+            }
+            const skillId = button.dataset.skillUpgrade ?? '';
+            if (!skillId) {
+                return;
+            }
+            const upgraded = progressionSystem.allocateSkillPoint(skillId);
+            if (!upgraded) {
+                showSkillTreeMessage('Need more stat points. Fly missions to earn EXP.', 'warning');
+            }
+        });
+    }
+
+    setProgressionTelemetryUpdater(updateProgressionTelemetry);
+    renderSkillTreeUI();
+    updateProgressionTelemetry();
 
 const CUSTOM_LOADOUT_VERSION = 1;
 const CUSTOM_LOADOUT_SLOTS = [
@@ -5445,6 +6152,12 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
         }
         weaponCards = [];
         weaponSelectGrid.innerHTML = '';
+        const cosmetics = ensureCosmeticsState();
+        const ownedWeapons = new Set(
+            Array.isArray(cosmetics?.ownedWeapons)
+                ? cosmetics.ownedWeapons.map((value) => String(value))
+                : []
+        );
         for (const weapon of Object.values(weaponLoadouts)) {
             const button = document.createElement('button');
             button.type = 'button';
@@ -5486,17 +6199,32 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
                 button.appendChild(details);
             }
 
-            button.addEventListener('click', () => {
-                pendingWeaponId = weapon.id;
-                updateWeaponSelectionState();
-            });
-            button.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
+            const isUnlocked = ownedWeapons.has(weapon.id);
+            if (!isUnlocked) {
+                button.disabled = true;
+                button.tabIndex = -1;
+                button.setAttribute('aria-disabled', 'true');
+                button.classList.add('locked');
+                const unlockLevel = getWeaponUnlockRequirement(weapon.id);
+                const lockBadge = document.createElement('span');
+                lockBadge.className = 'weapon-lock-badge';
+                lockBadge.textContent = unlockLevel
+                    ? `Unlocks at Level ${unlockLevel}`
+                    : 'Unlock through special events';
+                button.appendChild(lockBadge);
+            } else {
+                button.addEventListener('click', () => {
                     pendingWeaponId = weapon.id;
                     updateWeaponSelectionState();
-                }
-            });
+                });
+                button.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        pendingWeaponId = weapon.id;
+                        updateWeaponSelectionState();
+                    }
+                });
+            }
 
             weaponSelectGrid.appendChild(button);
             weaponCards.push(button);
@@ -5602,6 +6330,7 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
     }
 
     initializeLoadoutSelections();
+    progressionSystem.syncCosmetics({ silent: true });
     renderPilotSelectGrid();
     renderWeaponSelectGrid();
     renderCustomLoadoutCollections();
@@ -6596,7 +7325,7 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
         return {
             ownedSkins: ['default'],
             ownedTrails: ['rainbow'],
-            ownedWeapons: ['pulse', 'scatter', 'lance'],
+            ownedWeapons: ['pulse'],
             equipped: { skin: 'default', trail: 'rainbow', weapon: 'pulse' }
         };
     }
@@ -12558,8 +13287,12 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
         const loadout = getActiveWeaponLoadout();
         const cooldownMultiplier = loadout?.cooldownMultiplier ?? 1;
         const cooldownOffset = loadout?.cooldownOffset ?? 0;
-        const cooldown = Math.max(60, config.projectileCooldown * cooldownMultiplier + cooldownOffset);
-        if ((keys.has('Space') || virtualInput.firing || gamepadInput.firing) && state.timeSinceLastShot >= cooldown) {
+        const baseCooldown = config.projectileCooldown * cooldownMultiplier + cooldownOffset;
+        const adjustedCooldown = Math.max(40, baseCooldown * progressionEffects.cooldownMultiplier);
+        if (
+            (keys.has('Space') || virtualInput.firing || gamepadInput.firing) &&
+            state.timeSinceLastShot >= adjustedCooldown
+        ) {
             spawnProjectiles();
             state.timeSinceLastShot = 0;
         }
@@ -12592,9 +13325,11 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
             const speedMultiplier =
                 (overrides.speedMultiplier ?? archetype?.speedMultiplier ?? 1) *
                 (applyLoadoutSpeed ? loadoutSpeedMultiplier : 1);
-            const speed = config.projectileSpeed * speedMultiplier;
+            const speed =
+                config.projectileSpeed * speedMultiplier * progressionEffects.projectileSpeedMultiplier;
             const vx = Math.cos(angle) * speed;
             const vy = Math.sin(angle) * speed;
+            const baseDamage = overrides.damage ?? archetype?.damage ?? 1;
             const projectile = {
                 x: originX + (overrides.offsetX ?? 0),
                 y: originY + (overrides.offsetY ?? 0),
@@ -12604,7 +13339,8 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
                 vy,
                 life: overrides.life ?? archetype?.life ?? 2000,
                 type,
-                damage: overrides.damage ?? archetype?.damage ?? 1,
+                damage: baseDamage,
+                baseDamage,
                 gradient: overrides.gradient ?? archetype?.gradient ?? null,
                 glow: overrides.glow ?? archetype?.glow ?? null,
                 shape: overrides.shape ?? archetype?.shape ?? null,
@@ -13260,6 +13996,24 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
                         });
                     }
                 }
+            } else if (projectile.type === 'cyclone') {
+                projectile.waveTime = (projectile.waveTime ?? 0) + delta;
+                const phase = projectile.wavePhase ?? 0;
+                const frequency = projectile.waveFrequency ?? 7.8;
+                const amplitude = projectile.waveAmplitude ?? 16;
+                const drift = projectile.waveDrift ?? 26;
+                const waveSeconds = projectile.waveTime / 1000;
+                projectile.curve = Math.sin(waveSeconds * frequency + phase) * amplitude;
+                projectile.y += Math.cos(waveSeconds * (frequency * 0.6) + phase * 0.4) * drift * deltaSeconds * 0.12;
+            } else if (projectile.type === 'nebula') {
+                projectile.pulseTime = (projectile.pulseTime ?? 0) + delta;
+                const pulseSeconds = projectile.pulseTime / 260;
+                const pulse = Math.sin(pulseSeconds) * 0.3 + 1.05;
+                projectile.pulseScale = pulse;
+                projectile.vy += Math.sin(pulseSeconds * 1.4) * deltaSeconds * 18;
+            } else if (projectile.type === 'quasar') {
+                projectile.spin = (projectile.spin ?? 0) + delta * 0.0042;
+                projectile.pulse = (projectile.pulse ?? 0) + delta * 0.0035;
             }
 
             projectile.x += projectile.vx * deltaSeconds;
@@ -14584,15 +15338,14 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
         if (!projectile) {
             return 1;
         }
-        if (Number.isFinite(projectile.damage)) {
-            return Math.max(1, projectile.damage);
-        }
-        switch (projectile.type) {
-            case 'missile':
-                return 2;
-            default:
-                return 1;
-        }
+        const baseDamage = Number.isFinite(projectile.baseDamage)
+            ? projectile.baseDamage
+            : Number.isFinite(projectile.damage)
+                ? projectile.damage
+                : projectile.type === 'missile'
+                    ? 2
+                    : 1;
+        return Math.max(1, Math.round(baseDamage * progressionEffects.damageMultiplier));
     }
 
     function updateProjectilesCollisions() {
@@ -15150,17 +15903,19 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
     }
 
     function awardDodge() {
-        state.score += config.score.dodge;
+        const dodgePoints = Math.max(1, Math.floor(config.score.dodge * progressionEffects.scoreMultiplier));
+        state.score += dodgePoints;
         state.comboTimer = Math.max(0, state.comboTimer - 400);
         const center = getPlayerCenter();
         spawnFloatingText({
-            text: `+${config.score.dodge} Dodge`,
+            text: `+${dodgePoints} Dodge`,
             x: center.x + player.width * 0.5,
             y: center.y,
             color: '#fde68a',
             life: 900,
             variant: 'dodge'
         });
+        progressionSystem.addExperience(dodgePoints, { source: 'dodge' });
     }
 
     function getVillainEscapePenalty(obstacle) {
@@ -15185,7 +15940,7 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
             });
             triggerScreenShake(8, 240);
         }
-        state.comboTimer = config.comboDecayWindow;
+        state.comboTimer = getComboDecayWindow();
         resetStreak();
         const sparkCenter = getPlayerCenter();
         createHitSpark({
@@ -15222,8 +15977,8 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
         mascotAnnouncer.cheerForCombo(state.streak);
         const comboMultiplier = 1 + state.streak * config.comboMultiplierStep;
         const surgeMultiplier = getScoreSurgeMultiplier();
-        const totalMultiplier = comboMultiplier * surgeMultiplier;
-        const finalPoints = Math.floor(basePoints * totalMultiplier);
+        const totalMultiplier = comboMultiplier * surgeMultiplier * progressionEffects.scoreMultiplier;
+        const finalPoints = Math.max(0, Math.floor(basePoints * totalMultiplier));
         state.score += finalPoints;
         storyManager.recordEvent('score', { totalScore: state.score, deltaScore: finalPoints });
         if (activeChallengeManager) {
@@ -15232,6 +15987,7 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
         if (metaProgressManager) {
             metaProgressManager.recordScore(finalPoints, { totalScore: state.score });
         }
+        progressionSystem.addExperience(finalPoints, { source: 'score' });
         const originX = source.x ?? player.x + player.width * 0.5;
         const originY = source.y ?? player.y;
         const text = `+${finalPoints.toLocaleString()}${totalMultiplier > 1.01 ? ` x${totalMultiplier.toFixed(2)}` : ''}`;
@@ -15246,6 +16002,11 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
         if (finalPoints >= 600) {
             triggerScreenShake(Math.min(16, 6 + finalPoints / 400), 280);
         }
+    }
+
+    function getComboDecayWindow() {
+        const baseWindow = getComboDecayWindow();
+        return Math.max(1000, Math.round(baseWindow * progressionEffects.comboWindowMultiplier));
     }
 
     function resetStreak() {
@@ -15583,10 +16344,11 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
 
     function updateCombo(delta) {
         state.comboTimer += delta;
-        if (state.comboTimer >= config.comboDecayWindow && state.streak > 0) {
+        const comboWindow = getComboDecayWindow();
+        if (state.comboTimer >= comboWindow && state.streak > 0) {
             resetStreak();
         }
-        const ratio = clamp(1 - state.comboTimer / config.comboDecayWindow, 0, 1);
+        const ratio = clamp(1 - state.comboTimer / comboWindow, 0, 1);
         const percentage = Math.round(ratio * 100);
         if (percentage !== lastComboPercent) {
             if (comboFillEl) {
@@ -16562,6 +17324,117 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
                     ctx.lineWidth = 1.2;
                     ctx.stroke();
                     ctx.globalCompositeOperation = 'source-over';
+                } else if (projectile.type === 'cyclone') {
+                    const colors =
+                        Array.isArray(projectile.gradient) && projectile.gradient.length
+                            ? projectile.gradient
+                            : ['#bae6fd', '#38bdf8', '#0ea5e9'];
+                    const gradient = ctx.createLinearGradient(
+                        projectile.x,
+                        projectile.y,
+                        projectile.x + projectile.width,
+                        projectile.y + projectile.height
+                    );
+                    colors.forEach((color, index) => {
+                        const stop = colors.length > 1 ? index / (colors.length - 1) : 0;
+                        gradient.addColorStop(stop, color);
+                    });
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.fillStyle = gradient;
+                    const halfHeight = projectile.height * 0.5;
+                    const curve = projectile.curve ?? 0;
+                    ctx.beginPath();
+                    ctx.moveTo(projectile.x, projectile.y + halfHeight);
+                    ctx.quadraticCurveTo(
+                        projectile.x + projectile.width * 0.28,
+                        projectile.y + halfHeight - curve * 0.6,
+                        projectile.x + projectile.width * 0.5,
+                        projectile.y + halfHeight + curve * 0.5
+                    );
+                    ctx.quadraticCurveTo(
+                        projectile.x + projectile.width * 0.82,
+                        projectile.y + halfHeight - curve * 0.3,
+                        projectile.x + projectile.width,
+                        projectile.y + halfHeight
+                    );
+                    ctx.quadraticCurveTo(
+                        projectile.x + projectile.width * 0.7,
+                        projectile.y + halfHeight + curve * 0.45,
+                        projectile.x + projectile.width * 0.32,
+                        projectile.y + halfHeight - curve * 0.45
+                    );
+                    ctx.closePath();
+                    ctx.fill();
+                    if (projectile.glow) {
+                        ctx.strokeStyle = projectile.glow;
+                        ctx.lineWidth = 1.1;
+                        ctx.stroke();
+                    }
+                    ctx.globalCompositeOperation = 'source-over';
+                } else if (projectile.type === 'nebula') {
+                    const gradient = ctx.createRadialGradient(
+                        projectile.x + projectile.width * 0.5,
+                        projectile.y + projectile.height * 0.5,
+                        Math.max(4, Math.min(projectile.width, projectile.height) * 0.2),
+                        projectile.x + projectile.width * 0.5,
+                        projectile.y + projectile.height * 0.5,
+                        Math.max(projectile.width, projectile.height) * 0.6
+                    );
+                    const colors =
+                        Array.isArray(projectile.gradient) && projectile.gradient.length
+                            ? projectile.gradient
+                            : ['rgba(236, 72, 153, 0.85)', 'rgba(168, 85, 247, 0.55)', 'rgba(59, 130, 246, 0.18)'];
+                    colors.forEach((color, index) => {
+                        const stop = colors.length > 1 ? index / (colors.length - 1) : 0;
+                        gradient.addColorStop(stop, color);
+                    });
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.fillStyle = gradient;
+                    const centerX = projectile.x + projectile.width * 0.5;
+                    const centerY = projectile.y + projectile.height * 0.5;
+                    const scale = projectile.pulseScale ?? 1;
+                    ctx.translate(centerX, centerY);
+                    ctx.scale(scale, Math.max(0.7, scale * 0.85));
+                    const radius = Math.max(projectile.width, projectile.height) * 0.4;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, radius * 1.1, radius, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                    ctx.globalCompositeOperation = 'source-over';
+                } else if (projectile.type === 'quasar') {
+                    const centerX = projectile.x + projectile.width * 0.5;
+                    const centerY = projectile.y + projectile.height * 0.5;
+                    const radius = Math.max(projectile.width, projectile.height) * 0.5;
+                    const gradient = ctx.createRadialGradient(centerX, centerY, radius * 0.1, centerX, centerY, radius);
+                    gradient.addColorStop(0, 'rgba(251, 191, 36, 0.95)');
+                    gradient.addColorStop(0.5, 'rgba(249, 115, 22, 0.6)');
+                    gradient.addColorStop(1, 'rgba(59, 130, 246, 0.25)');
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.translate(centerX, centerY);
+                    const spin = projectile.spin ?? 0;
+                    ctx.rotate(spin);
+                    ctx.fillStyle = gradient;
+                    const points = 6;
+                    const innerRadius = radius * 0.42;
+                    ctx.beginPath();
+                    for (let arm = 0; arm < points; arm++) {
+                        const outerAngle = (Math.PI * 2 * arm) / points;
+                        const innerAngle = outerAngle + Math.PI / points;
+                        const outerX = Math.cos(outerAngle) * radius;
+                        const outerY = Math.sin(outerAngle) * radius;
+                        if (arm === 0) {
+                            ctx.moveTo(outerX, outerY);
+                        } else {
+                            ctx.lineTo(outerX, outerY);
+                        }
+                        ctx.lineTo(Math.cos(innerAngle) * innerRadius, Math.sin(innerAngle) * innerRadius);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                    ctx.globalCompositeOperation = 'source-over';
                 } else {
                     const colors =
                         Array.isArray(projectile.gradient) && projectile.gradient.length
@@ -16668,6 +17541,7 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
 
     function stepRunning(delta) {
         state.elapsedTime += delta;
+        progressionSystem.addExperience(delta, { source: 'time' });
         const activeChallengeManager = getChallengeManager();
         if (activeChallengeManager) {
             activeChallengeManager.recordEvent('time', { totalMs: state.elapsedTime });
