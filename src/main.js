@@ -5501,7 +5501,8 @@ function createInterface(stats, options = {}) {
     }
 
     let previousFocus = null;
-    let previousOverflow = "";
+    let previousBodyOverflow = "";
+    let previousRootOverflow = "";
 
     const handleBackdropClick = (event) => {
       if (event.target === overlay) {
@@ -5527,9 +5528,16 @@ function createInterface(stats, options = {}) {
           ? document.activeElement
           : null;
 
-      if (typeof document !== "undefined" && document.body) {
-        previousOverflow = document.body.style.overflow;
-        document.body.style.overflow = "hidden";
+      if (typeof document !== "undefined") {
+        const root = document.documentElement;
+        if (root) {
+          previousRootOverflow = root.style.overflow;
+          root.style.overflow = "hidden";
+        }
+        if (document.body) {
+          previousBodyOverflow = document.body.style.overflow;
+          document.body.style.overflow = "hidden";
+        }
       }
 
       overlay.hidden = false;
@@ -5554,8 +5562,14 @@ function createInterface(stats, options = {}) {
       overlay.removeEventListener("click", handleBackdropClick);
       window.removeEventListener("keydown", handleEscape);
 
-      if (typeof document !== "undefined" && document.body) {
-        document.body.style.overflow = previousOverflow;
+      if (typeof document !== "undefined") {
+        const root = document.documentElement;
+        if (root) {
+          root.style.overflow = previousRootOverflow;
+        }
+        if (document.body) {
+          document.body.style.overflow = previousBodyOverflow;
+        }
       }
 
       if (previousFocus) {
