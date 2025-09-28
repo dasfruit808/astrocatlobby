@@ -4687,9 +4687,6 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
 
   const root = document.createElement("section");
   root.className = "loadout-panel";
-  if (!storageAvailable) {
-    root.classList.add("is-disabled");
-  }
 
   const idSuffix = Math.random().toString(36).slice(2);
 
@@ -4702,7 +4699,7 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
   description.className = "loadout-panel__description";
   description.textContent = storageAvailable
     ? "Choose your Starcade preset before launching the arcade cabinet."
-    : "Storage is unavailable, so presets cannot be updated in this session.";
+    : "Storage is unavailable, so presets will reset when you leave this page.";
   header.append(title, description);
   root.append(header);
 
@@ -4963,7 +4960,7 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
 
   const baseStatusMessage = storageAvailable
     ? "Changes save automatically for the Starcade console."
-    : "Loadouts cannot be saved because local storage is unavailable.";
+    : "Changes are kept for this session only.";
   let statusResetId = 0;
 
   function cloneState(state) {
@@ -5134,8 +5131,14 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
     const activeLoadout = getCurrentLoadout();
     const isActive = Boolean(activeLoadout && currentState.activeSlot === activeLoadout.slot);
     activeBadge.hidden = !isActive;
-    equipButton.disabled = !storageAvailable || !activeLoadout || isActive;
-    equipButton.textContent = isActive ? "Equipped" : "Equip this preset";
+    equipButton.disabled = !activeLoadout || isActive;
+    if (isActive) {
+      equipButton.textContent = "Equipped";
+    } else if (storageAvailable) {
+      equipButton.textContent = "Equip this preset";
+    } else {
+      equipButton.textContent = "Equip for this session";
+    }
   }
 
   function updateSummary(loadout) {
@@ -5203,15 +5206,23 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
   }
 
   function persistState({ message, type } = {}) {
-    const persisted = storageAvailable ? saveMiniGameLoadoutsToStorage(currentState) : false;
-    if (persisted) {
-      const current = getCurrentLoadout();
-      const fallbackMessage = current ? `Saved ${current.name}.` : "Preset saved.";
-      setStatus(message ?? fallbackMessage, type ?? "success");
-    } else if (storageAvailable) {
-      setStatus("Unable to save loadout. Try again.", "error");
+    let persisted = false;
+    if (storageAvailable) {
+      persisted = saveMiniGameLoadoutsToStorage(currentState);
+      if (persisted) {
+        const current = getCurrentLoadout();
+        const fallbackMessage = current ? `Saved ${current.name}.` : "Preset saved.";
+        setStatus(message ?? fallbackMessage, type ?? "success");
+      } else {
+        setStatus("Unable to save loadout. Try again.", "error");
+      }
     } else {
-      setStatus(baseStatusMessage, "error");
+      const current = getCurrentLoadout();
+      const fallbackMessage = current
+        ? `${current.name} is ready for this session.`
+        : "Preset updated for this session.";
+      const fallbackType = type ?? "success";
+      setStatus(message ?? fallbackMessage, fallbackType);
     }
     emitChange(persisted);
     return persisted;
@@ -5249,15 +5260,6 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
     persistState();
   }
 
-  if (!storageAvailable) {
-    nameInput.disabled = true;
-    spacecraftSelect.disabled = true;
-    weaponSelect.disabled = true;
-    suitSelect.disabled = true;
-    streamSelect.disabled = true;
-    equipButton.disabled = true;
-  }
-
   slotSelect.addEventListener("change", () => {
     activeSlotId = slotSelect.value;
     const loadout = getMiniGameLoadoutBySlot(currentState.slots, activeSlotId);
@@ -5269,9 +5271,6 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
 
   let nameUpdateTimer = 0;
   nameInput.addEventListener("input", () => {
-    if (!storageAvailable) {
-      return;
-    }
     if (nameUpdateTimer) {
       window.clearTimeout(nameUpdateTimer);
     }
@@ -5281,9 +5280,6 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
     }, 260);
   });
   nameInput.addEventListener("blur", () => {
-    if (!storageAvailable) {
-      return;
-    }
     if (nameUpdateTimer) {
       window.clearTimeout(nameUpdateTimer);
       nameUpdateTimer = 0;
@@ -5315,7 +5311,10 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
     });
     activeSlotId = loadout.slot;
     updateActiveIndicators();
-    persistState({ message: `Equipped ${loadout.name}.`, type: "success" });
+    const equipMessage = storageAvailable
+      ? `Equipped ${loadout.name}.`
+      : `Equipped ${loadout.name} for this session.`;
+    persistState({ message: equipMessage, type: "success" });
   });
 
   rebuildSlotOptions();

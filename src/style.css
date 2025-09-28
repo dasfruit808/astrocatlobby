@@ -828,8 +828,8 @@ body.is-scroll-locked {
 }
 
 .hud-modal {
-  width: min(920px, calc(100% - 32px));
-  max-width: calc(100vw - 48px);
+  width: min(920px, calc(100vw - 48px));
+  max-width: min(100%, calc(100vw - 48px));
   max-height: min(92vh, 860px);
   background: rgba(14, 22, 52, 0.96);
   border-radius: 24px;
@@ -909,8 +909,8 @@ body.is-scroll-locked {
   .hud-modal {
     padding: 24px;
     border-radius: 20px;
-    width: 100%;
-    max-width: calc(100vw - 32px);
+    width: min(100%, calc(100vw - 32px));
+    max-width: min(100%, calc(100vw - 32px));
     max-height: min(92vh, 760px);
   }
 
