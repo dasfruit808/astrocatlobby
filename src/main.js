@@ -2723,17 +2723,29 @@ const getPromptMetrics = (text) => {
   return promptMetricsCache;
 };
 
+// Clamp the backing canvas resolution so high-DPI displays do not force the
+// browser to push millions of pixels every frame. This keeps the UI sharp while
+// avoiding runaway render costs on mobile and 4K screens.
+const MAX_CANVAS_PIXEL_WIDTH = 1920;
+const MAX_CANVAS_PIXEL_HEIGHT = 1080;
+let lastCanvasCssWidth = 0;
+let lastCanvasCssHeight = 0;
+let lastCanvasPixelWidth = 0;
+let lastCanvasPixelHeight = 0;
+
 const updateCanvasScale = () => {
   if (typeof window === "undefined") {
     return;
   }
-  const dpr = window.devicePixelRatio || 1;
+
+  const baseDpr = window.devicePixelRatio || 1;
   const surfaceRect = ui.canvasSurface.getBoundingClientRect();
   const availableWidth = surfaceRect.width || viewport.width;
   const availableHeight = Math.max(
     viewport.height,
     window.innerHeight - surfaceRect.top - 48
   );
+
   const widthScale = availableWidth > 0 ? availableWidth / viewport.width : 1;
   const heightScale = availableHeight > 0 ? availableHeight / viewport.height : widthScale;
   let nextScale = Math.min(widthScale, heightScale, 1.6);
@@ -2741,16 +2753,49 @@ const updateCanvasScale = () => {
     nextScale = 1;
   }
 
+  let effectiveDpr = baseDpr;
+  const maxWidthDpr = MAX_CANVAS_PIXEL_WIDTH / (viewport.width * nextScale);
+  const maxHeightDpr = MAX_CANVAS_PIXEL_HEIGHT / (viewport.height * nextScale);
+  if (Number.isFinite(maxWidthDpr) && maxWidthDpr > 0) {
+    effectiveDpr = Math.min(effectiveDpr, maxWidthDpr);
+  }
+  if (Number.isFinite(maxHeightDpr) && maxHeightDpr > 0) {
+    effectiveDpr = Math.min(effectiveDpr, maxHeightDpr);
+  }
+
+  if (!Number.isFinite(effectiveDpr) || effectiveDpr <= 0) {
+    effectiveDpr = 1;
+  }
+
   const targetWidth = viewport.width * nextScale;
   const targetHeight = viewport.height * nextScale;
+  const cssWidth = Math.round(targetWidth);
+  const cssHeight = Math.round(targetHeight);
+  const pixelWidth = Math.round(targetWidth * effectiveDpr);
+  const pixelHeight = Math.round(targetHeight * effectiveDpr);
 
-  canvas.style.width = `${Math.round(targetWidth)}px`;
-  canvas.style.height = `${Math.round(targetHeight)}px`;
-  canvas.width = Math.round(targetWidth * dpr);
-  canvas.height = Math.round(targetHeight * dpr);
+  if (cssWidth !== lastCanvasCssWidth) {
+    canvas.style.width = `${cssWidth}px`;
+    lastCanvasCssWidth = cssWidth;
+  }
+
+  if (cssHeight !== lastCanvasCssHeight) {
+    canvas.style.height = `${cssHeight}px`;
+    lastCanvasCssHeight = cssHeight;
+  }
+
+  if (pixelWidth !== lastCanvasPixelWidth) {
+    canvas.width = pixelWidth;
+    lastCanvasPixelWidth = pixelWidth;
+  }
+
+  if (pixelHeight !== lastCanvasPixelHeight) {
+    canvas.height = pixelHeight;
+    lastCanvasPixelHeight = pixelHeight;
+  }
 
   renderScale = nextScale;
-  devicePixelScale = dpr;
+  devicePixelScale = effectiveDpr;
   fallbackBackgroundGradient = null;
 };
 
