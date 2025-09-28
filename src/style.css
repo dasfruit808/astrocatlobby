@@ -1270,7 +1270,7 @@ body.is-scroll-locked {
     0 12px 24px rgba(8, 12, 28, 0.4);
 }
 
-.loadout-preview__item--pilot .loadout-preview__media,
+.loadout-preview__item--spacecraft .loadout-preview__media,
 .loadout-preview__item--weapon .loadout-preview__media {
   background: rgba(10, 14, 32, 0.92);
   aspect-ratio: 1 / 1;
