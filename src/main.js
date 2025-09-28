@@ -1805,29 +1805,53 @@ function createWeaponBadgeImage(id, palette) {
   return createSvgDataUrl(svg);
 }
 
-const miniGamePilotOptions = [
+const miniGameSpacecraftOptions = [
   {
     id: "nova",
-    name: "Nova",
-    role: "Squad Vanguard",
+    name: "Nova Skyrunner",
+    role: "Versatile interceptor",
     summary:
-      "Balanced thrusters and pinpoint instincts keep Nova stable during any sortie.",
+      "A nimble frame ideal for first flights without sacrificing essential defenses.",
+    positives: [
+      "Responsive thrusters make evasive manoeuvres effortless",
+      "Regenerative shields recover quickly between skirmishes"
+    ],
+    negatives: ["Light hull plating struggles against sustained impacts"],
+    requiredLevel: 1,
     image: resolvePanelSpriteAsset("playersprite1.png")
   },
   {
     id: "aurora",
-    name: "Aurora",
-    role: "Skystreak Ace",
+    name: "Aurora Starweaver",
+    role: "Long-range vanguard",
     summary:
-      "Aurora’s tuned reactors favour evasive manoeuvres and quick recoveries through dense fields.",
+      "Optimised for pilots who can read the battlefield and plan their approach.",
+    positives: [
+      "Expanded sensor suite spots distant hazards earlier",
+      "Shield capacitors absorb powerful beam strikes"
+    ],
+    negatives: [
+      "Slower acceleration requires deliberate positioning",
+      "Unlocks after proving yourself in the field"
+    ],
+    requiredLevel: 5,
     image: resolvePanelSpriteAsset("playersprite2.png")
   },
   {
     id: "ember",
-    name: "Ember",
-    role: "Siegebreak Specialist",
+    name: "Ember Sunbreaker",
+    role: "Siegebreak gunship",
     summary:
-      "Ember channels heavier ordinance to crack shielded foes when the pressure spikes.",
+      "Built to punch through fortified lines when the mission stakes are highest.",
+    positives: [
+      "Overcharged cannons melt armour in record time",
+      "Afterburners grant short bursts of unstoppable speed"
+    ],
+    negatives: [
+      "High maintenance reactors drain energy reserves",
+      "Requires elite clearance to command"
+    ],
+    requiredLevel: 8,
     image: resolvePanelSpriteAsset("playersprite3.png")
   }
 ];
@@ -1906,7 +1930,7 @@ function createDefaultMiniGameLoadout(slotMeta, index = 0) {
   return {
     slot: fallbackSlot,
     name: fallbackName,
-    characterId: miniGamePilotOptions[0]?.id ?? "nova",
+    characterId: miniGameSpacecraftOptions[0]?.id ?? "nova",
     weaponId: miniGameWeaponOptions[0]?.id ?? "pulse",
     skinId: miniGameSuitOptions[0]?.id ?? "default",
     trailId: miniGameStreamOptions[0]?.id ?? "rainbow"
@@ -1949,7 +1973,7 @@ function sanitizeMiniGameLoadout(entry, slotMeta, index) {
     slot: slotId,
     name: sanitizedName,
     characterId: sanitizeMiniGameLoadoutOption(
-      miniGamePilotOptions,
+      miniGameSpacecraftOptions,
       entry.characterId,
       fallback.characterId
     ),
@@ -4650,7 +4674,7 @@ function createOnboardingExperience(options, config = {}) {
 }
 
 function createMiniGameLoadoutPanel(initialState, options = {}) {
-  const { onLoadoutsChange } = options;
+  const { onLoadoutsChange, playerLevel = 1 } = options;
   const storageAvailable = Boolean(getLocalStorage());
   let currentState = sanitizeMiniGameLoadoutsState(initialState);
   let activeSlotId =
@@ -4658,6 +4682,8 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
     getMiniGameLoadoutBySlot(currentState.slots, currentState.activeSlot)
       ? currentState.activeSlot
       : currentState.slots[0]?.slot ?? null;
+  let currentPlayerLevel = Math.max(1, Math.floor(playerLevel));
+  const spacecraftOptionElements = new Map();
 
   const root = document.createElement("section");
   root.className = "loadout-panel";
@@ -4735,6 +4761,85 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
     };
   }
 
+  function isSpacecraftUnlocked(option) {
+    if (!option) {
+      return false;
+    }
+    const requirement = Math.max(1, Math.floor(option.requiredLevel ?? 1));
+    return currentPlayerLevel >= requirement;
+  }
+
+  function getDefaultSpacecraftOption() {
+    return (
+      miniGameSpacecraftOptions.find((option) => isSpacecraftUnlocked(option)) ??
+      miniGameSpacecraftOptions[0] ??
+      null
+    );
+  }
+
+  function resolveSpacecraftSelection(candidateId) {
+    const candidate = miniGameSpacecraftOptions.find((option) => option.id === candidateId) ?? null;
+    if (candidate && isSpacecraftUnlocked(candidate)) {
+      return candidate;
+    }
+    return getDefaultSpacecraftOption();
+  }
+
+  function updateSpacecraftOptionStates() {
+    for (const option of miniGameSpacecraftOptions) {
+      const element = spacecraftOptionElements.get(option.id);
+      if (!element) {
+        continue;
+      }
+      const baseLabel = element.dataset.baseLabel ?? option.name;
+      const requirement = Math.max(1, Math.floor(option.requiredLevel ?? 1));
+      const unlocked = isSpacecraftUnlocked(option);
+      element.disabled = !unlocked;
+      element.textContent = unlocked
+        ? baseLabel
+        : `${baseLabel} — Unlocks at Level ${requirement}`;
+
+      const tooltipSegments = [];
+      if (option.summary) {
+        tooltipSegments.push(option.summary);
+      }
+      if (Array.isArray(option.positives) && option.positives.length > 0) {
+        tooltipSegments.push(`Positives: ${option.positives.join("; ")}`);
+      }
+      if (Array.isArray(option.negatives) && option.negatives.length > 0) {
+        tooltipSegments.push(`Negatives: ${option.negatives.join("; ")}`);
+      }
+      if (!unlocked) {
+        tooltipSegments.push(`Requires Level ${requirement}.`);
+      }
+      element.title = tooltipSegments.join("\n");
+    }
+  }
+
+  function enforceSpacecraftAvailability() {
+    const fallback = getDefaultSpacecraftOption();
+    if (!fallback) {
+      return;
+    }
+
+    let mutated = false;
+    const adjustedSlots = currentState.slots.map((entry) => {
+      const spacecraft = miniGameSpacecraftOptions.find((option) => option.id === entry.characterId);
+      if (!spacecraft || isSpacecraftUnlocked(spacecraft)) {
+        return entry;
+      }
+      mutated = true;
+      return { ...entry, characterId: fallback.id };
+    });
+
+    if (mutated) {
+      currentState = sanitizeMiniGameLoadoutsState({
+        slots: adjustedSlots,
+        activeSlot: currentState.activeSlot
+      });
+    }
+  }
+
   const slotSelect = document.createElement("select");
   slotSelect.className = "loadout-panel__select";
   slotSelect.id = `miniGameLoadoutSlot-${idSuffix}`;
@@ -4751,17 +4856,20 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
   const nameField = createField("Preset name", nameInput);
   form.append(nameField);
 
-  const pilotSelect = document.createElement("select");
-  pilotSelect.id = `miniGameLoadoutPilot-${idSuffix}`;
-  pilotSelect.className = "loadout-panel__select";
-  for (const option of miniGamePilotOptions) {
+  const spacecraftSelect = document.createElement("select");
+  spacecraftSelect.id = `miniGameLoadoutSpacecraft-${idSuffix}`;
+  spacecraftSelect.className = "loadout-panel__select";
+  for (const option of miniGameSpacecraftOptions) {
     const element = document.createElement("option");
     element.value = option.id;
     element.textContent = option.name;
-    pilotSelect.append(element);
+    element.dataset.baseLabel = option.name;
+    spacecraftOptionElements.set(option.id, element);
+    spacecraftSelect.append(element);
   }
-  const pilotField = createField("Pilot", pilotSelect);
-  form.append(pilotField);
+  updateSpacecraftOptionStates();
+  const spacecraftField = createField("Spacecraft", spacecraftSelect);
+  form.append(spacecraftField);
 
   const weaponSelect = document.createElement("select");
   weaponSelect.id = `miniGameLoadoutWeapon-${idSuffix}`;
@@ -4801,9 +4909,9 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
 
   const previewContainer = document.createElement("div");
   previewContainer.className = "loadout-preview";
-  const pilotPreview = createPreviewItem("Pilot visual", "pilot");
+  const spacecraftPreview = createPreviewItem("Spacecraft visual", "spacecraft");
   const weaponPreview = createPreviewItem("Weapon profile", "weapon");
-  previewContainer.append(pilotPreview.root, weaponPreview.root);
+  previewContainer.append(spacecraftPreview.root, weaponPreview.root);
   form.append(previewContainer);
 
   const summary = document.createElement("div");
@@ -4835,7 +4943,7 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
   }
 
   const summaryValues = {
-    pilot: createSummaryRow("Pilot"),
+    spacecraft: createSummaryRow("Spacecraft"),
     weapon: createSummaryRow("Weapon"),
     suit: createSummaryRow("Suit"),
     stream: createSummaryRow("Stream")
@@ -4924,9 +5032,24 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
       meta.textContent = metaValue;
       meta.hidden = !metaValue;
 
-      const summaryValue = summaryKey ? entry[summaryKey] ?? "" : "";
-      summaryBlurb.textContent = summaryValue;
-      summaryBlurb.hidden = !summaryValue;
+      const summarySegments = [];
+      if (summaryKey) {
+        const baseSummary = entry[summaryKey];
+        if (typeof baseSummary === "string" && baseSummary.trim()) {
+          summarySegments.push(baseSummary.trim());
+        }
+      }
+      const positiveTraits = Array.isArray(entry.positives) ? entry.positives.filter((item) => typeof item === "string" && item.trim()) : [];
+      if (positiveTraits.length > 0) {
+        summarySegments.push(`Positives: ${positiveTraits.join("; ")}.`);
+      }
+      const negativeTraits = Array.isArray(entry.negatives) ? entry.negatives.filter((item) => typeof item === "string" && item.trim()) : [];
+      if (negativeTraits.length > 0) {
+        summarySegments.push(`Negatives: ${negativeTraits.join("; ")}.`);
+      }
+      const combinedSummary = summarySegments.join(" ").trim();
+      summaryBlurb.textContent = combinedSummary;
+      summaryBlurb.hidden = combinedSummary.length === 0;
 
       const hasImage = typeof entry.image === "string" && entry.image;
       if (hasImage) {
@@ -4956,10 +5079,10 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
     previewRoot.classList.add("is-empty");
   }
 
-  function updatePreviewDisplays(pilot, weapon) {
-    applyPreview(pilotPreview, pilot, {
-      fallbackName: "Select a pilot",
-      altPrefix: "Pilot portrait for",
+  function updatePreviewDisplays(spacecraft, weapon) {
+    applyPreview(spacecraftPreview, spacecraft, {
+      fallbackName: "Select a spacecraft",
+      altPrefix: "Spacecraft render for",
       metaKey: "role"
     });
     applyPreview(weaponPreview, weapon, {
@@ -5016,10 +5139,7 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
   }
 
   function updateSummary(loadout) {
-    const pilot =
-      miniGamePilotOptions.find((option) => option.id === loadout?.characterId) ??
-      miniGamePilotOptions[0] ??
-      null;
+    const spacecraft = resolveSpacecraftSelection(loadout?.characterId);
     const weapon =
       miniGameWeaponOptions.find((option) => option.id === loadout?.weaponId) ??
       miniGameWeaponOptions[0] ??
@@ -5033,12 +5153,22 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
       miniGameStreamOptions[0] ??
       null;
 
-    summaryValues.pilot.textContent = pilot
-      ? pilot.role
-        ? `${pilot.name} — ${pilot.role}`
-        : pilot.name
+    summaryValues.spacecraft.textContent = spacecraft
+      ? spacecraft.role
+        ? `${spacecraft.name} — ${spacecraft.role}`
+        : spacecraft.name
       : "—";
-    summaryValues.pilot.title = pilot?.summary ?? "";
+    const spacecraftTooltip = [];
+    if (spacecraft?.summary) {
+      spacecraftTooltip.push(spacecraft.summary);
+    }
+    if (Array.isArray(spacecraft?.positives) && spacecraft.positives.length > 0) {
+      spacecraftTooltip.push(`Positives: ${spacecraft.positives.join("; ")}`);
+    }
+    if (Array.isArray(spacecraft?.negatives) && spacecraft.negatives.length > 0) {
+      spacecraftTooltip.push(`Negatives: ${spacecraft.negatives.join("; ")}`);
+    }
+    summaryValues.spacecraft.title = spacecraftTooltip.join("\n");
 
     summaryValues.weapon.textContent = weapon ? weapon.name : "—";
     summaryValues.weapon.title = weapon?.summary ?? "";
@@ -5046,14 +5176,21 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
     summaryValues.suit.textContent = suit ? suit.name : "—";
     summaryValues.stream.textContent = stream ? stream.name : "—";
 
-    updatePreviewDisplays(pilot, weapon);
+    updatePreviewDisplays(spacecraft, weapon);
   }
 
   function applyFormValues(loadout) {
+    enforceSpacecraftAvailability();
     const resolved = loadout ?? getCurrentLoadout() ?? currentState.slots[0] ?? null;
+    const defaultSpacecraft = getDefaultSpacecraftOption();
+    const spacecraft = resolveSpacecraftSelection(resolved?.characterId);
+    const spacecraftId = spacecraft?.id ?? defaultSpacecraft?.id ?? "";
+    const normalizedLoadout = resolved
+      ? { ...resolved, characterId: spacecraftId || resolved.characterId }
+      : resolved;
     if (resolved) {
       nameInput.value = resolved.name;
-      setSelectValue(pilotSelect, resolved.characterId, miniGamePilotOptions[0]?.id);
+      setSelectValue(spacecraftSelect, spacecraftId, defaultSpacecraft?.id);
       setSelectValue(weaponSelect, resolved.weaponId, miniGameWeaponOptions[0]?.id);
       setSelectValue(suitSelect, resolved.skinId, miniGameSuitOptions[0]?.id);
       setSelectValue(streamSelect, resolved.trailId, miniGameStreamOptions[0]?.id);
@@ -5061,7 +5198,7 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
     if (activeSlotId) {
       slotSelect.value = activeSlotId;
     }
-    updateSummary(resolved);
+    updateSummary(normalizedLoadout);
     updateActiveIndicators();
   }
 
@@ -5090,7 +5227,12 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
     }
     const previous = currentState.slots[index];
     const slotMeta = resolveMiniGameLoadoutSlotMeta(previous.slot, index);
-    const candidate = { ...previous, ...patch };
+    const normalizedPatch = patch ? { ...patch } : {};
+    if (typeof normalizedPatch.characterId === "string") {
+      const resolvedSpacecraft = resolveSpacecraftSelection(normalizedPatch.characterId);
+      normalizedPatch.characterId = resolvedSpacecraft?.id ?? normalizedPatch.characterId;
+    }
+    const candidate = { ...previous, ...normalizedPatch };
     const sanitized = sanitizeMiniGameLoadout(candidate, slotMeta, index);
     if (isSameMiniGameLoadout(sanitized, previous)) {
       applyFormValues(previous);
@@ -5109,7 +5251,7 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
 
   if (!storageAvailable) {
     nameInput.disabled = true;
-    pilotSelect.disabled = true;
+    spacecraftSelect.disabled = true;
     weaponSelect.disabled = true;
     suitSelect.disabled = true;
     streamSelect.disabled = true;
@@ -5149,8 +5291,8 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
     updateSlot({ name: nameInput.value });
   });
 
-  pilotSelect.addEventListener("change", () => {
-    updateSlot({ characterId: pilotSelect.value });
+  spacecraftSelect.addEventListener("change", () => {
+    updateSlot({ characterId: spacecraftSelect.value });
   });
   weaponSelect.addEventListener("change", () => {
     updateSlot({ weaponId: weaponSelect.value });
@@ -5177,13 +5319,19 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
   });
 
   rebuildSlotOptions();
+  enforceSpacecraftAvailability();
   applyFormValues(getCurrentLoadout());
   setStatus(baseStatusMessage);
 
   return {
     root,
-    refresh(nextState) {
+    refresh(nextState, context = {}) {
       currentState = sanitizeMiniGameLoadoutsState(nextState);
+      if (typeof context.playerLevel === "number" && Number.isFinite(context.playerLevel)) {
+        currentPlayerLevel = Math.max(1, Math.floor(context.playerLevel));
+      }
+      updateSpacecraftOptionStates();
+      enforceSpacecraftAvailability();
       activeSlotId =
         currentState.activeSlot &&
         getMiniGameLoadoutBySlot(currentState.slots, currentState.activeSlot)
@@ -5192,6 +5340,15 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
       rebuildSlotOptions();
       applyFormValues(getCurrentLoadout());
       setStatus(baseStatusMessage);
+    },
+    setPlayerLevel(level) {
+      if (typeof level !== "number" || !Number.isFinite(level)) {
+        return;
+      }
+      currentPlayerLevel = Math.max(1, Math.floor(level));
+      updateSpacecraftOptionStates();
+      enforceSpacecraftAvailability();
+      applyFormValues(getCurrentLoadout());
     },
     getState() {
       return cloneState(currentState);
@@ -5572,6 +5729,7 @@ function createInterface(stats, options = {}) {
   attributePanel.append(derivedStatsList);
 
   const loadoutPanel = createMiniGameLoadoutPanel(miniGameLoadoutState, {
+    playerLevel: stats?.level ?? 1,
     onLoadoutsChange(nextState) {
       miniGameLoadoutState = nextState;
       syncMiniGameProfile();
@@ -6023,6 +6181,9 @@ function createInterface(stats, options = {}) {
       updateAttributeInterface(updatedStats);
       updateDerivedStatsInterface(updatedStats);
       updateStatsSummary(updatedStats);
+      loadoutPanel.setPlayerLevel(updatedStats.level);
+      miniGameLoadoutState = loadoutPanel.getState();
+      syncMiniGameProfile();
       const portalCleared = updatedStats.level >= portalLevelRequirement;
       missionRequirement.classList.toggle("is-complete", portalCleared);
       if (portalCleared) {
