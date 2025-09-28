@@ -303,8 +303,25 @@ function resolvePublicAssetUrl(relativePath) {
 }
 
 function tryCreateAssetManifest() {
+  let glob;
+
   try {
-    return import.meta.glob("./assets/*.{png,PNG}", {
+    glob = import.meta && import.meta.glob;
+  } catch (error) {
+    glob = undefined;
+  }
+
+  if (typeof glob !== "function") {
+    if (typeof console !== "undefined") {
+      console.warn(
+        "import.meta.glob is unavailable in this environment. Falling back to dynamic loading."
+      );
+    }
+    return null;
+  }
+
+  try {
+    return glob("./assets/*.{png,PNG}", {
       eager: true,
       import: "default"
     });
@@ -323,8 +340,25 @@ function tryCreateAssetManifest() {
 const assetManifest = tryCreateAssetManifest();
 
 function tryCreateAudioManifest() {
+  let glob;
+
   try {
-    return import.meta.glob("./assets/audio/*.{wav,mp3,ogg}", {
+    glob = import.meta && import.meta.glob;
+  } catch (error) {
+    glob = undefined;
+  }
+
+  if (typeof glob !== "function") {
+    if (typeof console !== "undefined") {
+      console.warn(
+        "import.meta.glob is unavailable for audio assets. Falling back to dynamic loading."
+      );
+    }
+    return null;
+  }
+
+  try {
+    return glob("./assets/audio/*.{wav,mp3,ogg}", {
       eager: true,
       import: "default"
     });
