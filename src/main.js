@@ -1269,7 +1269,10 @@ const parallaxLayers = parallaxLayerSources.map((layer) => {
   }
   return layerState;
 });
-const PARALLAX_IDLE_SCROLL_SPEED = 0.85;
+// The lobby previously applied a subtle idle scroll to the parallax background to
+// keep the scene feeling lively. Disable that behaviour so the background stays
+// perfectly still unless future updates explicitly change parallaxScroll.
+const PARALLAX_IDLE_SCROLL_SPEED = 0;
 let parallaxScroll = 0;
 let cameraScrollX = 0;
 
