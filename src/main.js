@@ -286,6 +286,17 @@ function resolvePublicAssetUrl(relativePath) {
     return candidate;
   }
 
+  if (typeof window !== "undefined" && window.location?.protocol === "file:") {
+    const resolvedFromDocument = resolveUsingDocumentBase(candidate);
+    if (resolvedFromDocument) {
+      return resolvedFromDocument;
+    }
+
+    return candidate.startsWith("./") || candidate.startsWith("../")
+      ? candidate
+      : `./${candidate}`;
+  }
+
   const base = import.meta?.env?.BASE_URL ?? "/";
 
   if (typeof base === "string" && base) {
@@ -310,6 +321,12 @@ function resolvePublicAssetUrl(relativePath) {
   const resolvedFromDocument = resolveUsingDocumentBase(candidate);
   if (resolvedFromDocument) {
     return resolvedFromDocument;
+  }
+
+  if (typeof window !== "undefined" && window.location?.protocol === "file:") {
+    return candidate.startsWith("./") || candidate.startsWith("../")
+      ? candidate
+      : `./${candidate}`;
   }
 
   return `/${candidate}`;
