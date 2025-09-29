@@ -433,10 +433,10 @@ function shouldUseCustomPageBackground() {
   })
     .then((response) => {
       if (!response) {
-        return false;
+        return true;
       }
 
-      if (response.ok) {
+      if (response?.ok) {
         const contentType = response.headers.get("content-type");
         if (!contentType) {
           return true;
@@ -455,7 +455,16 @@ function shouldUseCustomPageBackground() {
 
       return false;
     })
-    .catch(() => false);
+    .catch((error) => {
+      if (typeof console !== "undefined" && error) {
+        console.warn(
+          "Falling back to loading custom page background after HEAD probe failed.",
+          error
+        );
+      }
+
+      return true;
+    });
 
   return customBackgroundAvailabilityProbe;
 }
