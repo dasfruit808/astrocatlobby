@@ -1369,6 +1369,7 @@ const legacyAccountStorageKey = "astrocat-account";
 const accountStorageKey = "astrocat-accounts";
 const callSignRegistryKey = "astrocat-call-signs";
 const messageBoardStorageKey = "astrocat-message-boards";
+const lobbyLayoutStorageKey = "astrocat-lobby-layout-v1";
 const callSignLength = 5;
 
 let storedAccounts = {};
@@ -1574,6 +1575,56 @@ function saveMessageBoards(boards) {
     return true;
   } catch (error) {
     console.warn("Failed to persist message boards", error);
+    return false;
+  }
+}
+
+function loadLobbyLayoutSnapshot() {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return null;
+  }
+
+  try {
+    const raw = storage.getItem(lobbyLayoutStorageKey);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch (error) {
+    console.warn("Failed to read saved lobby layout", error);
+    return null;
+  }
+}
+
+function saveLobbyLayoutSnapshot(layout) {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    storage.setItem(lobbyLayoutStorageKey, JSON.stringify(layout));
+    return true;
+  } catch (error) {
+    console.warn("Failed to persist lobby layout", error);
+    return false;
+  }
+}
+
+function clearLobbyLayoutSnapshot() {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return false;
+  }
+
+  try {
+    storage.removeItem(lobbyLayoutStorageKey);
+    return true;
+  } catch (error) {
+    console.warn("Failed to clear lobby layout", error);
     return false;
   }
 }
@@ -2969,6 +3020,7 @@ if (!ctx) {
   throw new Error("Unable to acquire 2D context");
 }
 
+let layoutEditor = null;
 let renderScale = 1;
 let devicePixelScale = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
 let fallbackBackgroundGradient = null;
@@ -3221,6 +3273,8 @@ let portalCompleted = false;
 let crystalRunStartTime = 0;
 
 const portal = {
+  id: "portal",
+  label: "Portal Gateway",
   x: viewport.width - 140,
   y: groundY - 120,
   width: 100,
@@ -3259,6 +3313,7 @@ const scaleLobbyEntity = (entity) => {
 
 const interactables = [
   {
+    id: "bulletin-board",
     type: "bulletin",
     label: "Star Bulletin Board",
     missionId: "mission-broadcast",
@@ -3268,6 +3323,7 @@ const interactables = [
     height: 82
   },
   {
+    id: "treasure-chest",
     type: "chest",
     label: "Treasure Chest",
     x: 84,
@@ -3277,6 +3333,7 @@ const interactables = [
     opened: false
   },
   {
+    id: "starcade-cabinet",
     type: "arcade",
     label: "Starcade Cabinet",
     x: 520,
@@ -3285,6 +3342,7 @@ const interactables = [
     height: 102
   },
   {
+    id: "nova-guide",
     type: "npc",
     name: "Nova",
     label: "Nova the Guide",
@@ -3301,6 +3359,7 @@ const interactables = [
     lineIndex: 0
   },
   {
+    id: "mana-fountain",
     type: "fountain",
     label: "Mana Fountain",
     x: 840,
@@ -3310,6 +3369,7 @@ const interactables = [
     charges: 2
   },
   {
+    id: "comms-console",
     type: "comms",
     label: "Comms Console",
     missionId: "mission-follow",
@@ -3320,7 +3380,147 @@ const interactables = [
   }
 ].map((interactable) => scaleLobbyEntity(interactable));
 
-const worldWrapWidth = computeWorldWrapWidth();
+function normaliseLayoutCoordinate(value, fallback) {
+  if (Number.isFinite(value)) {
+    return Math.round(value);
+  }
+  if (Number.isFinite(fallback)) {
+    return Math.round(fallback);
+  }
+  return 0;
+}
+
+function captureLobbyLayoutSnapshot() {
+  const snapshot = {
+    interactables: {},
+    portal: {
+      x: normaliseLayoutCoordinate(portal.x, portal.x),
+      y: normaliseLayoutCoordinate(portal.y, portal.y)
+    }
+  };
+
+  for (const interactable of interactables) {
+    const id = interactable.id ?? interactable.type;
+    if (!id) {
+      continue;
+    }
+    snapshot.interactables[id] = {
+      x: normaliseLayoutCoordinate(interactable.x, interactable.x),
+      y: normaliseLayoutCoordinate(interactable.y, interactable.y)
+    };
+  }
+
+  return snapshot;
+}
+
+function applyLobbyLayoutSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") {
+    return false;
+  }
+
+  let applied = false;
+
+  const overrides = snapshot.interactables;
+  if (overrides && typeof overrides === "object") {
+    for (const interactable of interactables) {
+      const id = interactable.id ?? interactable.type;
+      if (!id) {
+        continue;
+      }
+      const override = overrides[id];
+      if (!override || typeof override !== "object") {
+        continue;
+      }
+      if ("x" in override) {
+        const nextX = normaliseLayoutCoordinate(override.x, interactable.x);
+        if (Number.isFinite(nextX)) {
+          interactable.x = nextX;
+          applied = true;
+        }
+      }
+      if ("y" in override) {
+        const nextY = normaliseLayoutCoordinate(override.y, interactable.y);
+        if (Number.isFinite(nextY)) {
+          interactable.y = nextY;
+          applied = true;
+        }
+      }
+    }
+  }
+
+  if (snapshot.portal && typeof snapshot.portal === "object") {
+    const nextPortalX = normaliseLayoutCoordinate(snapshot.portal.x, portal.x);
+    const nextPortalY = normaliseLayoutCoordinate(snapshot.portal.y, portal.y);
+    if (Number.isFinite(nextPortalX)) {
+      portal.x = nextPortalX;
+      applied = true;
+    }
+    if (Number.isFinite(nextPortalY)) {
+      portal.y = nextPortalY;
+      applied = true;
+    }
+  }
+
+  return applied;
+}
+
+function areLayoutsEqual(candidate, reference) {
+  if (!candidate && !reference) {
+    return true;
+  }
+  if (!candidate || !reference) {
+    return false;
+  }
+
+  const referenceInteractables = reference.interactables ?? {};
+  const candidateInteractables = candidate.interactables ?? {};
+  const interactableIds = new Set([
+    ...Object.keys(referenceInteractables),
+    ...Object.keys(candidateInteractables)
+  ]);
+
+  for (const id of interactableIds) {
+    const referenceEntry = referenceInteractables[id];
+    const candidateEntry = candidateInteractables[id];
+    const referenceX = normaliseLayoutCoordinate(referenceEntry?.x, 0);
+    const referenceY = normaliseLayoutCoordinate(referenceEntry?.y, 0);
+    const candidateX = normaliseLayoutCoordinate(candidateEntry?.x, referenceX);
+    const candidateY = normaliseLayoutCoordinate(candidateEntry?.y, referenceY);
+    if (referenceX !== candidateX || referenceY !== candidateY) {
+      return false;
+    }
+  }
+
+  const referencePortalX = normaliseLayoutCoordinate(
+    reference.portal?.x,
+    reference.portal?.x
+  );
+  const referencePortalY = normaliseLayoutCoordinate(
+    reference.portal?.y,
+    reference.portal?.y
+  );
+  const candidatePortalX = normaliseLayoutCoordinate(
+    candidate.portal?.x,
+    referencePortalX
+  );
+  const candidatePortalY = normaliseLayoutCoordinate(
+    candidate.portal?.y,
+    referencePortalY
+  );
+
+  return referencePortalX === candidatePortalX && referencePortalY === candidatePortalY;
+}
+
+const defaultLobbyLayout = captureLobbyLayoutSnapshot();
+const savedLobbyLayout = loadLobbyLayoutSnapshot();
+const hasCustomLobbyLayout = Boolean(
+  savedLobbyLayout && !areLayoutsEqual(savedLobbyLayout, defaultLobbyLayout)
+);
+if (hasCustomLobbyLayout) {
+  applyLobbyLayoutSnapshot(savedLobbyLayout);
+}
+
+let worldWrapWidth = computeWorldWrapWidth();
 
 function computeWorldWrapWidth() {
   const extents = [];
@@ -3695,6 +3895,57 @@ if (pointerPreference) {
   touchControls.setVisible(false);
 }
 
+layoutEditor = createLobbyLayoutEditor({
+  canvas,
+  surface: ui.canvasSurface,
+  interactables,
+  portal,
+  defaultLayout: defaultLobbyLayout,
+  captureLayout: captureLobbyLayoutSnapshot,
+  applyLayoutSnapshot: applyLobbyLayoutSnapshot,
+  saveLayoutSnapshot: saveLobbyLayoutSnapshot,
+  clearLayoutSnapshot: clearLobbyLayoutSnapshot,
+  refreshWorldBounds: () => {
+    worldWrapWidth = computeWorldWrapWidth();
+  },
+  getCameraOffset: () => cameraScrollX,
+  getWorldWidth: () => worldWrapWidth,
+  initialHasCustomLayout: hasCustomLobbyLayout,
+  onStateChange: ({ active, hasCustomLayout }) => {
+    if (typeof ui.setLayoutEditingActive === "function") {
+      ui.setLayoutEditingActive(active);
+    }
+    if (typeof ui.setLayoutResetAvailable === "function") {
+      ui.setLayoutResetAvailable(hasCustomLayout);
+    }
+  }
+});
+
+if (ui.layoutCustomizeButton) {
+  ui.layoutCustomizeButton.addEventListener("click", () => {
+    if (!layoutEditor) {
+      return;
+    }
+    layoutEditor.toggle();
+  });
+}
+
+if (ui.layoutResetButton) {
+  ui.layoutResetButton.addEventListener("click", () => {
+    if (!layoutEditor) {
+      return;
+    }
+    layoutEditor.resetLayout();
+  });
+}
+
+if (typeof ui.setLayoutEditingActive === "function") {
+  ui.setLayoutEditingActive(false);
+}
+if (typeof ui.setLayoutResetAvailable === "function") {
+  ui.setLayoutResetAvailable(layoutEditor?.hasCustomLayout?.() ?? hasCustomLobbyLayout);
+}
+
 if (activeAccount) {
   showMessage(defaultMessage, 0);
 } else {
@@ -3747,6 +3998,14 @@ function update(delta) {
   const previousY = player.y;
 
   if (miniGameActive) {
+    player.vx = 0;
+    player.vy = 0;
+    player.onGround = true;
+    ui.setPrompt("");
+    return;
+  }
+
+  if (layoutEditor && typeof layoutEditor.isActive === "function" && layoutEditor.isActive()) {
     player.vx = 0;
     player.vy = 0;
     player.onGround = true;
@@ -4296,6 +4555,351 @@ function getWorldWrapOffsetsForView(cameraOffset, margin = 0) {
   return offsets.length > 0 ? offsets : [0];
 }
 
+function createLobbyLayoutEditor(options = {}) {
+  const {
+    canvas: editorCanvas,
+    surface: surfaceElement,
+    interactables: editableInteractables = [],
+    portal: portalEntity = null,
+    defaultLayout = null,
+    captureLayout,
+    applyLayoutSnapshot: applyLayout,
+    saveLayoutSnapshot: persistLayoutSnapshot,
+    clearLayoutSnapshot: clearLayoutSnapshot,
+    refreshWorldBounds,
+    getCameraOffset,
+    getWorldWidth,
+    getWorldOffsets = getWorldOffsetsAround,
+    initialHasCustomLayout = false,
+    onStateChange
+  } = options;
+
+  if (!editorCanvas || !surfaceElement) {
+    return {
+      activate() {},
+      deactivate() {},
+      toggle() {},
+      resetLayout() {},
+      drawOverlay() {},
+      isActive: () => false,
+      hasCustomLayout: () => Boolean(initialHasCustomLayout)
+    };
+  }
+
+  const editableEntities = [];
+
+  for (const interactable of editableInteractables) {
+    if (!interactable || typeof interactable !== "object") {
+      continue;
+    }
+    const rawLabel =
+      interactable.label ??
+      interactable.name ??
+      interactable.type ??
+      interactable.id ??
+      "Asset";
+    const label = typeof rawLabel === "string" ? rawLabel.trim() : String(rawLabel ?? "");
+    editableEntities.push({
+      entity: interactable,
+      label
+    });
+  }
+
+  if (portalEntity && typeof portalEntity === "object") {
+    const rawLabel = portalEntity.label ?? portalEntity.name ?? portalEntity.id ?? "Portal";
+    const label = typeof rawLabel === "string" ? rawLabel.trim() : String(rawLabel ?? "Portal");
+    editableEntities.push({ entity: portalEntity, label });
+  }
+
+  const hint = document.createElement("div");
+  hint.className = "layout-editor__hint";
+  hint.textContent = "Drag assets to reposition them. Lock the layout when you are done.";
+  surfaceElement.append(hint);
+
+  const state = {
+    active: false,
+    pointerId: null,
+    dragging: null,
+    hasCustomLayout: Boolean(initialHasCustomLayout)
+  };
+
+  const emitState = () => {
+    if (typeof onStateChange === "function") {
+      onStateChange({ active: state.active, hasCustomLayout: state.hasCustomLayout });
+    }
+  };
+
+  const persistLayout = () => {
+    if (typeof captureLayout !== "function") {
+      state.hasCustomLayout = false;
+      emitState();
+      return;
+    }
+    const snapshot = captureLayout();
+    const isDefault = defaultLayout ? areLayoutsEqual(snapshot, defaultLayout) : false;
+    if (isDefault) {
+      if (typeof clearLayoutSnapshot === "function") {
+        clearLayoutSnapshot();
+      }
+    } else if (typeof persistLayoutSnapshot === "function") {
+      persistLayoutSnapshot(snapshot);
+    }
+    state.hasCustomLayout = !isDefault;
+    if (typeof refreshWorldBounds === "function") {
+      refreshWorldBounds();
+    }
+    emitState();
+  };
+
+  const cancelDrag = () => {
+    if (state.pointerId !== null) {
+      try {
+        editorCanvas.releasePointerCapture(state.pointerId);
+      } catch (error) {
+        // Ignore release errors on unsupported browsers.
+      }
+    }
+    state.pointerId = null;
+    state.dragging = null;
+    surfaceElement.classList.remove("is-dragging");
+  };
+
+  const getWorldPosition = (event) => {
+    const rect = editorCanvas.getBoundingClientRect();
+    const cssX = event.clientX - rect.left;
+    const cssY = event.clientY - rect.top;
+    const ratioX = rect.width > 0 ? cssX / rect.width : 0;
+    const ratioY = rect.height > 0 ? cssY / rect.height : 0;
+    const cameraOffset = typeof getCameraOffset === "function" ? getCameraOffset() : 0;
+    return {
+      x: cameraOffset + ratioX * viewport.width,
+      y: ratioY * viewport.height
+    };
+  };
+
+  const findEntityAt = (worldX, worldY) => {
+    const offsets = typeof getWorldOffsets === "function" ? getWorldOffsets(worldX) : [0];
+    let best = null;
+    let bestDistance = Infinity;
+
+    for (const entry of editableEntities) {
+      const entity = entry.entity;
+      if (!entity) {
+        continue;
+      }
+      const width = entity.width ?? 0;
+      const height = entity.height ?? 0;
+      if (!(width > 0) || !(height > 0)) {
+        continue;
+      }
+      for (const offset of offsets) {
+        const candidateX = (entity.x ?? 0) + offset;
+        const candidateY = entity.y ?? 0;
+        const withinX = worldX >= candidateX && worldX <= candidateX + width;
+        const withinY = worldY >= candidateY && worldY <= candidateY + height;
+        if (!withinX || !withinY) {
+          continue;
+        }
+        const centerX = candidateX + width / 2;
+        const centerY = candidateY + height / 2;
+        const distance = Math.hypot(worldX - centerX, worldY - centerY);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = {
+            entity,
+            label: entry.label,
+            offset,
+            pointerOffsetX: worldX - candidateX,
+            pointerOffsetY: worldY - candidateY
+          };
+        }
+      }
+    }
+
+    return best;
+  };
+
+  const updateEntityPosition = (worldX, worldY) => {
+    if (!state.dragging) {
+      return;
+    }
+    const { entity, offset, pointerOffsetX, pointerOffsetY } = state.dragging;
+    const width = entity.width ?? 0;
+    const height = entity.height ?? 0;
+    const wrapWidth = typeof getWorldWidth === "function" ? getWorldWidth() : viewport.width;
+    const minX = Math.round(-viewport.width);
+    const maxX = Math.round(Math.max(wrapWidth, viewport.width) + viewport.width);
+    const minY = Math.round(-viewport.height * 0.25);
+    const maxY = Math.round(Math.max(groundY - height, minY + viewport.height));
+    const targetX = worldX - pointerOffsetX - offset;
+    const targetY = worldY - pointerOffsetY;
+    entity.x = clamp(Math.round(targetX), minX, maxX);
+    entity.y = clamp(Math.round(targetY), minY, maxY);
+    state.dragging.moved = true;
+  };
+
+  const handlePointerDown = (event) => {
+    if (!state.active) {
+      return;
+    }
+    if (typeof event.button === "number" && event.button !== 0) {
+      return;
+    }
+    const world = getWorldPosition(event);
+    const selection = findEntityAt(world.x, world.y);
+    if (!selection) {
+      return;
+    }
+    state.pointerId = event.pointerId;
+    state.dragging = { ...selection, moved: false };
+    surfaceElement.classList.add("is-dragging");
+    event.preventDefault();
+    if (typeof editorCanvas.setPointerCapture === "function") {
+      try {
+        editorCanvas.setPointerCapture(event.pointerId);
+      } catch (error) {
+        // Ignore capture errors.
+      }
+    }
+  };
+
+  const handlePointerMove = (event) => {
+    if (!state.dragging || event.pointerId !== state.pointerId) {
+      return;
+    }
+    event.preventDefault();
+    const world = getWorldPosition(event);
+    updateEntityPosition(world.x, world.y);
+  };
+
+  const handlePointerUp = (event) => {
+    if (state.pointerId !== null && event.pointerId !== state.pointerId) {
+      return;
+    }
+    if (event.type !== "pointercancel") {
+      event.preventDefault();
+    }
+    const moved = Boolean(state.dragging?.moved);
+    cancelDrag();
+    if (moved) {
+      persistLayout();
+    } else {
+      emitState();
+    }
+  };
+
+  const addListeners = () => {
+    editorCanvas.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+  };
+
+  const removeListeners = () => {
+    editorCanvas.removeEventListener("pointerdown", handlePointerDown);
+    window.removeEventListener("pointermove", handlePointerMove);
+    window.removeEventListener("pointerup", handlePointerUp);
+    window.removeEventListener("pointercancel", handlePointerUp);
+  };
+
+  const activate = () => {
+    if (state.active) {
+      return;
+    }
+    state.active = true;
+    surfaceElement.classList.add("is-editing");
+    hint.classList.add("is-visible");
+    keys.clear();
+    justPressed.clear();
+    resetMovementInput();
+    addListeners();
+    emitState();
+  };
+
+  const deactivate = ({ persist = false } = {}) => {
+    if (!state.active) {
+      if (persist) {
+        persistLayout();
+      }
+      return;
+    }
+    state.active = false;
+    hint.classList.remove("is-visible");
+    surfaceElement.classList.remove("is-editing");
+    cancelDrag();
+    removeListeners();
+    if (persist) {
+      persistLayout();
+    } else {
+      emitState();
+    }
+  };
+
+  const toggle = () => {
+    if (state.active) {
+      deactivate({ persist: true });
+    } else {
+      activate();
+    }
+  };
+
+  const resetLayout = () => {
+    if (typeof applyLayout === "function" && defaultLayout) {
+      applyLayout(defaultLayout);
+    }
+    persistLayout();
+  };
+
+  const drawOverlay = (context) => {
+    if (!state.active || !context) {
+      return;
+    }
+    const cameraOffset = typeof getCameraOffset === "function" ? getCameraOffset() : 0;
+    context.save();
+    context.translate(-cameraOffset, 0);
+    for (const entry of editableEntities) {
+      const entity = entry.entity;
+      if (!entity) {
+        continue;
+      }
+      const width = entity.width ?? 0;
+      const height = entity.height ?? 0;
+      if (!(width > 0) || !(height > 0)) {
+        continue;
+      }
+      context.save();
+      context.lineWidth = 2;
+      const isActive = state.dragging && state.dragging.entity === entity;
+      context.strokeStyle = isActive
+        ? "rgba(255, 214, 102, 0.95)"
+        : "rgba(255, 255, 255, 0.55)";
+      context.setLineDash(isActive ? [6, 6] : [10, 10]);
+      context.strokeRect(entity.x, entity.y, width, height);
+      context.setLineDash([]);
+      if (entry.label) {
+        context.font = "18px 'Baloo 2', 'Segoe UI', sans-serif";
+        context.fillStyle = "rgba(18, 24, 48, 0.7)";
+        context.textBaseline = "bottom";
+        const textX = entity.x + 6;
+        const textY = Math.max(entity.y - 6, 24);
+        context.fillText(entry.label, textX, textY);
+      }
+      context.restore();
+    }
+    context.restore();
+  };
+
+  return {
+    activate,
+    deactivate,
+    toggle,
+    resetLayout,
+    drawOverlay,
+    isActive: () => state.active,
+    hasCustomLayout: () => Boolean(state.hasCustomLayout)
+  };
+}
+
 function createWorldInstance(entity, offset) {
   if (!entity || !Number.isFinite(offset) || offset === 0) {
     return entity;
@@ -4525,6 +5129,10 @@ function render(timestamp) {
   drawPlayer(player, time);
 
   ctx.restore();
+
+  if (layoutEditor && typeof layoutEditor.drawOverlay === "function" && layoutEditor.isActive()) {
+    layoutEditor.drawOverlay(ctx);
+  }
 
   if (ui.promptText) {
     drawPromptBubble(ui.promptText, ui.promptEntity || player);
@@ -6170,6 +6778,21 @@ function createInterface(stats, options = {}) {
   hudButtons.className = "hud-panel__actions";
   panel.append(hudButtons);
 
+  const layoutCustomizeButton = document.createElement("button");
+  layoutCustomizeButton.type = "button";
+  layoutCustomizeButton.className = "hud-panel__button";
+  layoutCustomizeButton.textContent = "Customize Layout";
+  layoutCustomizeButton.setAttribute("aria-pressed", "false");
+  hudButtons.append(layoutCustomizeButton);
+
+  const layoutResetButton = document.createElement("button");
+  layoutResetButton.type = "button";
+  layoutResetButton.className = "hud-panel__button";
+  layoutResetButton.textContent = "Reset Layout";
+  layoutResetButton.disabled = true;
+  layoutResetButton.setAttribute("aria-disabled", "true");
+  hudButtons.append(layoutResetButton);
+
   let hudPopupSequence = 0;
 
   function registerHudPopup({
@@ -7265,6 +7888,19 @@ function createInterface(stats, options = {}) {
     syncMiniGameProfile();
   }
 
+  function setLayoutEditingActive(active) {
+    const isActive = Boolean(active);
+    layoutCustomizeButton.textContent = isActive ? "Lock Layout" : "Customize Layout";
+    layoutCustomizeButton.setAttribute("aria-pressed", isActive ? "true" : "false");
+    layoutCustomizeButton.classList.toggle("hud-panel__button--active", isActive);
+  }
+
+  function setLayoutResetAvailable(available) {
+    const enabled = Boolean(available);
+    layoutResetButton.disabled = !enabled;
+    layoutResetButton.setAttribute("aria-disabled", enabled ? "false" : "true");
+  }
+
   updateAttributeInterface(stats);
   updateDerivedStatsInterface(stats);
   updateStatsSummary(stats);
@@ -7273,8 +7909,12 @@ function createInterface(stats, options = {}) {
     root: interfaceRoot,
     canvasWrapper,
     canvasSurface,
+    layoutCustomizeButton,
+    layoutResetButton,
     promptText: "",
     promptEntity: null,
+    setLayoutEditingActive,
+    setLayoutResetAvailable,
     refresh(updatedStats) {
       const subtitleParts = [];
       if (updatedStats.handle) {
