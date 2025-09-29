@@ -59,28 +59,10 @@ const backgroundImageUrl = new URL(
 ).href;
 const parallaxLayerSources = [
   {
-    source: new URL("./assets/ParallaxStars.svg", import.meta.url).href,
-    speed: 0.18,
-    opacity: 0.85,
-    align: "center"
-  },
-  {
-    source: new URL("./assets/ParallaxNebula.svg", import.meta.url).href,
-    speed: 0.28,
-    opacity: 0.9,
-    align: "center"
-  },
-  {
     source: backgroundImageUrl,
     speed: 0.4,
     opacity: 1,
     align: "center"
-  },
-  {
-    source: new URL("./assets/ParallaxPlanets.svg", import.meta.url).href,
-    speed: 0.62,
-    opacity: 1,
-    align: "bottom"
   }
 ];
 
@@ -4489,22 +4471,6 @@ function drawPlayer(entity, time) {
       entity.width,
       entity.height
     );
-
-    ctx.save();
-    ctx.globalCompositeOperation = "source-atop";
-
-    ctx.globalAlpha = 0.28;
-    ctx.fillStyle = appearance.hair;
-    ctx.fillRect(0, 0, entity.width, entity.height * 0.28);
-
-    ctx.globalAlpha = 0.2;
-    ctx.fillStyle = appearance.skin;
-    ctx.fillRect(entity.width * 0.18, entity.height * 0.04, entity.width * 0.64, entity.height * 0.34);
-
-    ctx.globalAlpha = 0.24;
-    ctx.fillStyle = appearance.shirt;
-    ctx.fillRect(0, entity.height * 0.32, entity.width, entity.height * 0.68);
-    ctx.restore();
   } else {
     ctx.fillStyle = appearance.shirt;
     drawRoundedRect(4, 12, entity.width - 8, entity.height - 18, 6);
