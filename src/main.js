@@ -1238,35 +1238,6 @@ const backgroundSource = backgroundImageUrl;
 let backgroundReady = false;
 let backgroundDimensions = { width: 0, height: 0 };
 let parallaxScroll = 0;
-const parallaxStarfield = createStarfield(140);
-const parallaxRidgeLayers = [
-  {
-    color: "rgba(36, 58, 110, 0.85)",
-    heightOffset: 280,
-    amplitude: 32,
-    frequency: 0.0075,
-    speed: 0.085
-  },
-  {
-    color: "rgba(44, 72, 140, 0.9)",
-    heightOffset: 220,
-    amplitude: 36,
-    frequency: 0.009,
-    speed: 0.12
-  },
-  {
-    color: "rgba(58, 96, 168, 0.95)",
-    heightOffset: 170,
-    amplitude: 26,
-    frequency: 0.011,
-    speed: 0.16
-  }
-];
-const parallaxLightTrails = [
-  { color: "rgba(115, 173, 255, 0.28)", speed: 0.05, heightOffset: 320, thickness: 10 },
-  { color: "rgba(255, 183, 233, 0.32)", speed: 0.08, heightOffset: 280, thickness: 8 },
-  { color: "rgba(124, 243, 216, 0.25)", speed: 0.11, heightOffset: 240, thickness: 6 }
-];
 const markBackgroundReady = () => {
   backgroundReady = true;
   backgroundDimensions = {
@@ -4239,36 +4210,6 @@ function wrapOffset(value, length) {
   return remainder;
 }
 
-function createStarfield(count) {
-  const stars = [];
-  for (let index = 0; index < count; index += 1) {
-    stars.push({
-      x: Math.random(),
-      y: Math.random(),
-      size: 0.6 + Math.random() * 1.6,
-      parallax: 0.05 + Math.random() * 0.35,
-      alpha: 0.35 + Math.random() * 0.45,
-      twinkleOffset: Math.random() * Math.PI * 2
-    });
-  }
-  return stars;
-}
-
-function drawStarfield(ctx, time) {
-  ctx.save();
-  const starfieldHeight = Math.max(groundY - 140, viewport.height * 0.42);
-  for (const star of parallaxStarfield) {
-    const x = ((star.x * viewport.width - parallaxScroll * star.parallax) % viewport.width + viewport.width) %
-      viewport.width;
-    const y = Math.max(star.y * starfieldHeight, 4);
-    const twinkle = 0.55 + Math.sin(time * 1.6 + star.twinkleOffset) * 0.25;
-    ctx.globalAlpha = star.alpha * twinkle;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(x, y, star.size, star.size);
-  }
-  ctx.restore();
-}
-
 function drawParallaxBackgroundImage(ctx) {
   if (!backgroundReady) {
     return;
@@ -4314,48 +4255,6 @@ function drawParallaxBackgroundImage(ctx) {
   ctx.fillRect(0, 0, viewport.width, viewport.height);
 }
 
-function drawParallaxRidges(ctx, time) {
-  for (const layer of parallaxRidgeLayers) {
-    const baseY = Math.max(groundY - layer.heightOffset, 48);
-    const tileWidth = Math.max(220, viewport.width / 3);
-    const offset = parallaxScroll * layer.speed;
-
-    ctx.beginPath();
-    ctx.moveTo(-tileWidth, viewport.height);
-    ctx.lineTo(-tileWidth, baseY);
-    for (let x = -tileWidth; x <= viewport.width + tileWidth; x += 12) {
-      const worldX = x + offset;
-      const wave = Math.sin(worldX * layer.frequency + time * (layer.speed * 2.6));
-      const crest = Math.cos(worldX * layer.frequency * 0.45 + time * 0.6);
-      const y = baseY + wave * layer.amplitude + crest * layer.amplitude * 0.24;
-      ctx.lineTo(x, y);
-    }
-    ctx.lineTo(viewport.width + tileWidth, viewport.height);
-    ctx.closePath();
-    ctx.fillStyle = layer.color;
-    ctx.fill();
-  }
-}
-
-function drawLightTrails(ctx, time) {
-  for (const trail of parallaxLightTrails) {
-    const y = Math.max(groundY - trail.heightOffset, 32);
-    const spacing = 260;
-    const offset = wrapOffset(parallaxScroll * trail.speed + time * 36 * trail.speed, spacing);
-    for (let x = -spacing; x <= viewport.width + spacing; x += spacing) {
-      const drawX = x - offset;
-      const gradient = ctx.createLinearGradient(drawX, y, drawX + spacing * 0.5, y + trail.thickness);
-      gradient.addColorStop(0, trail.color);
-      gradient.addColorStop(1, "rgba(12, 18, 32, 0)");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(drawX, y, spacing, trail.thickness);
-    }
-  }
-
-  ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
-  ctx.fillRect(0, groundY - 2, viewport.width, 3);
-}
-
 function drawGroundPlane(ctx) {
   const groundHeight = viewport.height - groundY;
   const baseGradient = ctx.createLinearGradient(0, groundY, 0, viewport.height);
@@ -4387,11 +4286,8 @@ function renderParallaxBackdrop(ctx, time) {
   ctx.fillStyle = getFallbackBackgroundGradient();
   ctx.fillRect(0, 0, viewport.width, viewport.height);
 
-  drawStarfield(ctx, time);
   drawParallaxBackgroundImage(ctx);
-  drawParallaxRidges(ctx, time);
   drawGroundPlane(ctx);
-  drawLightTrails(ctx, time);
 }
 
 function render(timestamp) {
