@@ -447,7 +447,7 @@ function shouldUseCustomPageBackground() {
           return true;
         }
 
-        if (contentType.startsWith("image/")) {
+        if (contentType.toLowerCase().startsWith("image/")) {
           return true;
         }
 
