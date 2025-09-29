@@ -821,6 +821,9 @@ body.is-scroll-locked {
   justify-content: center;
   padding: 32px 24px;
   z-index: 220;
+  overflow-y: auto;
+  box-sizing: border-box;
+  overscroll-behavior: contain;
 }
 
 .hud-overlay[hidden] {
@@ -828,8 +831,8 @@ body.is-scroll-locked {
 }
 
 .hud-modal {
-  width: min(920px, calc(100vw - 48px));
-  max-width: min(100%, calc(100vw - 48px));
+  width: min(920px, calc(100% - 48px));
+  max-width: min(100%, calc(100% - 48px));
   max-height: min(92vh, 860px);
   background: rgba(14, 22, 52, 0.96);
   border-radius: 24px;
@@ -842,6 +845,8 @@ body.is-scroll-locked {
   color: #f4f6ff;
   box-sizing: border-box;
   overflow-x: hidden;
+  margin: auto;
+  flex: 0 1 auto;
 }
 
 .hud-modal__header {
@@ -891,6 +896,7 @@ body.is-scroll-locked {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 24px;
   align-content: start;
+  min-height: 0;
 }
 
 .hud-modal__content > * {
@@ -909,8 +915,8 @@ body.is-scroll-locked {
   .hud-modal {
     padding: 24px;
     border-radius: 20px;
-    width: min(100%, calc(100vw - 32px));
-    max-width: min(100%, calc(100vw - 32px));
+    width: min(100%, calc(100% - 32px));
+    max-width: min(100%, calc(100% - 32px));
     max-height: min(92vh, 760px);
   }
 
