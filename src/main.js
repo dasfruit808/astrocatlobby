@@ -3796,13 +3796,17 @@ function update(delta) {
     player.onGround = true;
   }
 
-  parallaxScroll += PARALLAX_IDLE_SCROLL_SPEED * (delta / 16.666);
-  if (!Number.isFinite(parallaxScroll)) {
+  if (PARALLAX_IDLE_SCROLL_SPEED === 0) {
     parallaxScroll = 0;
-  } else if (parallaxScroll > 10000 || parallaxScroll < -10000) {
-    parallaxScroll = wrapOffset(parallaxScroll, 10000);
-    if (parallaxScroll > 5000) {
-      parallaxScroll -= 10000;
+  } else {
+    parallaxScroll += PARALLAX_IDLE_SCROLL_SPEED * (delta / 16.666);
+    if (!Number.isFinite(parallaxScroll)) {
+      parallaxScroll = 0;
+    } else if (parallaxScroll > 10000 || parallaxScroll < -10000) {
+      parallaxScroll = wrapOffset(parallaxScroll, 10000);
+      if (parallaxScroll > 5000) {
+        parallaxScroll -= 10000;
+      }
     }
   }
 
