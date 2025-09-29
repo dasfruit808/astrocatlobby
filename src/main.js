@@ -4896,9 +4896,19 @@ function createLobbyLayoutEditor(options = {}) {
     const defaultLabel = `Platform ${index + 1}`;
     const rawLabel = platform.label ?? platform.name ?? platform.id ?? defaultLabel;
     const label = typeof rawLabel === "string" ? rawLabel.trim() : String(rawLabel ?? defaultLabel);
+    const platformWidth = typeof platform.width === "number" ? platform.width : 0;
+    const platformHeight = typeof platform.height === "number" ? platform.height : 0;
+    const horizontalPadding =
+      platformWidth > 0 ? Math.max(12, Math.min(48, Math.round(platformWidth * 0.08))) : 12;
+    const verticalPadding =
+      platformHeight > 0 ? Math.max(24, Math.min(48, Math.round(platformHeight * 2))) : 24;
     editableEntities.push({
       entity: platform,
-      label
+      label,
+      hitboxPadding: {
+        x: horizontalPadding,
+        y: verticalPadding
+      }
     });
   });
 
@@ -4999,25 +5009,39 @@ function createLobbyLayoutEditor(options = {}) {
       if (!(width > 0) || !(height > 0)) {
         continue;
       }
+      const paddingX = entry.hitboxPadding && typeof entry.hitboxPadding.x === "number"
+        ? Math.max(0, entry.hitboxPadding.x)
+        : 0;
+      const paddingY = entry.hitboxPadding && typeof entry.hitboxPadding.y === "number"
+        ? Math.max(0, entry.hitboxPadding.y)
+        : Math.max(0, height < 32 ? Math.round((32 - height) / 2) : 0);
       for (const offset of offsets) {
         const candidateX = (entity.x ?? 0) + offset;
         const candidateY = entity.y ?? 0;
-        const withinX = worldX >= candidateX && worldX <= candidateX + width;
-        const withinY = worldY >= candidateY && worldY <= candidateY + height;
+        const hitLeft = candidateX - paddingX;
+        const hitRight = candidateX + width + paddingX;
+        const hitTop = candidateY - paddingY;
+        const hitBottom = candidateY + height + paddingY;
+        const withinX = worldX >= hitLeft && worldX <= hitRight;
+        const withinY = worldY >= hitTop && worldY <= hitBottom;
         if (!withinX || !withinY) {
           continue;
         }
-        const centerX = candidateX + width / 2;
-        const centerY = candidateY + height / 2;
-        const distance = Math.hypot(worldX - centerX, worldY - centerY);
+        const pointerOffsetX = Math.max(0, Math.min(width, worldX - candidateX));
+        const pointerOffsetY = Math.max(0, Math.min(height, worldY - candidateY));
+        const anchorX = candidateX + pointerOffsetX;
+        const anchorY = candidateY + pointerOffsetY;
+        const dx = worldX - anchorX;
+        const dy = worldY - anchorY;
+        const distance = Math.hypot(dx, dy);
         if (distance < bestDistance) {
           bestDistance = distance;
           best = {
             entity,
             label: entry.label,
             offset,
-            pointerOffsetX: worldX - candidateX,
-            pointerOffsetY: worldY - candidateY
+            pointerOffsetX,
+            pointerOffsetY
           };
         }
       }
