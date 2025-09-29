@@ -1288,6 +1288,7 @@ const parallaxLayers = parallaxLayerSources.map((layer) => {
   return layerState;
 });
 let parallaxScroll = 0;
+let cameraScrollX = 0;
 
 function createStarterSpriteDataUrl({
   background,
@@ -3199,8 +3200,10 @@ const groundY = viewport.height - 96;
 const playerWidth = Math.round(72 * 1.1 * lobbySpriteScale);
 const playerHeight = Math.round(81 * 1.1 * lobbySpriteScale);
 
+const cameraAnchorX = viewport.width / 2 - playerWidth / 2;
+
 const player = {
-  x: viewport.width / 2 - playerWidth / 2,
+  x: cameraAnchorX,
   y: groundY - playerHeight,
   width: playerWidth,
   height: playerHeight,
@@ -3723,7 +3726,6 @@ function loop(timestamp) {
 
 function update(delta) {
   const portalWasCharged = portalCharged;
-  const previousX = player.x;
   const previousY = player.y;
 
   if (miniGameActive) {
@@ -3770,31 +3772,13 @@ function update(delta) {
   player.y += player.vy * (delta / 16.666);
   player.onGround = false;
 
-  if (player.x < 0) {
-    player.x = 0;
-    player.vx = 0;
-  }
-
-  if (player.x + player.width > viewport.width) {
-    player.x = viewport.width - player.width;
-    player.vx = 0;
-  }
-
   if (player.y + player.height >= groundY) {
     player.y = groundY - player.height;
     player.vy = 0;
     player.onGround = true;
   }
 
-  const atRightEdge = player.x + player.width >= viewport.width - 0.001;
-  const atLeftEdge = player.x <= 0.001;
-  let parallaxVelocity = player.vx;
-  if (atRightEdge && moveRight && !moveLeft) {
-    parallaxVelocity = maxSpeed;
-  } else if (atLeftEdge && moveLeft && !moveRight) {
-    parallaxVelocity = -maxSpeed;
-  }
-  parallaxScroll += parallaxVelocity * (delta / 16.666);
+  parallaxScroll += player.vx * (delta / 16.666);
   if (!Number.isFinite(parallaxScroll)) {
     parallaxScroll = 0;
   } else if (parallaxScroll > 10000 || parallaxScroll < -10000) {
@@ -3802,6 +3786,11 @@ function update(delta) {
     if (parallaxScroll > 5000) {
       parallaxScroll -= 10000;
     }
+  }
+
+  cameraScrollX = player.x - cameraAnchorX;
+  if (!Number.isFinite(cameraScrollX)) {
+    cameraScrollX = 0;
   }
 
   for (const platform of platforms) {
@@ -4353,6 +4342,9 @@ function render(timestamp) {
 
   renderParallaxBackdrop(ctx, time);
 
+  ctx.save();
+  ctx.translate(-cameraScrollX, 0);
+
   if (platformSprite.isReady() && platformSprite.image) {
     ctx.save();
     ctx.imageSmoothingEnabled = false;
@@ -4401,6 +4393,8 @@ function render(timestamp) {
   }
 
   drawPlayer(player, time);
+
+  ctx.restore();
 
   if (ui.promptText) {
     drawPromptBubble(ui.promptText, ui.promptEntity || player);
@@ -4539,6 +4533,9 @@ function drawPromptBubble(text, entity) {
   }
 
   const target = entity ?? player;
+  const targetWidth = typeof target.width === "number" ? target.width : 0;
+  const targetX = (typeof target.x === "number" ? target.x : 0) - cameraScrollX;
+  const centerX = targetX + targetWidth / 2;
   ctx.save();
   ctx.font = promptFont;
   ctx.textBaseline = "alphabetic";
@@ -4553,7 +4550,6 @@ function drawPromptBubble(text, entity) {
   const bubbleWidth = metrics.width + paddingX * 2;
   const minimumHeight = 48;
   const bubbleHeight = Math.max(metrics.height + paddingY * 2, minimumHeight);
-  const centerX = target.x + target.width / 2;
   const anchorTop =
     typeof target.promptAnchorY === "number" ? target.promptAnchorY : target.y ?? 0;
   const anchorHeight = target.height ?? 0;
