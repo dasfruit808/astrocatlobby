@@ -1312,79 +1312,41 @@ function resolveStarterSpriteSource(assetPaths, fallbackPalette) {
   return resolveStarterImageSource(assetPaths, fallbackPalette);
 }
 
-const starterCharacterDefinitions = [
-  {
-    id: "comet-cadet",
-    name: "Comet Cadet",
-    tagline: "A swift navigator blazing across the cosmos.",
-    description: "Excels at traversal with boosted dash energy.",
-    imageAssets: "./assets/character1.png",
-    spriteAssets: [
-      "./assets/playersprite1.png",
-      "./assets/PlayerSprite.png",
-      "./assets/character1.png"
-    ],
-    palette: {
-      background: "#1f2557",
-      body: "#fcbf49",
-      accent: "#f77f00",
-      accessory: "#ff477e",
-      eye: "#1b1d3a",
-      highlight: "#ffd166"
-    }
-  },
-  {
-    id: "nebula-sage",
-    name: "Nebula Sage",
-    tagline: "A mystic tactician attuned to stardust currents.",
-    description: "Starts with enhanced insight for puzzle solving.",
-    imageAssets: ["./assets/characrter2.png", "./assets/character2.png"],
-    spriteAssets: [
-      "./assets/playersprite2.png",
-      "./assets/character2.png",
-      "./assets/characrter2.png"
-    ],
-    palette: {
-      background: "#31163f",
-      body: "#c084fc",
-      accent: "#a855f7",
-      accessory: "#38bdf8",
-      eye: "#120d1f",
-      highlight: "#f472b6"
-    }
-  },
-  {
-    id: "aurora-engineer",
-    name: "Aurora Engineer",
-    tagline: "An inventive builder forging gadgets from nebula light.",
-    description: "Unlocks crafting recipes and supportive drones early.",
-    imageAssets: "./assets/character3.png",
-    spriteAssets: [
-      "./assets/playersprite3.png",
-      "./assets/character3.png"
-    ],
-    palette: {
-      background: "#0f2f32",
-      body: "#5eead4",
-      accent: "#22d3ee",
-      accessory: "#facc15",
-      eye: "#052e16",
-      highlight: "#a7f3d0"
-    }
+const defaultStarterDefinition = {
+  id: "comet-cadet",
+  name: "Comet Cadet",
+  tagline: "A swift navigator blazing across the cosmos.",
+  description: "Excels at traversal with boosted dash energy.",
+  imageAssets: "./assets/character1.png",
+  spriteAssets: [
+    "./assets/playersprite1.png",
+    "./assets/PlayerSprite.png",
+    "./assets/character1.png"
+  ],
+  palette: {
+    background: "#1f2557",
+    body: "#fcbf49",
+    accent: "#f77f00",
+    accessory: "#ff477e",
+    eye: "#1b1d3a",
+    highlight: "#ffd166"
   }
-];
+};
 
-const starterCharacters = starterCharacterDefinitions.map((definition) => ({
-  id: definition.id,
-  name: definition.name,
-  tagline: definition.tagline,
-  description: definition.description,
-  image: resolveStarterImageSource(definition.imageAssets, definition.palette),
+const defaultStarterCharacter = {
+  id: defaultStarterDefinition.id,
+  name: defaultStarterDefinition.name,
+  tagline: defaultStarterDefinition.tagline,
+  description: defaultStarterDefinition.description,
+  image: resolveStarterImageSource(
+    defaultStarterDefinition.imageAssets,
+    defaultStarterDefinition.palette
+  ),
   sprite: resolveStarterSpriteSource(
-    definition.spriteAssets ?? definition.imageAssets,
-    definition.palette
+    defaultStarterDefinition.spriteAssets ?? defaultStarterDefinition.imageAssets,
+    defaultStarterDefinition.palette
   )
-}));
+};
 
 const legacyAccountStorageKey = "astrocat-account";
 const accountStorageKey = "astrocat-accounts";
@@ -1645,7 +1607,7 @@ function sanitizeAccount(source = {}) {
   const starterId =
     typeof source.starterId === "string" && source.starterId
       ? source.starterId
-      : starterCharacters[0].id;
+      : defaultStarterCharacter.id;
 
   if (!name) {
     return null;
@@ -2338,10 +2300,8 @@ function getMiniGameLoadoutBySlot(slots, slotId) {
   return slots[0];
 }
 
-function findStarterCharacter(starterId) {
-  return (
-    starterCharacters.find((character) => character.id === starterId) ?? starterCharacters[0]
-  );
+function findStarterCharacter() {
+  return defaultStarterCharacter;
 }
 
 let activeAccount = loadStoredAccount();
@@ -2349,7 +2309,7 @@ const fallbackAccount = {
   handle: "",
   callSign: "",
   catName: "PixelHero",
-  starterId: starterCharacters[0].id
+  starterId: defaultStarterCharacter.id
 };
 
 let miniGameLoadoutState = loadMiniGameLoadoutsFromStorage();
@@ -2538,8 +2498,8 @@ applyAttributeScaling(playerStats, { preservePercent: true });
 const playerSpriteState = createSpriteState("starter sprite");
 let activePlayerSpriteSource = null;
 
-function setPlayerSpriteFromStarter(starterId) {
-  const starter = findStarterCharacter(starterId);
+function setPlayerSpriteFromStarter() {
+  const starter = findStarterCharacter();
   const source = starter?.sprite ?? starter?.image ?? null;
   if (!source) {
     activePlayerSpriteSource = null;
@@ -2555,7 +2515,7 @@ function setPlayerSpriteFromStarter(starterId) {
   playerSpriteState.setSource(source);
 }
 
-setPlayerSpriteFromStarter(playerStats.starterId);
+setPlayerSpriteFromStarter();
 
 const defaultMessage =
   "Check the Recruit Missions panel for onboarding tasks. Use A/D or ←/→ to move. Press Space to jump.";
@@ -2586,7 +2546,7 @@ const ui = createInterface(playerStats, {
 app.innerHTML = "";
 app.append(ui.root);
 
-const initialStarter = findStarterCharacter(playerStats.starterId);
+const initialStarter = findStarterCharacter();
 ui.setAccount(activeAccount, initialStarter);
 ui.addFeedMessage({
   author: "Mission Command",
@@ -2627,8 +2587,8 @@ function applyActiveAccount(account) {
   playerStats.handle = account.handle;
   playerStats.callSign = account.callSign;
   playerStats.starterId = account.starterId;
-  setPlayerSpriteFromStarter(playerStats.starterId);
-  const chosenStarter = findStarterCharacter(playerStats.starterId);
+  setPlayerSpriteFromStarter();
+  const chosenStarter = findStarterCharacter();
   ui.setAccount(account, chosenStarter);
   ui.refresh(playerStats);
   syncMiniGameProfile();
@@ -2697,8 +2657,8 @@ function handleLogout() {
   playerStats.handle = fallbackAccount.handle;
   playerStats.callSign = fallbackAccount.callSign;
   playerStats.starterId = fallbackAccount.starterId;
-  setPlayerSpriteFromStarter(playerStats.starterId);
-  const starter = findStarterCharacter(playerStats.starterId);
+  setPlayerSpriteFromStarter();
+  const starter = findStarterCharacter();
   ui.setAccount(null, starter);
   ui.refresh(playerStats);
   refreshStoredAccountDirectory();
@@ -2739,7 +2699,7 @@ function openOnboarding(initialAccount = null, savedAccounts = []) {
   }
 
   previousBodyOverflow = document.body.style.overflow;
-  onboardingInstance = createOnboardingExperience(starterCharacters, {
+  onboardingInstance = createOnboardingExperience({
     initialAccount,
     savedAccounts,
     onComplete(account) {
@@ -5133,21 +5093,13 @@ if (typeof window !== "undefined") {
   });
 }
 
-function createOnboardingExperience(options, config = {}) {
-  const characters = Array.isArray(options) && options.length > 0 ? options : starterCharacters;
+function createOnboardingExperience(config = {}) {
   const {
     initialAccount = null,
     onComplete,
     savedAccounts = [],
     onSelectExisting
   } = config;
-  let activeIndex = Math.max(
-    0,
-    characters.findIndex((option) => option.id === initialAccount?.starterId)
-  );
-  if (activeIndex === -1) {
-    activeIndex = 0;
-  }
 
   const idSuffix = Math.random().toString(36).slice(2, 8);
   const root = document.createElement("div");
@@ -5165,7 +5117,7 @@ function createOnboardingExperience(options, config = {}) {
   const intro = document.createElement("p");
   intro.className = "onboarding-intro";
   intro.textContent =
-    "Mission Control assigns your secure call sign. Name your companion and pick a starter to begin exploring.";
+    "Mission Control assigns your secure call sign. Name your companion to begin exploring.";
   modal.append(intro);
 
   const selectableAccounts = Array.isArray(savedAccounts)
@@ -5200,12 +5152,14 @@ function createOnboardingExperience(options, config = {}) {
       const handleLabel =
         profile && typeof profile.callSign === "string" && profile.callSign
           ? `@${profile.callSign}`
-          : typeof profile.handle === "string"
-            ? profile.handle
-            : "";
-      button.textContent = handleLabel ? `${profile.catName} · ${handleLabel}` : profile.catName;
+          : "Unknown";
+      const nameLabel =
+        profile && typeof profile.catName === "string" && profile.catName
+          ? profile.catName
+          : "Unnamed";
+      button.textContent = `${handleLabel} · ${nameLabel}`;
       button.addEventListener("click", () => {
-        handleExistingSelection({ ...profile });
+        handleExistingSelection(profile);
       });
       item.append(button);
       savedList.append(item);
@@ -5214,39 +5168,6 @@ function createOnboardingExperience(options, config = {}) {
     savedSection.append(savedTitle, savedHint, savedList);
     modal.append(savedSection);
   }
-
-  const characterSection = document.createElement("div");
-  characterSection.className = "onboarding-character";
-  const characterImage = document.createElement("img");
-  characterImage.className = "onboarding-character__image";
-  characterImage.alt = "Starter character preview";
-
-  const characterDetails = document.createElement("div");
-  characterDetails.className = "onboarding-character__details";
-  const characterName = document.createElement("h3");
-  characterName.className = "onboarding-character__name";
-  const characterTagline = document.createElement("p");
-  characterTagline.className = "onboarding-character__tagline";
-  const characterDescription = document.createElement("p");
-  characterDescription.className = "onboarding-character__description";
-
-  const nav = document.createElement("div");
-  nav.className = "onboarding-nav";
-  const prevButton = document.createElement("button");
-  prevButton.type = "button";
-  prevButton.className = "onboarding-nav__button";
-  prevButton.textContent = "Previous";
-  const stepIndicator = document.createElement("span");
-  stepIndicator.className = "onboarding-step";
-  const nextButton = document.createElement("button");
-  nextButton.type = "button";
-  nextButton.className = "onboarding-nav__button";
-  nextButton.textContent = "Next";
-  nav.append(prevButton, stepIndicator, nextButton);
-
-  characterDetails.append(characterName, characterTagline, characterDescription, nav);
-  characterSection.append(characterImage, characterDetails);
-  modal.append(characterSection);
 
   const form = document.createElement("form");
   form.className = "onboarding-form";
@@ -5311,33 +5232,6 @@ function createOnboardingExperience(options, config = {}) {
     nameInput.value = initialAccount.catName;
   }
 
-  function currentCharacter() {
-    return characters[activeIndex] ?? characters[0];
-  }
-
-  function renderCharacter() {
-    const selection = currentCharacter();
-    characterImage.src = selection.image;
-    characterImage.alt = selection.name;
-    characterName.textContent = selection.name;
-    characterTagline.textContent = selection.tagline;
-    characterDescription.textContent = selection.description;
-    stepIndicator.textContent = `${activeIndex + 1} / ${characters.length}`;
-    const disableNav = characters.length <= 1;
-    prevButton.disabled = disableNav;
-    nextButton.disabled = disableNav;
-  }
-
-  prevButton.addEventListener("click", () => {
-    activeIndex = (activeIndex - 1 + characters.length) % characters.length;
-    renderCharacter();
-  });
-
-  nextButton.addEventListener("click", () => {
-    activeIndex = (activeIndex + 1) % characters.length;
-    renderCharacter();
-  });
-
   nameInput.addEventListener("input", () => {
     nameInput.setCustomValidity("");
   });
@@ -5351,11 +5245,10 @@ function createOnboardingExperience(options, config = {}) {
       return;
     }
 
-    const selection = currentCharacter();
     const sanitized = sanitizeAccount({
       callSign: pendingCallSign,
       catName: trimmedName,
-      starterId: selection.id
+      starterId: defaultStarterCharacter.id
     });
 
     if (!sanitized) {
@@ -5371,8 +5264,6 @@ function createOnboardingExperience(options, config = {}) {
       onComplete(sanitized);
     }
   });
-
-  renderCharacter();
 
   return {
     root,
@@ -7772,7 +7663,7 @@ function createInterface(stats, options = {}) {
   }
 
   function updateAccountCard(account, starterOverride) {
-    const fallbackStarter = starterOverride ?? starterCharacters[0];
+    const fallbackStarter = starterOverride ?? defaultStarterCharacter;
 
     if (!account) {
       accountCard.classList.add("account-card--empty");
@@ -7789,7 +7680,7 @@ function createInterface(stats, options = {}) {
     }
 
     const resolvedStarter =
-      starterOverride ?? findStarterCharacter(account.starterId) ?? fallbackStarter;
+      starterOverride ?? findStarterCharacter() ?? fallbackStarter;
     accountCard.classList.remove("account-card--empty");
     const callSignLabel = account.callSign ? `@${account.callSign}` : account.handle;
     if (callSignLabel) {
