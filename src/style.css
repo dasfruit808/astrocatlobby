@@ -2393,83 +2393,6 @@ body.is-scroll-locked {
   transform: translateY(0);
 }
 
-.onboarding-character {
-  display: grid;
-  grid-template-columns: 160px 1fr;
-  gap: 18px;
-  align-items: center;
-}
-
-.onboarding-character__image {
-  width: 100%;
-  height: auto;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  box-shadow: 0 16px 35px rgba(8, 12, 28, 0.5);
-  background: rgba(10, 16, 32, 0.6);
-}
-
-.onboarding-character__details {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.onboarding-character__name {
-  margin: 0;
-  font-size: 20px;
-  color: #f5f6ff;
-}
-
-.onboarding-character__tagline {
-  margin: 0;
-  font-size: 14px;
-  color: rgba(200, 210, 255, 0.82);
-}
-
-.onboarding-character__description {
-  margin: 0;
-  font-size: 13px;
-  color: rgba(185, 198, 255, 0.75);
-  line-height: 1.5;
-}
-
-.onboarding-nav {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-.onboarding-nav__button {
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(120, 150, 255, 0.45);
-  background: linear-gradient(135deg, rgba(95, 129, 255, 0.55), rgba(64, 96, 210, 0.35));
-  color: #f7f8ff;
-  font-size: 13px;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.onboarding-nav__button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 18px rgba(70, 110, 255, 0.35);
-}
-
-.onboarding-nav__button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.onboarding-step {
-  flex: 1;
-  text-align: center;
-  font-size: 13px;
-  letter-spacing: 0.08em;
-  color: rgba(189, 202, 255, 0.75);
-}
-
 .onboarding-form {
   display: flex;
   flex-direction: column;
@@ -2683,20 +2606,6 @@ body.is-scroll-locked {
   .onboarding-modal {
     padding: 22px;
     max-width: calc(100vw - 44px);
-  }
-
-  .onboarding-character {
-    grid-template-columns: 1fr;
-    text-align: center;
-  }
-
-  .onboarding-character__image {
-    max-width: 220px;
-    margin: 0 auto;
-  }
-
-  .onboarding-nav {
-    justify-content: center;
   }
 
   .minigame-modal {
