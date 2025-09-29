@@ -1092,6 +1092,12 @@ body.is-scroll-locked {
   gap: 18px;
 }
 
+.hud-modal__section-content > * {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 @media (max-width: 720px) {
   .hud-panel__actions {
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -1158,6 +1164,7 @@ body.is-scroll-locked {
   gap: 18px;
   width: 100%;
   align-items: stretch;
+  box-sizing: border-box;
 }
 
 .stats-container > * {
@@ -1253,6 +1260,7 @@ body.is-scroll-locked {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   text-align: left;
+  box-sizing: border-box;
 }
 
 .attribute-panel__header {
