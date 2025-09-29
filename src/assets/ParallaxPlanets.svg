@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="horizon" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(20, 46, 58, 0)" />
+      <stop offset="40%" stop-color="rgba(31, 64, 87, 0.2)" />
+      <stop offset="100%" stop-color="rgba(21, 54, 63, 0.7)" />
+    </linearGradient>
+    <linearGradient id="ring" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#f6d1ff" stop-opacity="0" />
+      <stop offset="25%" stop-color="#f6d1ff" stop-opacity="0.65" />
+      <stop offset="75%" stop-color="#cfefff" stop-opacity="0.65" />
+      <stop offset="100%" stop-color="#cfefff" stop-opacity="0" />
+    </linearGradient>
+    <radialGradient id="planetCore" cx="50%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#ffe9a6" />
+      <stop offset="65%" stop-color="#f7a6ff" />
+      <stop offset="100%" stop-color="#7848b5" />
+    </radialGradient>
+    <radialGradient id="moon" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#b7d5ff" />
+    </radialGradient>
+    <radialGradient id="comet" cx="0%" cy="50%" r="100%">
+      <stop offset="0%" stop-color="#fff6da" stop-opacity="0.7" />
+      <stop offset="100%" stop-color="#fff6da" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="900" fill="none" />
+  <g opacity="0.85">
+    <ellipse cx="380" cy="320" rx="260" ry="70" fill="url(#ring)" transform="rotate(-12 380 320)" />
+    <circle cx="380" cy="320" r="160" fill="url(#planetCore)" />
+    <g opacity="0.6">
+      <path d="M1200 220 C1260 200 1340 210 1380 260" fill="none" stroke="url(#comet)" stroke-width="28" stroke-linecap="round" />
+      <circle cx="1380" cy="260" r="28" fill="#fff6da" opacity="0.8" />
+    </g>
+    <circle cx="1080" cy="260" r="64" fill="url(#moon)" />
+    <circle cx="1148" cy="228" r="16" fill="#fff6da" opacity="0.65" />
+  </g>
+  <rect y="540" width="1600" height="360" fill="url(#horizon)" />
+  <g opacity="0.55">
+    <path d="M0 620 Q160 580 320 620 T640 620 T960 640 T1280 620 T1600 640" fill="none" stroke="rgba(88, 229, 255, 0.45)" stroke-width="14" stroke-linecap="round" />
+    <path d="M0 700 Q200 660 400 700 T800 720 T1200 680 T1600 700" fill="none" stroke="rgba(104, 255, 203, 0.35)" stroke-width="10" stroke-linecap="round" />
+  </g>
+</svg>
