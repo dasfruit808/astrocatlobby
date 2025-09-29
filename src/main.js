@@ -1469,6 +1469,38 @@ function sanitizeLobbyLayoutSnapshot(snapshot) {
     }
   }
 
+  if (snapshot.platforms && typeof snapshot.platforms === "object") {
+    const entries = [];
+    for (const [id, value] of Object.entries(snapshot.platforms)) {
+      if (!value || typeof value !== "object") {
+        continue;
+      }
+      const x = sanitizeCoordinate(value.x);
+      const y = sanitizeCoordinate(value.y);
+      if (x === null && y === null) {
+        continue;
+      }
+      const normalizedId = typeof id === "string" ? id : String(id);
+      const entry = {};
+      if (x !== null) {
+        entry.x = x;
+      }
+      if (y !== null) {
+        entry.y = y;
+      }
+      entries.push([normalizedId, entry]);
+    }
+
+    if (entries.length > 0) {
+      entries.sort((a, b) => a[0].localeCompare(b[0]));
+      const platformEntries = {};
+      for (const [id, entry] of entries) {
+        platformEntries[id] = entry;
+      }
+      sanitized.platforms = platformEntries;
+    }
+  }
+
   if (snapshot.portal && typeof snapshot.portal === "object") {
     const portalX = sanitizeCoordinate(snapshot.portal.x);
     const portalY = sanitizeCoordinate(snapshot.portal.y);
@@ -3405,9 +3437,30 @@ const player = {
 };
 
 const platforms = [
-  { x: 140, y: groundY - 120, width: 160, height: 18 },
-  { x: 468, y: groundY - 180, width: 200, height: 18 },
-  { x: 724, y: groundY - 80, width: 150, height: 18 }
+  {
+    id: "platform-a",
+    label: "Platform A",
+    x: 140,
+    y: groundY - 120,
+    width: 160,
+    height: 18
+  },
+  {
+    id: "platform-b",
+    label: "Platform B",
+    x: 468,
+    y: groundY - 180,
+    width: 200,
+    height: 18
+  },
+  {
+    id: "platform-c",
+    label: "Platform C",
+    x: 724,
+    y: groundY - 80,
+    width: 150,
+    height: 18
+  }
 ];
 
 const crystals = [
@@ -3545,6 +3598,7 @@ function normaliseLayoutCoordinate(value, fallback) {
 function captureLobbyLayoutSnapshot() {
   const snapshot = {
     interactables: {},
+    platforms: {},
     portal: {
       x: normaliseLayoutCoordinate(portal.x, portal.x),
       y: normaliseLayoutCoordinate(portal.y, portal.y)
@@ -3561,6 +3615,14 @@ function captureLobbyLayoutSnapshot() {
       y: normaliseLayoutCoordinate(interactable.y, interactable.y)
     };
   }
+
+  platforms.forEach((platform, index) => {
+    const id = platform.id ?? String(index);
+    snapshot.platforms[id] = {
+      x: normaliseLayoutCoordinate(platform.x, platform.x),
+      y: normaliseLayoutCoordinate(platform.y, platform.y)
+    };
+  });
 
   return snapshot;
 }
@@ -3600,6 +3662,31 @@ function applyLobbyLayoutSnapshot(snapshot) {
     }
   }
 
+  const platformOverrides = snapshot.platforms;
+  if (platformOverrides && typeof platformOverrides === "object") {
+    platforms.forEach((platform, index) => {
+      const id = platform.id ?? String(index);
+      const override = platformOverrides[id];
+      if (!override || typeof override !== "object") {
+        return;
+      }
+      if ("x" in override) {
+        const nextX = normaliseLayoutCoordinate(override.x, platform.x);
+        if (Number.isFinite(nextX)) {
+          platform.x = nextX;
+          applied = true;
+        }
+      }
+      if ("y" in override) {
+        const nextY = normaliseLayoutCoordinate(override.y, platform.y);
+        if (Number.isFinite(nextY)) {
+          platform.y = nextY;
+          applied = true;
+        }
+      }
+    });
+  }
+
   if (snapshot.portal && typeof snapshot.portal === "object") {
     const nextPortalX = normaliseLayoutCoordinate(snapshot.portal.x, portal.x);
     const nextPortalY = normaliseLayoutCoordinate(snapshot.portal.y, portal.y);
@@ -3634,6 +3721,25 @@ function areLayoutsEqual(candidate, reference) {
   for (const id of interactableIds) {
     const referenceEntry = referenceInteractables[id];
     const candidateEntry = candidateInteractables[id];
+    const referenceX = normaliseLayoutCoordinate(referenceEntry?.x, 0);
+    const referenceY = normaliseLayoutCoordinate(referenceEntry?.y, 0);
+    const candidateX = normaliseLayoutCoordinate(candidateEntry?.x, referenceX);
+    const candidateY = normaliseLayoutCoordinate(candidateEntry?.y, referenceY);
+    if (referenceX !== candidateX || referenceY !== candidateY) {
+      return false;
+    }
+  }
+
+  const referencePlatforms = reference.platforms ?? {};
+  const candidatePlatforms = candidate.platforms ?? {};
+  const platformIds = new Set([
+    ...Object.keys(referencePlatforms),
+    ...Object.keys(candidatePlatforms)
+  ]);
+
+  for (const id of platformIds) {
+    const referenceEntry = referencePlatforms[id];
+    const candidateEntry = candidatePlatforms[id];
     const referenceX = normaliseLayoutCoordinate(referenceEntry?.x, 0);
     const referenceY = normaliseLayoutCoordinate(referenceEntry?.y, 0);
     const candidateX = normaliseLayoutCoordinate(candidateEntry?.x, referenceX);
@@ -4061,6 +4167,7 @@ layoutEditor = createLobbyLayoutEditor({
   canvas,
   surface: ui.canvasSurface,
   interactables,
+  platforms,
   portal,
   defaultLayout: defaultLobbyLayout,
   captureLayout: captureLobbyLayoutSnapshot,
@@ -4722,6 +4829,7 @@ function createLobbyLayoutEditor(options = {}) {
     canvas: editorCanvas,
     surface: surfaceElement,
     interactables: editableInteractables = [],
+    platforms: editablePlatforms = [],
     portal: portalEntity = null,
     defaultLayout = null,
     captureLayout,
@@ -4766,6 +4874,19 @@ function createLobbyLayoutEditor(options = {}) {
       label
     });
   }
+
+  editablePlatforms.forEach((platform, index) => {
+    if (!platform || typeof platform !== "object") {
+      return;
+    }
+    const defaultLabel = `Platform ${index + 1}`;
+    const rawLabel = platform.label ?? platform.name ?? platform.id ?? defaultLabel;
+    const label = typeof rawLabel === "string" ? rawLabel.trim() : String(rawLabel ?? defaultLabel);
+    editableEntities.push({
+      entity: platform,
+      label
+    });
+  });
 
   if (portalEntity && typeof portalEntity === "object") {
     const rawLabel = portalEntity.label ?? portalEntity.name ?? portalEntity.id ?? "Portal";
