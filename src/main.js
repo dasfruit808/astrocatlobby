@@ -3264,9 +3264,11 @@ const crystals = [
   { x: 640, y: groundY - 36, radius: 12, collected: false }
 ];
 
+const CRYSTAL_SPRINT_TARGET_MS = 35000;
 let portalCharge = 0;
 let portalCharged = false;
 let portalCompleted = false;
+let crystalRunStartTime = 0;
 
 const portal = {
   x: viewport.width - 140,
@@ -3372,26 +3374,73 @@ const missionDefinitions = [
   {
     id: "mission-briefing",
     title: "Receive Your Briefing",
-    description: "Speak with Nova to learn how to progress through the lobby.",
-    xp: 160
+    description: "Check in with Nova and soak up every sparkling tip about the lobby.",
+    flavor: "Her pep talk smells faintly of stardust and optimism.",
+    xp: 160,
+    requiredLevel: 1
   },
   {
     id: "mission-broadcast",
     title: "Broadcast Your Arrival",
-    description: "Interact with the bulletin board to draft your enlistment post on the X platform.",
-    xp: 120
+    description: "Visit the bulletin board and beam a jubilant enlistment post into the feed.",
+    flavor: "The board lights up like a constellation when you sign it.",
+    xp: 130,
+    requiredLevel: 1
   },
   {
     id: "mission-follow",
     title: "Follow Mission Control",
-    description: "Use the comms console to follow the official Astronaut account.",
-    xp: 140
+    description: "Sync with the comms console so Mission Control can cheer every victory.",
+    flavor: "Their welcome ping feels like a confetti cannon for your inbox.",
+    xp: 150,
+    requiredLevel: 1
+  },
+  {
+    id: "mission-community-post",
+    title: "Post to the Community Board",
+    description: "Send an upbeat transmission to a fellow explorer's call sign.",
+    flavor: "The reply lights ripple like aurora when kindness travels fast.",
+    xp: 180,
+    requiredLevel: 2
+  },
+  {
+    id: "mission-crystal-charge",
+    title: "Charge the Portal Core",
+    description: "Collect every lobby crystal to flood the dormant portal with light.",
+    flavor: "Nova swears the crackling glow makes your whiskers sparkle.",
+    xp: 210,
+    requiredLevel: 2
+  },
+  {
+    id: "mission-crystal-sprint",
+    title: "Crystal Sprint Champion",
+    description: "Complete a full crystal run before the chrono hits 00:35.",
+    flavor: "You leave comet tails in your wake when you dash this fast.",
+    xp: 240,
+    requiredLevel: 3
+  },
+  {
+    id: "mission-combo-challenge",
+    title: "Combo Celebration",
+    description: "Hit a x12 streak or better in the Starcade to wow Mission Control.",
+    flavor: "Every extra beam in the combo shower is basically a dance party.",
+    xp: 260,
+    requiredLevel: 4
+  },
+  {
+    id: "mission-portal-dive",
+    title: "Dive Through the Portal",
+    description: "Stabilize the charged portal and take the triumphant step forward.",
+    flavor: "Crossing the threshold feels like surfing sunlight.",
+    xp: 320,
+    requiredLevel: 3
   }
 ];
 
 const missions = missionDefinitions.map((mission) => ({
   ...mission,
-  completed: false
+  completed: false,
+  unlocked: (mission.requiredLevel ?? 1) <= 1
 }));
 
 const missionRegistry = new Map(missions.map((mission) => [mission.id, mission]));
@@ -3400,7 +3449,12 @@ function refreshMissionDisplay() {
   if (!ui || typeof ui.updateMissions !== "function") {
     return;
   }
-  ui.updateMissions(missions);
+  const level = playerStats.level ?? 1;
+  for (const mission of missions) {
+    const requirement = Math.max(1, mission.requiredLevel ?? 1);
+    mission.unlocked = level >= requirement;
+  }
+  ui.updateMissions(missions, level);
 }
 
 function completeMission(missionId) {
@@ -3408,6 +3462,7 @@ function completeMission(missionId) {
     return {
       completed: false,
       alreadyComplete: false,
+      locked: false,
       leveledUp: false,
       mission: null
     };
@@ -3418,6 +3473,7 @@ function completeMission(missionId) {
     return {
       completed: false,
       alreadyComplete: false,
+      locked: false,
       leveledUp: false,
       mission: null
     };
@@ -3427,6 +3483,19 @@ function completeMission(missionId) {
     return {
       completed: false,
       alreadyComplete: true,
+      locked: false,
+      leveledUp: false,
+      mission
+    };
+  }
+
+  const requirement = Math.max(1, mission.requiredLevel ?? 1);
+  if ((playerStats.level ?? 1) < requirement) {
+    mission.unlocked = false;
+    return {
+      completed: false,
+      alreadyComplete: false,
+      locked: true,
       leveledUp: false,
       mission
     };
@@ -3438,6 +3507,7 @@ function completeMission(missionId) {
   return {
     completed: true,
     alreadyComplete: false,
+    locked: false,
     leveledUp,
     mission
   };
@@ -3775,6 +3845,14 @@ function update(delta) {
     if (overlapX && overlapY) {
       crystal.collected = true;
       audio.playEffect("crystal");
+      const hadNoCharge = portalCharge === 0;
+      const now =
+        typeof performance !== "undefined" && typeof performance.now === "function"
+          ? performance.now()
+          : Date.now();
+      if (hadNoCharge) {
+        crystalRunStartTime = now;
+      }
       portalCharge = Math.min(portalCharge + 1, crystals.length);
       ui.updateCrystals(portalCharge, crystals.length);
       const fullyCharged = portalCharge === crystals.length;
@@ -3784,26 +3862,74 @@ function update(delta) {
         }
         portalCharged = true;
       }
-      const leveledUp = gainExperience(60);
-      let message = "Crystal energy surges through you! +60 EXP.";
+      const leveledUpFromCrystal = gainExperience(60);
+      const levelUpNotices = new Set();
+      if (!fullyCharged && leveledUpFromCrystal) {
+        levelUpNotices.add(`Level up! You reached level ${playerStats.level}.`);
+      }
+      const messageParts = [];
       if (fullyCharged) {
         const portalReady = playerStats.level >= portalRequiredLevel;
-        message = portalReady
-          ? "The final crystal ignites the portal! Return and press E to travel onward."
-          : `The final crystal ignites the portal! Reach Level ${portalRequiredLevel} before entering.`;
-        if (leveledUp) {
-          message += ` Level up! You reached level ${playerStats.level}.`;
-        }
-      } else if (leveledUp) {
-        message += ` Level up! You reached level ${playerStats.level}.`;
+        messageParts.push(
+          portalReady
+            ? "The final crystal ignites the portal! +60 EXP. Return and press E to travel onward."
+            : `The final crystal ignites the portal! +60 EXP. Reach Level ${portalRequiredLevel} before entering.`
+        );
+      } else {
+        messageParts.push("Crystal energy surges through you! +60 EXP.");
       }
+
+      const highlightParts = [];
+      if (fullyCharged) {
+        const chargeMission = completeMission("mission-crystal-charge");
+        if (chargeMission.completed) {
+          const xpAward = chargeMission.mission?.xp ?? 0;
+          const title = chargeMission.mission?.title ?? "Portal Mission";
+          highlightParts.push(`Mission Complete: ${title}! +${xpAward} EXP.`);
+          if (chargeMission.leveledUp) {
+            levelUpNotices.add(`Level up! You reached level ${playerStats.level}.`);
+          }
+        } else if (chargeMission.locked) {
+          const required = Math.max(1, chargeMission.mission?.requiredLevel ?? 1);
+          highlightParts.push(`Train to Level ${required} to log the portal charge mission.`);
+        }
+
+        const runDurationMs = crystalRunStartTime > 0 ? now - crystalRunStartTime : 0;
+        if (runDurationMs > 0) {
+          const runSeconds = Math.max(0, Math.round(runDurationMs / 1000));
+          highlightParts.push(`Crystal run time: ${runSeconds}s.`);
+          if (runDurationMs <= CRYSTAL_SPRINT_TARGET_MS) {
+            const sprintMission = completeMission("mission-crystal-sprint");
+            if (sprintMission.completed) {
+              const xpAward = sprintMission.mission?.xp ?? 0;
+              const title = sprintMission.mission?.title ?? "Crystal Sprint";
+              highlightParts.push(`Mission Complete: ${title}! +${xpAward} EXP.`);
+              if (sprintMission.leveledUp) {
+                levelUpNotices.add(`Level up! You reached level ${playerStats.level}.`);
+              }
+            } else if (sprintMission.locked) {
+              const required = Math.max(1, sprintMission.mission?.requiredLevel ?? 1);
+              highlightParts.push(
+                `Reach Level ${required} to record sprint times on the mission board.`
+              );
+            }
+          }
+        }
+        crystalRunStartTime = 0;
+      }
+
+      for (const notice of levelUpNotices) {
+        highlightParts.push(notice);
+      }
+
+      const message = [...messageParts, ...highlightParts].join(" ");
       showMessage(
         {
           text: message,
           author: "Mission Log",
           channel: "mission"
         },
-        fullyCharged ? 5200 : 4200
+        fullyCharged ? 5800 : 4200
       );
     }
   }
@@ -3830,6 +3956,16 @@ function update(delta) {
           showMessage(
             { text: message, author: "Mission Log", channel: "mission" },
             5600
+          );
+        } else if (result.locked) {
+          const required = Math.max(1, result.mission?.requiredLevel ?? 1);
+          showMessage(
+            {
+              text: `Level ${required} required before the bulletin board can log your official broadcast.`,
+              author: "Mission Log",
+              channel: "mission"
+            },
+            4200
           );
         } else if (result.alreadyComplete) {
           showMessage(
@@ -3944,6 +4080,16 @@ function update(delta) {
             { text: message, author: interactable.name, channel: "mission" },
             5600
           );
+        } else if (missionResult.locked) {
+          const required = Math.max(1, missionResult.mission?.requiredLevel ?? 1);
+          showMessage(
+            {
+              text: `Train to Level ${required} so Nova can log your official briefing.`,
+              author: interactable.name,
+              channel: "mission"
+            },
+            4600
+          );
         } else {
           const line = interactable.dialogue[interactable.lineIndex];
           interactable.lineIndex =
@@ -3970,6 +4116,16 @@ function update(delta) {
           showMessage(
             { text: message, author: "Mission Command", channel: "mission" },
             5600
+          );
+        } else if (result.locked) {
+          const required = Math.max(1, result.mission?.requiredLevel ?? 1);
+          showMessage(
+            {
+              text: `Level ${required} clearance required to access the comms mission queue.`,
+              author: "Mission Command",
+              channel: "mission"
+            },
+            4400
           );
         } else if (result.alreadyComplete) {
           showMessage(
@@ -4024,15 +4180,38 @@ function update(delta) {
           playerStats.hp = playerStats.maxHp;
           playerStats.mp = playerStats.maxMp;
           ui.refresh(playerStats);
+          const highlightParts = [];
           let completionMessage =
-            "You stride into the energized portal! All stats restored for the journey ahead.";
+            "You stride into the energized portal! +120 EXP. All stats restored for the journey ahead.";
           if (bonusExp) {
-            completionMessage += ` Level up! You reached level ${playerStats.level}.`;
+            highlightParts.push(`Level up! You reached level ${playerStats.level}.`);
+          }
+          const portalMission = completeMission("mission-portal-dive");
+          if (portalMission.completed) {
+            const xpAward = portalMission.mission?.xp ?? 0;
+            const title = portalMission.mission?.title ?? "Portal Mission";
+            highlightParts.push(`Mission Complete: ${title}! +${xpAward} EXP.`);
+            if (portalMission.leveledUp) {
+              highlightParts.push(`Level up! You reached level ${playerStats.level}.`);
+            }
+          } else if (portalMission.locked) {
+            const required = Math.max(1, portalMission.mission?.requiredLevel ?? 1);
+            highlightParts.push(`Reach Level ${required} to log the portal dive mission.`);
           }
           audio.playEffect("portalComplete");
+          for (const crystal of crystals) {
+            crystal.collected = false;
+          }
+          portalCharge = 0;
+          portalCharged = false;
+          crystalRunStartTime = 0;
+          ui.updateCrystals(portalCharge, crystals.length);
           showMessage(
             {
-              text: completionMessage,
+              text:
+                highlightParts.length > 0
+                  ? `${completionMessage} ${highlightParts.join(" ")}`
+                  : completionMessage,
               author: "Mission Log",
               channel: "mission"
             },
@@ -4827,6 +5006,7 @@ function gainExperience(amount) {
     audio.playEffect("levelUp");
   }
   ui.refresh(playerStats);
+  refreshMissionDisplay();
   syncMiniGameProfile();
   return leveledUp;
 }
@@ -4991,8 +5171,26 @@ if (typeof window !== "undefined") {
           : formatRunDuration(timeMs);
       const xpLine = normalizedXp > 0 ? ` +${normalizedXp} XP` : "";
       let messageText = `${playerName} logged ${formattedScore} pts in ${formattedTime} (x${bestStreak} streak).${xpLine}`;
+      const highlightParts = new Set();
+      if (bestStreak >= 12) {
+        const comboMission = completeMission("mission-combo-challenge");
+        if (comboMission.completed) {
+          const xpAward = comboMission.mission?.xp ?? 0;
+          const title = comboMission.mission?.title ?? "Combo Celebration";
+          highlightParts.add(`Mission Complete: ${title}! +${xpAward} EXP.`);
+          if (comboMission.leveledUp) {
+            highlightParts.add(`Level up! You reached level ${playerStats.level}.`);
+          }
+        } else if (comboMission.locked) {
+          const required = Math.max(1, comboMission.mission?.requiredLevel ?? 1);
+          highlightParts.add(`Reach Level ${required} to log combo triumphs.`);
+        }
+      }
       if (leveledUp) {
-        messageText += ` Level up! You reached level ${playerStats.level}.`;
+        highlightParts.add(`Level up! You reached level ${playerStats.level}.`);
+      }
+      if (highlightParts.size > 0) {
+        messageText += ` ${Array.from(highlightParts).join(" ")}`;
       }
       showMessage(
         {
@@ -6749,6 +6947,30 @@ function createInterface(stats, options = {}) {
     commsFeedback.classList.remove("is-error");
     commsFeedback.hidden = false;
 
+    const communityMission = completeMission("mission-community-post");
+    if (communityMission.completed) {
+      const xpAward = communityMission.mission?.xp ?? 0;
+      let message =
+        `Your call sign sparkles across the community board. +${xpAward} EXP.`;
+      if (communityMission.leveledUp) {
+        message += ` Level up! You reached level ${playerStats.level}.`;
+      }
+      showMessage(
+        { text: message, author: "Mission Command", channel: "mission" },
+        5600
+      );
+    } else if (communityMission.locked) {
+      const required = Math.max(1, communityMission.mission?.requiredLevel ?? 1);
+      showMessage(
+        {
+          text: `Reach Level ${required} to log community transmissions for the Recruit Missions board.`,
+          author: "Mission Command",
+          channel: "mission"
+        },
+        4200
+      );
+    }
+
     if (targetCallSign === activeCallSign) {
       scheduleCommsRender(activeCallSign);
     }
@@ -6768,12 +6990,22 @@ function createInterface(stats, options = {}) {
   const missionList = document.createElement("ul");
   missionList.className = "mission-log__list";
   missionSection.append(missionTitle, missionSummary, missionRequirement, missionList);
-  const applyMissionState = (missionState) => {
+  const applyMissionState = (missionState, playerLevel = 1) => {
     const normalizedState = Array.isArray(missionState) ? missionState : [];
     const total = normalizedState.length;
+    const unlocked = normalizedState.filter((mission) => mission.unlocked).length;
     const completed = normalizedState.filter((mission) => mission.completed).length;
-    missionSummary.textContent =
-      total > 0 ? `${completed} / ${total} completed` : "No missions available";
+    const locked = Math.max(0, total - unlocked);
+    if (total === 0) {
+      missionSummary.textContent = "No missions available";
+    } else {
+      const denominator = unlocked > 0 ? unlocked : total;
+      let summaryText = `${completed} / ${denominator} completed`;
+      if (locked > 0) {
+        summaryText += ` · ${locked} locked`;
+      }
+      missionSummary.textContent = summaryText;
+    }
     missionList.innerHTML = "";
     for (const mission of normalizedState) {
       const item = document.createElement("li");
@@ -6781,10 +7013,13 @@ function createInterface(stats, options = {}) {
       if (mission.completed) {
         item.classList.add("is-completed");
       }
+      if (!mission.unlocked) {
+        item.classList.add("is-locked");
+      }
 
       const status = document.createElement("span");
       status.className = "mission-log__status";
-      status.textContent = mission.completed ? "✓" : "•";
+      status.textContent = mission.completed ? "✓" : mission.unlocked ? "•" : "🔒";
 
       const content = document.createElement("div");
       content.className = "mission-log__content";
@@ -6797,18 +7032,40 @@ function createInterface(stats, options = {}) {
       description.className = "mission-log__description";
       description.textContent = mission.description;
 
+      const flavor = document.createElement("p");
+      flavor.className = "mission-log__flavor";
+      if (mission.flavor) {
+        flavor.textContent = mission.flavor;
+        flavor.hidden = false;
+      } else {
+        flavor.textContent = "";
+        flavor.hidden = true;
+      }
+
       const reward = document.createElement("span");
       reward.className = "mission-log__reward";
-      reward.textContent = `+${mission.xp} EXP`;
+      const xpText = `+${mission.xp} EXP`;
+      if (mission.unlocked) {
+        reward.textContent = xpText;
+        reward.classList.remove("is-locked");
+      } else {
+        const requirement = Math.max(1, mission.requiredLevel ?? 1);
+        reward.textContent = `${xpText} · Unlocks at Level ${requirement}`;
+        reward.classList.add("is-locked");
+      }
 
-      content.append(name, description, reward);
+      if (mission.flavor) {
+        content.append(name, description, flavor, reward);
+      } else {
+        content.append(name, description, reward);
+      }
       item.append(status, content);
       missionList.append(item);
     }
   };
 
-  const scheduleMissionRender = createFrameScheduler((missionState) => {
-    applyMissionState(missionState);
+  const scheduleMissionRender = createFrameScheduler((missionState, level) => {
+    applyMissionState(missionState, level);
   });
 
   const instructions = document.createElement("ul");
