@@ -889,18 +889,162 @@ body.is-scroll-locked {
 
 .hud-modal__content {
   flex: 1 1 auto;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: 6px;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 24px;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
   min-height: 0;
+  overflow: hidden;
 }
 
 .hud-modal__content > * {
   min-width: 0;
+}
+
+.hud-modal__description {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: rgba(230, 235, 255, 0.75);
+}
+
+.hud-modal__layout {
+  flex: 1 1 auto;
+  display: flex;
+  gap: 24px;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.hud-modal__sections {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+  min-height: 0;
+  scrollbar-gutter: stable both-edges;
+}
+
+.hud-modal__sections > * {
+  min-width: 0;
+}
+
+.hud-modal__sections::-webkit-scrollbar {
+  width: 10px;
+}
+
+.hud-modal__sections::-webkit-scrollbar-thumb {
+  background: rgba(134, 225, 255, 0.4);
+  border-radius: 8px;
+}
+
+.hud-modal__sections::-webkit-scrollbar-track {
+  background: rgba(12, 18, 38, 0.65);
+  border-radius: 8px;
+}
+
+.hud-modal__nav {
+  flex: 0 0 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 20px;
+  background: linear-gradient(140deg, rgba(48, 78, 178, 0.32), rgba(22, 36, 86, 0.58));
+  border: 1px solid rgba(134, 225, 255, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 16px 36px rgba(8, 14, 30, 0.45);
+}
+
+.hud-modal__nav-title {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(230, 235, 255, 0.6);
+}
+
+.hud-modal__nav-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hud-modal__nav-item {
+  display: flex;
+}
+
+.hud-modal__nav-button {
+  width: 100%;
+  appearance: none;
+  border: 1px solid transparent;
+  background: rgba(12, 20, 42, 0.2);
+  color: #f4f6ff;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.hud-modal__nav-button:hover {
+  background: rgba(134, 225, 255, 0.18);
+  border-color: rgba(134, 225, 255, 0.4);
+  box-shadow: 0 12px 24px rgba(10, 16, 32, 0.4);
+  transform: translateY(-1px);
+}
+
+.hud-modal__nav-button.is-active,
+.hud-modal__nav-button[aria-current="true"] {
+  background: linear-gradient(135deg, rgba(134, 225, 255, 0.32), rgba(120, 172, 255, 0.28));
+  border-color: rgba(134, 225, 255, 0.6);
+  box-shadow: 0 14px 30px rgba(10, 20, 42, 0.55);
+  color: #ffffff;
+}
+
+.hud-modal__section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 22px 24px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(134, 225, 255, 0.16);
+  box-shadow: 0 24px 48px rgba(8, 12, 28, 0.55);
+}
+
+.hud-modal__section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hud-modal__section-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.01em;
+}
+
+.hud-modal__section-description {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: rgba(230, 235, 255, 0.72);
+}
+
+.hud-modal__section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 @media (max-width: 720px) {
@@ -921,7 +1065,34 @@ body.is-scroll-locked {
   }
 
   .hud-modal__content {
-    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .hud-modal__layout {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .hud-modal__nav {
+    flex: 0 0 auto;
+    width: 100%;
+    padding: 14px 16px;
+  }
+
+  .hud-modal__nav-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .hud-modal__nav-button {
+    text-align: center;
+    padding: 10px 12px;
+    flex: 1 1 150px;
+  }
+
+  .hud-modal__sections {
+    padding-right: 0;
   }
 }
 
