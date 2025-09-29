@@ -5479,7 +5479,14 @@ function createInterface(stats, options = {}) {
 
   let hudPopupSequence = 0;
 
-  function registerHudPopup({ id, label, title: popupTitle, nodes }) {
+  function registerHudPopup({
+    id,
+    label,
+    title: popupTitle,
+    description: popupDescription,
+    nodes,
+    sections
+  }) {
     const overlay = document.createElement("div");
     const overlayId = id || `hud-popup-${++hudPopupSequence}`;
     overlay.id = overlayId;
@@ -5512,10 +5519,185 @@ function createInterface(stats, options = {}) {
 
     const content = document.createElement("div");
     content.className = "hud-modal__content";
-    const nodesToAppend = Array.isArray(nodes) ? nodes : [nodes];
-    for (const node of nodesToAppend) {
-      if (node) {
-        content.append(node);
+
+    if (popupDescription) {
+      const description = document.createElement("p");
+      description.className = "hud-modal__description";
+      description.textContent = popupDescription;
+      content.append(description);
+    }
+
+    const layout = document.createElement("div");
+    layout.className = "hud-modal__layout";
+    content.append(layout);
+
+    const sectionsContainer = document.createElement("div");
+    sectionsContainer.className = "hud-modal__sections";
+
+    function isNode(value) {
+      if (typeof Node === "function") {
+        return value instanceof Node;
+      }
+      return Boolean(value && typeof value === "object" && typeof value.nodeType === "number");
+    }
+
+    function normaliseNodes(input) {
+      if (!input) {
+        return [];
+      }
+      if (Array.isArray(input)) {
+        return input.filter((candidate) => isNode(candidate));
+      }
+      return isNode(input) ? [input] : [];
+    }
+
+    const resolvedSections = [];
+    const providedSections = Array.isArray(sections) ? sections : [];
+    for (const entry of providedSections) {
+      if (!entry) {
+        continue;
+      }
+      const sectionNodes = normaliseNodes(
+        entry.nodes ?? entry.node ?? entry.content ?? entry.children ?? entry.element
+      );
+      if (sectionNodes.length === 0) {
+        continue;
+      }
+      resolvedSections.push({
+        id: entry.id,
+        heading: entry.heading ?? entry.title ?? entry.label ?? null,
+        description: entry.description ?? entry.summary ?? null,
+        navLabel: entry.navLabel ?? entry.heading ?? entry.title ?? null,
+        nodes: sectionNodes
+      });
+    }
+
+    if (resolvedSections.length === 0) {
+      const fallbackNodes = normaliseNodes(nodes);
+      let fallbackIndex = 0;
+      for (const node of fallbackNodes) {
+        fallbackIndex += 1;
+        const nodeTitle = node?.dataset?.hudTitle ?? null;
+        resolvedSections.push({
+          id: node?.id || `${overlayId}-section-${fallbackIndex}`,
+          heading: nodeTitle,
+          description: node?.dataset?.hudDescription ?? null,
+          navLabel: nodeTitle,
+          nodes: [node]
+        });
+      }
+    }
+
+    let navList = null;
+    let navEntries = [];
+
+    if (resolvedSections.length > 1) {
+      const nav = document.createElement("nav");
+      nav.className = "hud-modal__nav";
+      nav.setAttribute("aria-label", `${popupTitle} sections`);
+
+      const navTitle = document.createElement("p");
+      navTitle.className = "hud-modal__nav-title";
+      navTitle.textContent = "Quick sections";
+      nav.append(navTitle);
+
+      navList = document.createElement("ul");
+      navList.className = "hud-modal__nav-list";
+      nav.append(navList);
+
+      layout.append(nav);
+    }
+
+    layout.append(sectionsContainer);
+
+    navEntries = [];
+    let sectionIndex = 0;
+
+    for (const sectionDefinition of resolvedSections) {
+      sectionIndex += 1;
+      const section = document.createElement("section");
+      section.className = "hud-modal__section";
+      const sectionId = sectionDefinition.id || `${overlayId}-section-${sectionIndex}`;
+      section.id = sectionId;
+
+      if (sectionDefinition.heading || sectionDefinition.description) {
+        const sectionHeader = document.createElement("div");
+        sectionHeader.className = "hud-modal__section-header";
+        if (sectionDefinition.heading) {
+          const sectionTitle = document.createElement("h3");
+          sectionTitle.className = "hud-modal__section-title";
+          sectionTitle.textContent = sectionDefinition.heading;
+          sectionHeader.append(sectionTitle);
+        }
+        if (sectionDefinition.description) {
+          const sectionSummary = document.createElement("p");
+          sectionSummary.className = "hud-modal__section-description";
+          sectionSummary.textContent = sectionDefinition.description;
+          sectionHeader.append(sectionSummary);
+        }
+        section.append(sectionHeader);
+      }
+
+      const sectionContent = document.createElement("div");
+      sectionContent.className = "hud-modal__section-content";
+      for (const node of sectionDefinition.nodes) {
+        sectionContent.append(node);
+      }
+      section.append(sectionContent);
+      sectionsContainer.append(section);
+
+      if (navList) {
+        const navItem = document.createElement("li");
+        navItem.className = "hud-modal__nav-item";
+        const navButton = document.createElement("button");
+        navButton.type = "button";
+        navButton.className = "hud-modal__nav-button";
+        navButton.textContent =
+          sectionDefinition.navLabel || sectionDefinition.heading || `Section ${sectionIndex}`;
+        navButton.setAttribute("aria-controls", sectionId);
+        navButton.addEventListener("click", () => {
+          try {
+            section.scrollIntoView({ behavior: "smooth", block: "start" });
+          } catch (error) {
+            section.scrollIntoView();
+          }
+          setActiveNav(sectionId);
+        });
+        navItem.append(navButton);
+        navList.append(navItem);
+        navEntries.push({ id: sectionId, button: navButton, section });
+      }
+    }
+
+    function setActiveNav(activeId) {
+      for (const entry of navEntries) {
+        const isActive = entry.id === activeId;
+        entry.button.classList.toggle("is-active", isActive);
+        entry.button.setAttribute("aria-current", isActive ? "true" : "false");
+      }
+    }
+
+    let navObserver = null;
+    if (navEntries.length > 0 && typeof IntersectionObserver === "function") {
+      navObserver = new IntersectionObserver(
+        (entries) => {
+          let best = null;
+          for (const entry of entries) {
+            if (!entry.isIntersecting) {
+              continue;
+            }
+            if (!best || entry.intersectionRatio > best.intersectionRatio) {
+              best = entry;
+            }
+          }
+          if (best) {
+            setActiveNav(best.target.id);
+          }
+        },
+        { root: sectionsContainer, threshold: [0.25, 0.5, 0.75] }
+      );
+      for (const entry of navEntries) {
+        navObserver.observe(entry.section);
       }
     }
 
@@ -5574,6 +5756,12 @@ function createInterface(stats, options = {}) {
         }
       }
 
+      sectionsContainer.scrollTop = 0;
+      if (navEntries.length > 0) {
+        const first = navEntries[0];
+        setActiveNav(first.id);
+      }
+
       overlay.hidden = false;
       overlay.setAttribute("aria-hidden", "false");
       overlay.addEventListener("click", handleBackdropClick);
@@ -5603,6 +5791,13 @@ function createInterface(stats, options = {}) {
         }
         if (document.body) {
           document.body.style.overflow = previousBodyOverflow;
+        }
+      }
+
+      if (navObserver) {
+        navObserver.disconnect();
+        for (const { section } of navEntries) {
+          navObserver.observe(section);
         }
       }
 
@@ -6107,43 +6302,85 @@ function createInterface(stats, options = {}) {
   profileSection.append(subtitle, accountCard, crystalsLabel, message);
   panel.insertBefore(profileSection, hudButtons);
 
-  const statsModal = document.createElement("div");
-  statsModal.className = "stats-modal";
-  statsModal.append(statsContainer, attributePanel);
-
   registerHudPopup({
     id: "hud-stats",
     label: "Stats",
     title: "Pilot Stats",
-    nodes: [statsModal]
+    description: "Review your pilot vitals and prepare for the next launch without leaving the lobby.",
+    sections: [
+      {
+        id: "hud-stats-overview",
+        heading: "Pilot Overview",
+        description: "Vitals, rank, and resource bars update as you progress.",
+        nodes: [statsContainer]
+      },
+      {
+        id: "hud-stats-allocation",
+        heading: "Allocate Points",
+        description: "Spend stat points to tailor your play style before the next mission.",
+        nodes: [attributePanel]
+      }
+    ]
   });
 
   registerHudPopup({
     id: "hud-loadouts",
     label: "Loadouts",
     title: "Mini Game Loadouts",
-    nodes: [loadoutPanel.root]
+    description: "Save, compare, and equip custom presets so you are always mission ready.",
+    sections: [
+      {
+        id: "hud-loadouts-management",
+        heading: "Preset Management",
+        description: "Organize your favorite builds and swap between them instantly.",
+        nodes: [loadoutPanel.root]
+      }
+    ]
   });
 
   registerHudPopup({
     id: "hud-comms",
     label: "Comms",
     title: "Comms Center",
-    nodes: [commsSection]
+    description: "Send transmissions to fellow pilots and monitor the chatter targeted at your call sign.",
+    sections: [
+      {
+        id: "hud-comms-inbox",
+        heading: "Inbox & Transmissions",
+        description: "Messages addressed to your call sign land here. Log in to join the conversation.",
+        nodes: [commsSection]
+      }
+    ]
   });
 
   registerHudPopup({
     id: "hud-missions",
     label: "Missions",
     title: "Mission Log",
-    nodes: [missionSection]
+    description: "Track story objectives, contract work, and training opportunities at a glance.",
+    sections: [
+      {
+        id: "hud-missions-board",
+        heading: "Assignments",
+        description: "Review mission requirements and rewards before you deploy.",
+        nodes: [missionSection]
+      }
+    ]
   });
 
   registerHudPopup({
     id: "hud-controls",
     label: "Controls",
     title: "Pilot Controls",
-    nodes: [instructions]
+    description: "Keep these essential bindings handy while you navigate the lobby.",
+    sections: [
+      {
+        id: "hud-controls-shortcuts",
+        heading: "Flight Deck Shortcuts",
+        description: "Keyboard inputs for movement, jumping, and interactions.",
+        nodes: [instructions]
+      }
+    ]
   });
 
   root.append(canvasWrapper, panel);
