@@ -18,7 +18,8 @@ body {
   font-family: inherit;
   background-image: var(--page-background-overlay), var(--page-background-base);
   background-repeat: no-repeat, no-repeat;
-  background-size: cover, auto;
+  /* The gradient fallback is stretched to fill the viewport so the scene always covers the page. */
+  background-size: cover, cover;
   background-position: center, center;
   background-attachment: fixed, fixed;
   background-color: #7dbbff;
