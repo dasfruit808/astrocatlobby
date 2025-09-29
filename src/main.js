@@ -57,6 +57,32 @@ const backgroundImageUrl = new URL(
   "./assets/LobbyBackground.png",
   import.meta.url
 ).href;
+const parallaxLayerSources = [
+  {
+    source: new URL("./assets/ParallaxStars.svg", import.meta.url).href,
+    speed: 0.18,
+    opacity: 0.85,
+    align: "center"
+  },
+  {
+    source: new URL("./assets/ParallaxNebula.svg", import.meta.url).href,
+    speed: 0.28,
+    opacity: 0.9,
+    align: "center"
+  },
+  {
+    source: backgroundImageUrl,
+    speed: 0.4,
+    opacity: 1,
+    align: "center"
+  },
+  {
+    source: new URL("./assets/ParallaxPlanets.svg", import.meta.url).href,
+    speed: 0.62,
+    opacity: 1,
+    align: "bottom"
+  }
+];
 
 function normalizePublicRelativePath(relativePath) {
   if (typeof relativePath !== "string") {
@@ -1233,31 +1259,35 @@ if (!app) {
 const audio = createAudioManager();
 audio.playBackground();
 
-const backgroundImage = new Image();
-const backgroundSource = backgroundImageUrl;
-let backgroundReady = false;
-let backgroundDimensions = { width: 0, height: 0 };
-let parallaxScroll = 0;
-const markBackgroundReady = () => {
-  backgroundReady = true;
-  backgroundDimensions = {
-    width: backgroundImage.naturalWidth || baseCanvasWidth,
-    height: backgroundImage.naturalHeight || baseCanvasHeight
+const parallaxLayers = parallaxLayerSources.map((layer) => {
+  const image = new Image();
+  const layerState = {
+    ...layer,
+    image,
+    ready: false,
+    dimensions: { width: 0, height: 0 }
   };
-};
-const handleBackgroundError = () => {
-  backgroundReady = false;
-  backgroundDimensions = { width: 0, height: 0 };
-  console.warn(
-    "Background image failed to load. The gradient fallback will be used instead."
-  );
-};
-backgroundImage.addEventListener("load", markBackgroundReady);
-backgroundImage.addEventListener("error", handleBackgroundError);
-backgroundImage.src = backgroundSource;
-if (backgroundImage.complete && backgroundImage.naturalWidth > 0) {
-  markBackgroundReady();
-}
+  const markReady = () => {
+    layerState.ready = true;
+    layerState.dimensions = {
+      width: image.naturalWidth || baseCanvasWidth,
+      height: image.naturalHeight || baseCanvasHeight
+    };
+  };
+  const markError = () => {
+    layerState.ready = false;
+    layerState.dimensions = { width: 0, height: 0 };
+    console.warn(`Parallax layer failed to load: ${layer.source}`);
+  };
+  image.addEventListener("load", markReady);
+  image.addEventListener("error", markError);
+  image.src = layer.source;
+  if (image.complete && image.naturalWidth > 0) {
+    markReady();
+  }
+  return layerState;
+});
+let parallaxScroll = 0;
 
 function createStarterSpriteDataUrl({
   background,
@@ -4201,40 +4231,69 @@ function wrapOffset(value, length) {
 }
 
 function drawParallaxBackgroundImage(ctx) {
-  if (!backgroundReady) {
-    return;
+  let drewLayer = false;
+
+  for (const layer of parallaxLayers) {
+    if (!layer.ready) {
+      continue;
+    }
+
+    const { width: sourceWidth, height: sourceHeight } = layer.dimensions;
+    if (!(sourceWidth > 0) || !(sourceHeight > 0)) {
+      continue;
+    }
+
+    const widthScale = viewport.width / sourceWidth;
+    const heightScale = viewport.height / sourceHeight;
+    const scale = Math.min(widthScale, heightScale);
+    const drawWidth = sourceWidth * scale;
+    const drawHeight = sourceHeight * scale;
+
+    if (!(drawWidth > 0) || !(drawHeight > 0)) {
+      continue;
+    }
+
+    let offsetY;
+    if (layer.align === "bottom") {
+      offsetY = viewport.height - drawHeight;
+    } else if (layer.align === "top") {
+      offsetY = 0;
+    } else {
+      offsetY = (viewport.height - drawHeight) / 2;
+    }
+    if (typeof layer.offsetY === "number" && Number.isFinite(layer.offsetY)) {
+      offsetY += layer.offsetY;
+    }
+
+    const parallaxFactor = Number.isFinite(layer.speed) ? layer.speed : 0;
+    const scrollOffset = wrapOffset(parallaxScroll * parallaxFactor, drawWidth);
+
+    ctx.save();
+    if (typeof layer.opacity === "number" && layer.opacity >= 0) {
+      ctx.globalAlpha = Math.max(0, Math.min(1, layer.opacity));
+    }
+
+    for (let x = -drawWidth; x <= viewport.width + drawWidth; x += drawWidth) {
+      const drawX = Math.round(x - scrollOffset);
+      ctx.drawImage(
+        layer.image,
+        0,
+        0,
+        sourceWidth,
+        sourceHeight,
+        drawX,
+        offsetY,
+        drawWidth,
+        drawHeight
+      );
+    }
+
+    ctx.restore();
+    drewLayer = true;
   }
 
-  const { width: sourceWidth, height: sourceHeight } = backgroundDimensions;
-  if (!(sourceWidth > 0) || !(sourceHeight > 0)) {
+  if (!drewLayer) {
     return;
-  }
-
-  const widthScale = viewport.width / sourceWidth;
-  const heightScale = viewport.height / sourceHeight;
-  const scale = Math.min(widthScale, heightScale);
-  const drawWidth = sourceWidth * scale;
-  const drawHeight = sourceHeight * scale;
-  const offsetY = (viewport.height - drawHeight) / 2;
-
-  if (!(drawWidth > 0) || !(drawHeight > 0)) {
-    return;
-  }
-
-  const scrollOffset = wrapOffset(parallaxScroll * 0.4, drawWidth);
-  for (let x = -drawWidth; x <= viewport.width + drawWidth; x += drawWidth) {
-    const drawX = Math.round(x - scrollOffset);
-    ctx.drawImage(
-      backgroundImage,
-      0,
-      0,
-      sourceWidth,
-      sourceHeight,
-      drawX,
-      offsetY,
-      drawWidth,
-      drawHeight
-    );
   }
 
   const haze = ctx.createLinearGradient(0, 0, 0, viewport.height);

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="nebulaBase" x1="0%" y1="20%" x2="100%" y2="80%">
+      <stop offset="0%" stop-color="#25113f" />
+      <stop offset="45%" stop-color="#301f5e" />
+      <stop offset="100%" stop-color="#14304e" />
+    </linearGradient>
+    <radialGradient id="violetNebula" cx="30%" cy="30%" r="45%">
+      <stop offset="0%" stop-color="rgba(195, 140, 255, 0.75)" />
+      <stop offset="80%" stop-color="rgba(60, 18, 102, 0)" />
+    </radialGradient>
+    <radialGradient id="cyanNebula" cx="70%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="rgba(112, 236, 255, 0.75)" />
+      <stop offset="75%" stop-color="rgba(12, 87, 104, 0)" />
+    </radialGradient>
+    <linearGradient id="constellationTrail" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="rgba(255, 214, 160, 0)" />
+      <stop offset="25%" stop-color="rgba(255, 214, 160, 0.6)" />
+      <stop offset="75%" stop-color="rgba(181, 142, 255, 0.6)" />
+      <stop offset="100%" stop-color="rgba(181, 142, 255, 0)" />
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#nebulaBase)" />
+  <circle cx="480" cy="220" r="420" fill="url(#violetNebula)" />
+  <circle cx="1200" cy="320" r="460" fill="url(#cyanNebula)" />
+  <g opacity="0.6">
+    <path d="M260 540 Q420 480 520 560 T780 520 T1080 600 T1380 520" fill="none" stroke="url(#constellationTrail)" stroke-width="6" stroke-linecap="round" />
+    <circle cx="260" cy="540" r="8" fill="#ffecc7" />
+    <circle cx="420" cy="480" r="10" fill="#ffe1f5" />
+    <circle cx="520" cy="560" r="9" fill="#fff3d6" />
+    <circle cx="780" cy="520" r="12" fill="#ffdff6" />
+    <circle cx="1080" cy="600" r="10" fill="#e1f9ff" />
+    <circle cx="1380" cy="520" r="9" fill="#ffecc7" />
+  </g>
+</svg>
