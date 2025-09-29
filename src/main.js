@@ -1287,6 +1287,7 @@ const parallaxLayers = parallaxLayerSources.map((layer) => {
   }
   return layerState;
 });
+const PARALLAX_IDLE_SCROLL_SPEED = 0.85;
 let parallaxScroll = 0;
 let cameraScrollX = 0;
 
@@ -3778,7 +3779,7 @@ function update(delta) {
     player.onGround = true;
   }
 
-  parallaxScroll += player.vx * (delta / 16.666);
+  parallaxScroll += PARALLAX_IDLE_SCROLL_SPEED * (delta / 16.666);
   if (!Number.isFinite(parallaxScroll)) {
     parallaxScroll = 0;
   } else if (parallaxScroll > 10000 || parallaxScroll < -10000) {
