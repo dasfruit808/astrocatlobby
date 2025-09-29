@@ -2991,6 +2991,14 @@ let fallbackGradientKey = "";
 const promptFont = "20px 'Segoe UI', sans-serif";
 let promptMetricsCache = { text: "", width: 0, height: 0, ascent: 0, descent: 0 };
 
+const customizationState = {
+  active: false,
+  pointerId: null,
+  target: null,
+  offsetX: 0,
+  offsetY: 0
+};
+
 const getFallbackBackgroundGradient = () => {
   const gradientKey = `${(renderScale * devicePixelScale).toFixed(4)}:${viewport.height}`;
   if (!fallbackBackgroundGradient || fallbackGradientKey !== gradientKey) {
@@ -3253,6 +3261,99 @@ const guideCenterX = guideBaseX + guideBaseWidth / 2;
 const guideX = Math.round(guideCenterX - guideWidth / 2);
 const guideY = groundY - guideFloatOffset - guideHeight;
 
+const INTERACTABLE_LAYOUT_STORAGE_KEY = "astrocat-lobby-layout-v1";
+
+const getInteractableIdentifier = (interactable, index) => {
+  if (!interactable || typeof interactable !== "object") {
+    return `interactable-${index}`;
+  }
+  if (typeof interactable.id === "string" && interactable.id) {
+    return interactable.id;
+  }
+  if (typeof interactable.label === "string" && interactable.label) {
+    return `${interactable.type ?? "item"}:${interactable.label}`;
+  }
+  if (typeof interactable.name === "string" && interactable.name) {
+    return `${interactable.type ?? "item"}:${interactable.name}`;
+  }
+  if (typeof interactable.type === "string" && interactable.type) {
+    return `${interactable.type}-${index}`;
+  }
+  return `interactable-${index}`;
+};
+
+function clampInteractablePosition(interactable) {
+  if (!interactable || typeof interactable !== "object") {
+    return;
+  }
+  const width = Number.isFinite(interactable.width) ? interactable.width : 0;
+  const height = Number.isFinite(interactable.height) ? interactable.height : 0;
+  const maxX = Math.max(0, viewport.width - width);
+  const maxY = Math.max(0, groundY - height);
+  const nextX = Number(interactable.x);
+  const nextY = Number(interactable.y);
+  interactable.x = Number.isFinite(nextX) ? clamp(Math.round(nextX), 0, maxX) : 0;
+  interactable.y = Number.isFinite(nextY) ? clamp(Math.round(nextY), 0, maxY) : maxY;
+}
+
+function getLayoutStorage() {
+  if (typeof window === "undefined" || !window) {
+    return null;
+  }
+  try {
+    return window.localStorage;
+  } catch (error) {
+    return null;
+  }
+}
+
+function readSavedInteractableLayout() {
+  const storage = getLayoutStorage();
+  if (!storage) {
+    return null;
+  }
+  try {
+    const raw = storage.getItem(INTERACTABLE_LAYOUT_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+    if (parsed.positions && typeof parsed.positions === "object") {
+      return parsed.positions;
+    }
+    return parsed;
+  } catch (error) {
+    return null;
+  }
+}
+
+function applySavedInteractableLayout(interactablesList) {
+  const savedLayout = readSavedInteractableLayout();
+  if (!savedLayout) {
+    interactablesList.forEach((entry) => clampInteractablePosition(entry));
+    return;
+  }
+
+  interactablesList.forEach((interactable, index) => {
+    const key = getInteractableIdentifier(interactable, index);
+    const saved = savedLayout[key];
+    if (saved && typeof saved === "object") {
+      const savedX = Number(saved.x);
+      const savedY = Number(saved.y);
+      if (Number.isFinite(savedX)) {
+        interactable.x = Math.round(savedX);
+      }
+      if (Number.isFinite(savedY)) {
+        interactable.y = Math.round(savedY);
+      }
+    }
+    clampInteractablePosition(interactable);
+  });
+}
+
 const scaleLobbyEntity = (entity) => {
   if (!entity || typeof entity !== "object") {
     return entity;
@@ -3274,6 +3375,7 @@ const scaleLobbyEntity = (entity) => {
 
 const interactables = [
   {
+    id: "bulletin-board",
     type: "bulletin",
     label: "Star Bulletin Board",
     missionId: "mission-broadcast",
@@ -3283,6 +3385,7 @@ const interactables = [
     height: 82
   },
   {
+    id: "treasure-chest",
     type: "chest",
     label: "Treasure Chest",
     x: 84,
@@ -3292,6 +3395,7 @@ const interactables = [
     opened: false
   },
   {
+    id: "starcade-cabinet",
     type: "arcade",
     label: "Starcade Cabinet",
     x: 520,
@@ -3300,6 +3404,7 @@ const interactables = [
     height: 102
   },
   {
+    id: "nova-guide",
     type: "npc",
     name: "Nova",
     label: "Nova the Guide",
@@ -3316,6 +3421,7 @@ const interactables = [
     lineIndex: 0
   },
   {
+    id: "mana-fountain",
     type: "fountain",
     label: "Mana Fountain",
     x: 840,
@@ -3325,6 +3431,7 @@ const interactables = [
     charges: 2
   },
   {
+    id: "comms-console",
     type: "comms",
     label: "Comms Console",
     missionId: "mission-follow",
@@ -3334,6 +3441,52 @@ const interactables = [
     height: 78
   }
 ].map((interactable) => scaleLobbyEntity(interactable));
+
+applySavedInteractableLayout(interactables);
+
+function saveInteractableLayoutSnapshot(interactablesList = interactables) {
+  const storage = getLayoutStorage();
+  if (!storage || !Array.isArray(interactablesList)) {
+    return;
+  }
+
+  const payload = { version: 1, positions: {} };
+  interactablesList.forEach((interactable, index) => {
+    if (!interactable || typeof interactable !== "object") {
+      return;
+    }
+    const key = getInteractableIdentifier(interactable, index);
+    payload.positions[key] = {
+      x: Math.round(Number.isFinite(interactable.x) ? interactable.x : 0),
+      y: Math.round(Number.isFinite(interactable.y) ? interactable.y : 0)
+    };
+  });
+
+  try {
+    storage.setItem(INTERACTABLE_LAYOUT_STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    // Ignore storage write errors (for example, storage being unavailable or full).
+  }
+}
+
+function getInteractableLabel(interactable) {
+  if (!interactable || typeof interactable !== "object") {
+    return "";
+  }
+  if (typeof interactable.label === "string" && interactable.label) {
+    return interactable.label;
+  }
+  if (typeof interactable.name === "string" && interactable.name) {
+    return interactable.name;
+  }
+  if (typeof interactable.id === "string" && interactable.id) {
+    return interactable.id;
+  }
+  if (typeof interactable.type === "string" && interactable.type) {
+    return interactable.type;
+  }
+  return "";
+}
 
 const missionDefinitions = [
   {
@@ -3551,6 +3704,201 @@ const resetMovementInput = () => {
   releaseScrollLock();
 };
 
+const CUSTOMIZATION_OVERLAY_DEFAULT_MESSAGE =
+  "Customization unlocked: drag lobby objects and press Lock layout when you're finished.";
+
+function updateCustomizationOverlay(target) {
+  if (!ui?.customizationOverlay) {
+    return;
+  }
+  const overlay = ui.customizationOverlay;
+  if (!customizationState.active) {
+    overlay.hidden = true;
+    overlay.textContent = CUSTOMIZATION_OVERLAY_DEFAULT_MESSAGE;
+    return;
+  }
+
+  overlay.hidden = false;
+  if (target) {
+    const label = getInteractableLabel(target) || "Lobby object";
+    const x = Math.round(Number.isFinite(target.x) ? target.x : 0);
+    const y = Math.round(Number.isFinite(target.y) ? target.y : 0);
+    overlay.textContent = `Moving ${label} · ${x}, ${y}`;
+  } else {
+    overlay.textContent = CUSTOMIZATION_OVERLAY_DEFAULT_MESSAGE;
+  }
+}
+
+function updateCustomizationUi() {
+  const active = customizationState.active;
+
+  if (ui?.layoutToggle) {
+    ui.layoutToggle.textContent = active ? "Lock layout" : "Customize lobby layout";
+    ui.layoutToggle.setAttribute("aria-pressed", active ? "true" : "false");
+    ui.layoutToggle.classList.toggle("is-active", active);
+  }
+
+  if (ui?.layoutHint) {
+    ui.layoutHint.hidden = !active;
+  }
+
+  if (canvas) {
+    canvas.classList.toggle("is-customizing", active);
+    if (active) {
+      canvas.style.touchAction = "none";
+    } else {
+      canvas.style.touchAction = "";
+      canvas.classList.remove("is-dragging");
+    }
+  }
+
+  updateCustomizationOverlay(active ? customizationState.target : null);
+}
+
+function endCustomizationDrag() {
+  if (customizationState.pointerId !== null && typeof canvas?.releasePointerCapture === "function") {
+    try {
+      canvas.releasePointerCapture(customizationState.pointerId);
+    } catch (error) {
+      // Ignore pointer capture release errors.
+    }
+  }
+  customizationState.pointerId = null;
+  customizationState.target = null;
+  customizationState.offsetX = 0;
+  customizationState.offsetY = 0;
+  if (canvas) {
+    canvas.classList.remove("is-dragging");
+  }
+  updateCustomizationOverlay(null);
+}
+
+function setCustomizationMode(enabled) {
+  const next = Boolean(enabled);
+  if (customizationState.active === next) {
+    updateCustomizationUi();
+    return;
+  }
+
+  if (!next) {
+    if (customizationState.target) {
+      clampInteractablePosition(customizationState.target);
+    }
+    endCustomizationDrag();
+    saveInteractableLayoutSnapshot();
+  } else {
+    keys.clear();
+    justPressed.clear();
+    resetMovementInput();
+    player.vx = 0;
+    player.vy = 0;
+    player.onGround = true;
+  }
+
+  customizationState.active = next;
+  updateCustomizationUi();
+}
+
+function getWorldPositionFromPointer(event) {
+  const rect = canvas.getBoundingClientRect();
+  const cssX = event.clientX - rect.left;
+  const cssY = event.clientY - rect.top;
+  const scale = renderScale || 1;
+  return {
+    x: cssX / scale + cameraScrollX,
+    y: cssY / scale
+  };
+}
+
+function isPointInsideInteractable(x, y, interactable) {
+  if (!interactable || typeof interactable !== "object") {
+    return false;
+  }
+  const width = Number.isFinite(interactable.width) ? interactable.width : 0;
+  const height = Number.isFinite(interactable.height) ? interactable.height : 0;
+  return (
+    x >= interactable.x &&
+    x <= interactable.x + width &&
+    y >= interactable.y &&
+    y <= interactable.y + height
+  );
+}
+
+function handleCanvasPointerDown(event) {
+  if (!customizationState.active) {
+    return;
+  }
+  event.preventDefault();
+  const { x, y } = getWorldPositionFromPointer(event);
+  for (let index = interactables.length - 1; index >= 0; index -= 1) {
+    const interactable = interactables[index];
+    if (!isPointInsideInteractable(x, y, interactable)) {
+      continue;
+    }
+    customizationState.pointerId = event.pointerId;
+    customizationState.target = interactable;
+    customizationState.offsetX = x - interactable.x;
+    customizationState.offsetY = y - interactable.y;
+    if (typeof canvas.setPointerCapture === "function") {
+      try {
+        canvas.setPointerCapture(event.pointerId);
+      } catch (error) {
+        // Ignore pointer capture errors.
+      }
+    }
+    canvas.classList.add("is-dragging");
+    updateCustomizationOverlay(interactable);
+    break;
+  }
+}
+
+function handleCanvasPointerMove(event) {
+  if (!customizationState.active) {
+    return;
+  }
+  if (customizationState.pointerId !== event.pointerId || !customizationState.target) {
+    return;
+  }
+  event.preventDefault();
+  const { x, y } = getWorldPositionFromPointer(event);
+  const interactable = customizationState.target;
+  const width = Number.isFinite(interactable.width) ? interactable.width : 0;
+  const height = Number.isFinite(interactable.height) ? interactable.height : 0;
+  const maxX = Math.max(0, viewport.width - width);
+  const maxY = Math.max(0, groundY - height);
+  const nextX = x - customizationState.offsetX;
+  const nextY = y - customizationState.offsetY;
+  interactable.x = clamp(Math.round(nextX), 0, maxX);
+  interactable.y = clamp(Math.round(nextY), 0, maxY);
+  updateCustomizationOverlay(interactable);
+}
+
+function handleCanvasPointerUp(event) {
+  if (customizationState.pointerId !== event.pointerId) {
+    return;
+  }
+  if (customizationState.target) {
+    clampInteractablePosition(customizationState.target);
+    saveInteractableLayoutSnapshot();
+  }
+  endCustomizationDrag();
+}
+
+if (canvas) {
+  canvas.addEventListener("pointerdown", handleCanvasPointerDown);
+  canvas.addEventListener("pointermove", handleCanvasPointerMove);
+  canvas.addEventListener("pointerup", handleCanvasPointerUp);
+  canvas.addEventListener("pointercancel", handleCanvasPointerUp);
+}
+
+if (ui?.layoutToggle) {
+  ui.layoutToggle.addEventListener("click", () => {
+    setCustomizationMode(!customizationState.active);
+  });
+}
+
+updateCustomizationUi();
+
 const pressVirtualKey = (code) => {
   if (!code) {
     return;
@@ -3597,6 +3945,13 @@ const isInteractiveElement = (target) => {
 };
 
 window.addEventListener("keydown", (event) => {
+  if (customizationState.active) {
+    if (event.code === "Escape") {
+      event.preventDefault();
+      setCustomizationMode(false);
+    }
+    return;
+  }
   if (movementKeyCodes.has(event.code) && !isInteractiveElement(event.target)) {
     event.preventDefault();
   }
@@ -3605,6 +3960,13 @@ window.addEventListener("keydown", (event) => {
 });
 
 window.addEventListener("keyup", (event) => {
+  if (customizationState.active) {
+    if (event.code === "Escape") {
+      event.preventDefault();
+      setCustomizationMode(false);
+    }
+    return;
+  }
   releaseVirtualKey(event.code);
 });
 
@@ -3615,6 +3977,9 @@ window.addEventListener("pointerdown", () => {
 window.addEventListener("blur", () => {
   keys.clear();
   resetMovementInput();
+  if (customizationState.active) {
+    endCustomizationDrag();
+  }
 });
 
 const audioPrompt = document.createElement("button");
@@ -3728,6 +4093,14 @@ function loop(timestamp) {
 function update(delta) {
   const portalWasCharged = portalCharged;
   const previousY = player.y;
+
+  if (customizationState.active) {
+    player.vx = 0;
+    player.vy = 0;
+    player.onGround = true;
+    ui.setPrompt("");
+    return;
+  }
 
   if (miniGameActive) {
     player.vx = 0;
@@ -4386,6 +4759,9 @@ function render(timestamp) {
     } else if (interactable.type === "comms") {
       drawComms(interactable, time);
     }
+    if (customizationState.active) {
+      drawCustomizationOutline(interactable, customizationState.target === interactable);
+    }
   }
 
   for (const crystal of crystals) {
@@ -4400,6 +4776,54 @@ function render(timestamp) {
   if (ui.promptText) {
     drawPromptBubble(ui.promptText, ui.promptEntity || player);
   }
+}
+
+function drawCustomizationOutline(interactable, isActive) {
+  if (!interactable || typeof interactable !== "object") {
+    return;
+  }
+
+  const width = Number.isFinite(interactable.width) ? interactable.width : 0;
+  const height = Number.isFinite(interactable.height) ? interactable.height : 0;
+  const padding = 4;
+
+  ctx.save();
+  ctx.lineWidth = isActive ? 3 : 2;
+  ctx.setLineDash(isActive ? [12, 6] : [6, 6]);
+  ctx.strokeStyle = isActive ? "rgba(255, 230, 140, 0.95)" : "rgba(255, 255, 255, 0.7)";
+  ctx.strokeRect(
+    interactable.x - padding,
+    interactable.y - padding,
+    width + padding * 2,
+    height + padding * 2
+  );
+  ctx.restore();
+
+  const label = getInteractableLabel(interactable);
+  if (!label) {
+    return;
+  }
+
+  ctx.save();
+  ctx.font = "16px 'Segoe UI', sans-serif";
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  const textWidth = ctx.measureText(label).width;
+  const paddingX = 10;
+  const boxWidth = textWidth + paddingX * 2;
+  const boxHeight = 24;
+  const centerX = interactable.x + width / 2;
+  let boxX = centerX - boxWidth / 2;
+  boxX = clamp(boxX, 8, viewport.width - boxWidth - 8);
+  let boxY = interactable.y - boxHeight - 8;
+  if (boxY < 8) {
+    boxY = Math.min(interactable.y + height + 8, viewport.height - boxHeight - 8);
+  }
+  ctx.fillStyle = isActive ? "rgba(36, 18, 62, 0.88)" : "rgba(20, 24, 46, 0.75)";
+  drawRoundedRect(boxX, boxY, boxWidth, boxHeight, 12);
+  ctx.fillStyle = "#fefbff";
+  ctx.fillText(label, boxX + boxWidth / 2, boxY + boxHeight / 2 + 1);
+  ctx.restore();
 }
 
 function drawPortal(time) {
@@ -6036,6 +6460,31 @@ function createInterface(stats, options = {}) {
   canvasSurface.className = "canvas-surface";
   canvasWrapper.append(canvasSurface);
 
+  const layoutControls = document.createElement("div");
+  layoutControls.className = "layout-controls";
+
+  const layoutToggle = document.createElement("button");
+  layoutToggle.type = "button";
+  layoutToggle.className = "layout-controls__toggle";
+  layoutToggle.textContent = "Customize lobby layout";
+  layoutToggle.setAttribute("aria-pressed", "false");
+
+  const layoutHint = document.createElement("p");
+  layoutHint.className = "layout-controls__hint";
+  layoutHint.textContent =
+    "Drag and drop lobby objects while customization is unlocked. Changes are saved on this device.";
+  layoutHint.hidden = true;
+
+  layoutControls.append(layoutToggle, layoutHint);
+  canvasWrapper.append(layoutControls);
+
+  const customizationOverlay = document.createElement("div");
+  customizationOverlay.className = "canvas-customization-overlay";
+  customizationOverlay.textContent =
+    "Customization unlocked: drag lobby objects and press Lock layout when you're finished.";
+  customizationOverlay.hidden = true;
+  canvasSurface.append(customizationOverlay);
+
   const chatBoard = createChatBoardSection();
   canvasWrapper.append(chatBoard.root);
 
@@ -7160,6 +7609,10 @@ function createInterface(stats, options = {}) {
     root: interfaceRoot,
     canvasWrapper,
     canvasSurface,
+    layoutControls,
+    layoutToggle,
+    layoutHint,
+    customizationOverlay,
     promptText: "",
     promptEntity: null,
     refresh(updatedStats) {
