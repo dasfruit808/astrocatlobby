@@ -3486,6 +3486,12 @@ function completeMission(missionId) {
 
 const keys = new Set();
 const justPressed = new Set();
+const emptyJustPressedSet = new Set();
+let currentJustPressed = justPressed;
+
+function wasKeyJustPressed(code) {
+  return currentJustPressed.has(code);
+}
 
 const movementKeyCodes = new Set([
   "ArrowUp",
@@ -3687,17 +3693,41 @@ ui.updateCrystals(0, crystals.length);
 ui.refresh(playerStats);
 refreshMissionDisplay();
 
+const FIXED_TIMESTEP = 16.666;
+const MAX_FRAME_TIME = 100;
+const MAX_ACCUMULATED_TIME = FIXED_TIMESTEP * 5;
+
 let lastTimestamp = performance.now();
+let accumulatedFrameTime = 0;
 requestAnimationFrame(loop);
 
 function loop(timestamp) {
-  const delta = Math.min(32, timestamp - lastTimestamp);
+  let frameTime = timestamp - lastTimestamp;
+  if (!Number.isFinite(frameTime) || frameTime < 0) {
+    frameTime = FIXED_TIMESTEP;
+  }
+  frameTime = Math.min(frameTime, MAX_FRAME_TIME);
   lastTimestamp = timestamp;
 
-  update(delta);
+  accumulatedFrameTime = Math.min(accumulatedFrameTime + frameTime, MAX_ACCUMULATED_TIME);
+
+  const frameJustPressed = new Set(justPressed);
+  let processedInput = false;
+
+  while (accumulatedFrameTime >= FIXED_TIMESTEP) {
+    currentJustPressed = processedInput ? emptyJustPressedSet : frameJustPressed;
+    update(FIXED_TIMESTEP);
+    accumulatedFrameTime -= FIXED_TIMESTEP;
+    processedInput = true;
+  }
+
+  currentJustPressed = frameJustPressed;
   render(timestamp);
 
-  justPressed.clear();
+  if (processedInput) {
+    justPressed.clear();
+  }
+
   requestAnimationFrame(loop);
 }
 
@@ -3717,9 +3747,9 @@ function update(delta) {
   const moveLeft = keys.has("ArrowLeft") || keys.has("KeyA");
   const moveRight = keys.has("ArrowRight") || keys.has("KeyD");
   const jumpPressed =
-    justPressed.has("Space") ||
-    justPressed.has("ArrowUp") ||
-    justPressed.has("KeyW");
+    wasKeyJustPressed("Space") ||
+    wasKeyJustPressed("ArrowUp") ||
+    wasKeyJustPressed("KeyW");
 
   const acceleration = 0.35 * (delta / 16.666);
   const maxSpeed = 4.2;
@@ -3914,7 +3944,7 @@ function update(delta) {
     if (interactable.type === "bulletin") {
       promptText = "Press E to review the bulletin board";
       promptTarget = interactable;
-      if (justPressed.has("KeyE")) {
+      if (wasKeyJustPressed("KeyE")) {
         const result = completeMission(interactable.missionId);
         audio.playEffect("dialogue");
         if (result.completed) {
@@ -3961,7 +3991,7 @@ function update(delta) {
     } else if (interactable.type === "chest") {
       promptText = "Press E to open the chest";
       promptTarget = interactable;
-      if (justPressed.has("KeyE")) {
+      if (wasKeyJustPressed("KeyE")) {
         if (!interactable.opened) {
           interactable.opened = true;
           playerStats.hp = clamp(playerStats.hp + 12, 0, playerStats.maxHp);
@@ -3990,7 +4020,7 @@ function update(delta) {
     } else if (interactable.type === "arcade") {
       promptText = "Press E to launch the Starcade";
       promptTarget = interactable;
-      if (justPressed.has("KeyE")) {
+      if (wasKeyJustPressed("KeyE")) {
         audio.playEffect("dialogue");
         openMiniGame();
         showMessage(
@@ -4007,7 +4037,7 @@ function update(delta) {
     } else if (interactable.type === "fountain") {
       promptText = "Press E to draw power from the fountain";
       promptTarget = interactable;
-      if (justPressed.has("KeyE")) {
+      if (wasKeyJustPressed("KeyE")) {
         if (interactable.charges > 0) {
           interactable.charges -= 1;
           playerStats.mp = clamp(playerStats.mp + 18, 0, playerStats.maxMp);
@@ -4036,7 +4066,7 @@ function update(delta) {
     } else if (interactable.type === "npc") {
       promptText = "Press E to talk to Nova";
       promptTarget = interactable;
-      if (justPressed.has("KeyE")) {
+      if (wasKeyJustPressed("KeyE")) {
         const missionResult = completeMission(interactable.missionId);
         audio.playEffect("dialogue");
         if (missionResult.completed) {
@@ -4074,7 +4104,7 @@ function update(delta) {
     } else if (interactable.type === "comms") {
       promptText = "Press E to access the comms console";
       promptTarget = interactable;
-      if (justPressed.has("KeyE")) {
+      if (wasKeyJustPressed("KeyE")) {
         const result = completeMission(interactable.missionId);
         audio.playEffect("dialogue");
         if (result.completed) {
@@ -4127,7 +4157,7 @@ function update(delta) {
       if (playerStats.level < portalRequiredLevel) {
         promptText = `Reach Level ${portalRequiredLevel} to activate the portal.`;
         promptTarget = portal;
-        if (justPressed.has("KeyE")) {
+        if (wasKeyJustPressed("KeyE")) {
           audio.playEffect("dialogue");
           showMessage(
             {
@@ -4144,7 +4174,7 @@ function update(delta) {
       } else {
         promptText = "Press E to step through the charged portal";
         promptTarget = portal;
-        if (justPressed.has("KeyE")) {
+        if (wasKeyJustPressed("KeyE")) {
           audio.playEffect("portalActivate");
           portalCompleted = true;
           const bonusExp = gainExperience(120);
