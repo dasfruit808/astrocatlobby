@@ -307,6 +307,11 @@ function resolvePublicAssetUrl(relativePath) {
     return merged;
   }
 
+  const resolvedFromDocument = resolveUsingDocumentBase(candidate);
+  if (resolvedFromDocument) {
+    return resolvedFromDocument;
+  }
+
   return `/${candidate}`;
 }
 
