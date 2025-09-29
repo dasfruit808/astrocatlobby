@@ -1905,6 +1905,50 @@ body.is-scroll-locked {
   color: inherit;
 }
 
+.account-card__profiles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.account-card__profiles[hidden] {
+  display: none;
+}
+
+.account-card__profiles-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(230, 235, 255, 0.55);
+}
+
+.account-card__profiles-select {
+  appearance: none;
+  width: 100%;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(134, 225, 255, 0.28);
+  background: rgba(134, 225, 255, 0.12);
+  color: #f4f7ff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.account-card__profiles-select:focus-visible {
+  outline: 2px solid rgba(170, 240, 255, 0.7);
+  outline-offset: 2px;
+  border-color: rgba(170, 240, 255, 0.7);
+  box-shadow: 0 12px 24px rgba(10, 16, 32, 0.35);
+}
+
+.account-card__profiles-select option {
+  color: #081020;
+}
+
 .account-card__cat-name {
   margin: 0;
   font-size: 20px;
@@ -2113,6 +2157,69 @@ body.is-scroll-locked {
   margin: 0;
   color: rgba(211, 220, 255, 0.82);
   line-height: 1.5;
+}
+
+.onboarding-saved {
+  margin: 18px 0 20px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(14, 28, 58, 0.75);
+  border: 1px solid rgba(138, 191, 255, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.onboarding-saved__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(230, 235, 255, 0.92);
+}
+
+.onboarding-saved__hint {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(214, 232, 255, 0.8);
+}
+
+.onboarding-saved__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.onboarding-saved__item {
+  margin: 0;
+}
+
+.onboarding-saved__button {
+  width: 100%;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(134, 225, 255, 0.28);
+  background: rgba(134, 225, 255, 0.16);
+  color: #f4f7ff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.onboarding-saved__button:hover,
+.onboarding-saved__button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(10, 16, 32, 0.35);
+  border-color: rgba(170, 240, 255, 0.6);
+  outline: none;
+}
+
+.onboarding-saved__button:active {
+  transform: translateY(0);
 }
 
 .onboarding-character {

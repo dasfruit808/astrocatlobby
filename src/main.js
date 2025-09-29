@@ -1385,10 +1385,14 @@ const starterCharacters = starterCharacterDefinitions.map((definition) => ({
   )
 }));
 
-const accountStorageKey = "astrocat-account";
+const legacyAccountStorageKey = "astrocat-account";
+const accountStorageKey = "astrocat-accounts";
 const callSignRegistryKey = "astrocat-call-signs";
 const messageBoardStorageKey = "astrocat-message-boards";
 const callSignLength = 5;
+
+let storedAccounts = {};
+let activeAccountCallSign = null;
 
 function createCallSignExample() {
   const digits = "1234567890";
@@ -1667,56 +1671,121 @@ function sanitizeAccount(source = {}) {
   };
 }
 
-function loadStoredAccount() {
-  const storage = getLocalStorage();
-  if (!storage) {
+function extractStoredCallSign(source) {
+  if (!source || typeof source !== "object") {
     return null;
   }
 
-  try {
-    const raw = storage.getItem(accountStorageKey);
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw);
-    const sanitized = sanitizeAccount(parsed);
-    if (!sanitized) {
-      return null;
-    }
-
-    const needsMigration =
-      !parsed ||
-      parsed.callSign !== sanitized.callSign ||
-      parsed.handle !== sanitized.handle;
-
-    if (needsMigration) {
-      saveAccount(sanitized);
-    } else {
-      registerCallSign(sanitized.callSign);
-    }
-
-    return sanitized;
-  } catch (error) {
-    console.warn("Failed to read stored account information", error);
-    return null;
+  if (isValidCallSign(source.callSign)) {
+    return source.callSign;
   }
+
+  if (typeof source.handle === "string") {
+    const digits = source.handle.replace(/^@+/, "");
+    if (isValidCallSign(digits)) {
+      return digits;
+    }
+  }
+
+  return null;
 }
 
-function saveAccount(account) {
+function normalizeStoredAccountPayload(payload) {
+  const accounts = {};
+  const originalToSanitized = new Map();
+  let fallbackActive = null;
+
+  const candidates = [];
+  if (Array.isArray(payload)) {
+    candidates.push(...payload);
+  } else if (payload && typeof payload === "object") {
+    if (Array.isArray(payload.accounts)) {
+      candidates.push(...payload.accounts);
+    } else if (payload.accounts && typeof payload.accounts === "object") {
+      candidates.push(...Object.values(payload.accounts));
+    } else {
+      candidates.push(payload);
+    }
+  } else if (payload) {
+    candidates.push(payload);
+  }
+
+  for (const candidate of candidates) {
+    const sanitized = sanitizeAccount(candidate);
+    if (!sanitized) {
+      continue;
+    }
+    const original = extractStoredCallSign(candidate);
+    if (original && original !== sanitized.callSign) {
+      originalToSanitized.set(original, sanitized.callSign);
+    }
+    accounts[sanitized.callSign] = sanitized;
+    if (!fallbackActive) {
+      fallbackActive = sanitized.callSign;
+    }
+  }
+
+  let activeCallSign = null;
+  const requestedActive =
+    payload && typeof payload === "object" && typeof payload.activeCallSign === "string"
+      ? payload.activeCallSign
+      : null;
+  if (requestedActive) {
+    const mapped = originalToSanitized.get(requestedActive) ?? requestedActive;
+    if (mapped && accounts[mapped]) {
+      activeCallSign = mapped;
+    }
+  }
+
+  if (!activeCallSign && fallbackActive && accounts[fallbackActive]) {
+    activeCallSign = fallbackActive;
+  }
+
+  return { accounts, activeCallSign };
+}
+
+function buildAccountPayload(accounts, activeCallSign) {
+  const sortedAccounts = {};
+  const keys = Object.keys(accounts).sort((a, b) => a.localeCompare(b));
+  for (const key of keys) {
+    const entry = accounts[key];
+    if (!entry) {
+      continue;
+    }
+    sortedAccounts[key] = {
+      handle: entry.handle,
+      callSign: entry.callSign,
+      catName: entry.catName,
+      starterId: entry.starterId
+    };
+  }
+
+  return {
+    version: 1,
+    activeCallSign: activeCallSign ?? null,
+    accounts: sortedAccounts
+  };
+}
+
+function persistStoredAccounts() {
   const storage = getLocalStorage();
   if (!storage) {
     return false;
   }
 
-  const sanitized = sanitizeAccount(account);
-  if (!sanitized) {
-    return false;
-  }
-
   try {
-    storage.setItem(accountStorageKey, JSON.stringify(sanitized));
-    registerCallSign(sanitized.callSign);
+    const accountKeys = Object.keys(storedAccounts);
+    if (accountKeys.length === 0) {
+      storage.removeItem(accountStorageKey);
+    } else {
+      const payload = buildAccountPayload(storedAccounts, activeAccountCallSign);
+      storage.setItem(accountStorageKey, JSON.stringify(payload));
+    }
+    try {
+      storage.removeItem(legacyAccountStorageKey);
+    } catch (error) {
+      console.warn("Failed to clear legacy account storage", error);
+    }
     return true;
   } catch (error) {
     console.warn("Failed to persist account details", error);
@@ -1724,16 +1793,158 @@ function saveAccount(account) {
   }
 }
 
-function clearStoredAccount() {
-  if (typeof window === "undefined" || !window.localStorage) {
+function rememberAccount(account, options = {}) {
+  const sanitized = sanitizeAccount(account);
+  if (!sanitized) {
+    return null;
+  }
+
+  const originalCallSign = extractStoredCallSign(account);
+  if (originalCallSign && originalCallSign !== sanitized.callSign) {
+    delete storedAccounts[originalCallSign];
+  }
+
+  storedAccounts[sanitized.callSign] = sanitized;
+
+  if (options.setActive !== false) {
+    activeAccountCallSign = sanitized.callSign;
+  }
+
+  registerCallSign(sanitized.callSign);
+  return sanitized;
+}
+
+function getStoredAccountsSnapshot() {
+  return Object.values(storedAccounts)
+    .map((entry) => ({ ...entry }))
+    .sort((a, b) => {
+      const nameCompare = a.catName.localeCompare(b.catName, undefined, { sensitivity: "base" });
+      if (nameCompare !== 0) {
+        return nameCompare;
+      }
+      return a.callSign.localeCompare(b.callSign);
+    });
+}
+
+function loadStoredAccount() {
+  storedAccounts = {};
+  activeAccountCallSign = null;
+
+  const storage = getLocalStorage();
+  if (!storage) {
+    return null;
+  }
+
+  let rawPayload = null;
+  let usedLegacyKey = false;
+
+  try {
+    rawPayload = storage.getItem(accountStorageKey);
+    if (!rawPayload) {
+      rawPayload = storage.getItem(legacyAccountStorageKey);
+      usedLegacyKey = Boolean(rawPayload);
+    }
+  } catch (error) {
+    console.warn("Failed to read stored account information", error);
+    rawPayload = null;
+  }
+
+  if (!rawPayload) {
+    if (usedLegacyKey) {
+      try {
+        storage.removeItem(legacyAccountStorageKey);
+      } catch (error) {
+        console.warn("Failed to remove legacy account record", error);
+      }
+    }
+    return null;
+  }
+
+  let parsedPayload = null;
+  try {
+    parsedPayload = JSON.parse(rawPayload);
+  } catch (error) {
+    console.warn("Failed to parse stored account information", error);
+    parsedPayload = null;
+  }
+
+  const normalized = normalizeStoredAccountPayload(parsedPayload);
+  storedAccounts = normalized.accounts;
+  activeAccountCallSign = normalized.activeCallSign;
+
+  const accountKeys = Object.keys(storedAccounts);
+  if (accountKeys.length === 0) {
+    persistStoredAccounts();
+    return null;
+  }
+
+  let activeAccount =
+    activeAccountCallSign && storedAccounts[activeAccountCallSign]
+      ? storedAccounts[activeAccountCallSign]
+      : null;
+
+  if (!activeAccount) {
+    const fallbackKey = accountKeys[0];
+    activeAccount = storedAccounts[fallbackKey];
+    activeAccountCallSign = activeAccount?.callSign ?? null;
+  }
+
+  if (!activeAccount) {
+    persistStoredAccounts();
+    return null;
+  }
+
+  const payload = buildAccountPayload(storedAccounts, activeAccountCallSign);
+  const serialized = JSON.stringify(payload);
+
+  if (usedLegacyKey || serialized !== rawPayload) {
+    try {
+      storage.setItem(accountStorageKey, serialized);
+    } catch (error) {
+      console.warn("Failed to persist migrated account records", error);
+    }
+    if (usedLegacyKey) {
+      try {
+        storage.removeItem(legacyAccountStorageKey);
+      } catch (error) {
+        console.warn("Failed to remove legacy account record", error);
+      }
+    }
+  }
+
+  for (const entry of Object.values(storedAccounts)) {
+    registerCallSign(entry.callSign);
+  }
+
+  return activeAccount ?? null;
+}
+
+function saveAccount(account, options = {}) {
+  const remembered = rememberAccount(account, options);
+  if (!remembered) {
+    return false;
+  }
+  return persistStoredAccounts();
+}
+
+function clearStoredAccount(callSign = null) {
+  storedAccounts = { ...storedAccounts };
+
+  if (callSign) {
+    if (!storedAccounts[callSign]) {
+      return;
+    }
+    delete storedAccounts[callSign];
+    if (activeAccountCallSign === callSign) {
+      activeAccountCallSign = Object.keys(storedAccounts)[0] ?? null;
+    }
+    persistStoredAccounts();
     return;
   }
 
-  try {
-    window.localStorage.removeItem(accountStorageKey);
-  } catch (error) {
-    console.warn("Failed to clear stored account information", error);
-  }
+  storedAccounts = {};
+  activeAccountCallSign = null;
+  persistStoredAccounts();
 }
 
 const miniGameLoadoutStorageKey = "nyanEscape.customLoadouts";
@@ -2366,6 +2577,9 @@ updateRankFromLevel();
 const ui = createInterface(playerStats, {
   onRequestLogin: requestAccountLogin,
   onRequestLogout: handleLogout,
+  onSelectAccount(callSign) {
+    activateStoredAccount(callSign);
+  },
   portalLevelRequirement: portalRequiredLevel
 });
 app.innerHTML = "";
@@ -2392,6 +2606,69 @@ ui.addFeedMessage({
   timestamp: Date.now() - 1000 * 60 * 5
 });
 
+function refreshStoredAccountDirectory() {
+  if (!ui || typeof ui.setStoredAccounts !== "function") {
+    return;
+  }
+
+  const snapshot = getStoredAccountsSnapshot();
+  ui.setStoredAccounts(snapshot, activeAccountCallSign);
+}
+
+function applyActiveAccount(account) {
+  if (!account) {
+    return false;
+  }
+
+  activeAccount = account;
+  activeAccountCallSign = account.callSign ?? null;
+  playerStats.name = account.catName;
+  playerStats.handle = account.handle;
+  playerStats.callSign = account.callSign;
+  playerStats.starterId = account.starterId;
+  setPlayerSpriteFromStarter(playerStats.starterId);
+  const chosenStarter = findStarterCharacter(playerStats.starterId);
+  ui.setAccount(account, chosenStarter);
+  ui.refresh(playerStats);
+  syncMiniGameProfile();
+  refreshStoredAccountDirectory();
+  return true;
+}
+
+function activateStoredAccount(callSign, options = {}) {
+  if (!callSign) {
+    return false;
+  }
+
+  const account = storedAccounts[callSign];
+  if (!account) {
+    return false;
+  }
+
+  if (!applyActiveAccount(account)) {
+    return false;
+  }
+
+  persistStoredAccounts();
+
+  const announce = options.announce !== false;
+  if (announce) {
+    const message =
+      options.message ?? {
+        text: `Profile switched to ${account.catName}. Mission systems synced.`,
+        author: "Mission Command",
+        channel: "mission"
+      };
+    showMessage(message, 5200);
+  } else {
+    showMessage(defaultMessage, 0);
+  }
+
+  return true;
+}
+
+refreshStoredAccountDirectory();
+
 let onboardingInstance = null;
 let previousBodyOverflow = "";
 let miniGameOverlayState = null;
@@ -2406,13 +2683,15 @@ function requestAccountLogin() {
   const initialAccount = activeAccount
     ? { ...activeAccount }
     : { starterId: playerStats.starterId };
-  openOnboarding(initialAccount);
+  const savedAccounts = getStoredAccountsSnapshot();
+  openOnboarding(initialAccount, savedAccounts);
 }
 
 function handleLogout() {
   closeOnboarding();
   activeAccount = null;
-  clearStoredAccount();
+  activeAccountCallSign = null;
+  persistStoredAccounts();
   playerStats.name = fallbackAccount.catName;
   playerStats.handle = fallbackAccount.handle;
   playerStats.callSign = fallbackAccount.callSign;
@@ -2421,31 +2700,22 @@ function handleLogout() {
   const starter = findStarterCharacter(playerStats.starterId);
   ui.setAccount(null, starter);
   ui.refresh(playerStats);
+  refreshStoredAccountDirectory();
   showMessage("You have logged out. Create your Astrocat account to begin your mission.", 0);
   syncMiniGameProfile();
 }
 
 function completeAccountSetup(account, options = {}) {
   const { welcome = true, persist = true } = options;
-  const sanitized = sanitizeAccount(account);
+  const sanitized = rememberAccount(account);
   if (!sanitized) {
     return false;
   }
 
-  activeAccount = sanitized;
-  registerCallSign(sanitized.callSign);
   if (persist) {
-    saveAccount(sanitized);
+    persistStoredAccounts();
   }
-  playerStats.name = sanitized.catName;
-  playerStats.handle = sanitized.handle;
-  playerStats.callSign = sanitized.callSign;
-  playerStats.starterId = sanitized.starterId;
-  setPlayerSpriteFromStarter(playerStats.starterId);
-  const chosenStarter = findStarterCharacter(sanitized.starterId);
-  ui.setAccount(sanitized, chosenStarter);
-  ui.refresh(playerStats);
-  syncMiniGameProfile();
+  applyActiveAccount(sanitized);
   if (welcome) {
     showMessage(
       {
@@ -2461,7 +2731,7 @@ function completeAccountSetup(account, options = {}) {
   return true;
 }
 
-function openOnboarding(initialAccount = null) {
+function openOnboarding(initialAccount = null, savedAccounts = []) {
   if (onboardingInstance) {
     onboardingInstance.focus();
     return;
@@ -2470,8 +2740,14 @@ function openOnboarding(initialAccount = null) {
   previousBodyOverflow = document.body.style.overflow;
   onboardingInstance = createOnboardingExperience(starterCharacters, {
     initialAccount,
+    savedAccounts,
     onComplete(account) {
       if (completeAccountSetup(account)) {
+        closeOnboarding();
+      }
+    },
+    onSelectExisting(account) {
+      if (account?.callSign && activateStoredAccount(account.callSign)) {
         closeOnboarding();
       }
     }
@@ -4554,7 +4830,12 @@ if (typeof window !== "undefined") {
 
 function createOnboardingExperience(options, config = {}) {
   const characters = Array.isArray(options) && options.length > 0 ? options : starterCharacters;
-  const { initialAccount = null, onComplete } = config;
+  const {
+    initialAccount = null,
+    onComplete,
+    savedAccounts = [],
+    onSelectExisting
+  } = config;
   let activeIndex = Math.max(
     0,
     characters.findIndex((option) => option.id === initialAccount?.starterId)
@@ -4581,6 +4862,53 @@ function createOnboardingExperience(options, config = {}) {
   intro.textContent =
     "Mission Control assigns your secure call sign. Name your companion and pick a starter to begin exploring.";
   modal.append(intro);
+
+  const selectableAccounts = Array.isArray(savedAccounts)
+    ? savedAccounts
+        .filter((entry) => entry && typeof entry === "object")
+        .map((entry) => ({ ...entry }))
+    : [];
+  const handleExistingSelection =
+    typeof onSelectExisting === "function" ? onSelectExisting : null;
+
+  if (selectableAccounts.length > 0 && handleExistingSelection) {
+    const savedSection = document.createElement("div");
+    savedSection.className = "onboarding-saved";
+
+    const savedTitle = document.createElement("h3");
+    savedTitle.className = "onboarding-saved__title";
+    savedTitle.textContent = "Saved profiles";
+
+    const savedHint = document.createElement("p");
+    savedHint.className = "onboarding-saved__hint";
+    savedHint.textContent = "Select a saved profile to continue your mission.";
+
+    const savedList = document.createElement("ul");
+    savedList.className = "onboarding-saved__list";
+
+    for (const profile of selectableAccounts) {
+      const item = document.createElement("li");
+      item.className = "onboarding-saved__item";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "onboarding-saved__button";
+      const handleLabel =
+        profile && typeof profile.callSign === "string" && profile.callSign
+          ? `@${profile.callSign}`
+          : typeof profile.handle === "string"
+            ? profile.handle
+            : "";
+      button.textContent = handleLabel ? `${profile.catName} · ${handleLabel}` : profile.catName;
+      button.addEventListener("click", () => {
+        handleExistingSelection({ ...profile });
+      });
+      item.append(button);
+      savedList.append(item);
+    }
+
+    savedSection.append(savedTitle, savedHint, savedList);
+    modal.append(savedSection);
+  }
 
   const characterSection = document.createElement("div");
   characterSection.className = "onboarding-character";
@@ -5660,6 +5988,34 @@ function createInterface(stats, options = {}) {
   accountHeader.append(accountHeading, accountHandle);
   accountCard.append(accountHeader);
 
+  const accountProfiles = document.createElement("div");
+  accountProfiles.className = "account-card__profiles";
+  accountProfiles.hidden = true;
+
+  const accountProfilesLabel = document.createElement("span");
+  accountProfilesLabel.className = "account-card__profiles-label";
+  accountProfilesLabel.textContent = "Saved profiles";
+
+  const accountProfilesSelect = document.createElement("select");
+  accountProfilesSelect.className = "account-card__profiles-select";
+  accountProfilesSelect.setAttribute("aria-label", "Select a saved profile");
+
+  let accountProfilesSelection = "";
+  accountProfilesSelect.addEventListener("change", () => {
+    const selected = accountProfilesSelect.value;
+    if (!selected || selected === accountProfilesSelection) {
+      accountProfilesSelection = selected;
+      return;
+    }
+    accountProfilesSelection = selected;
+    if (typeof onSelectAccount === "function") {
+      onSelectAccount(selected);
+    }
+  });
+
+  accountProfiles.append(accountProfilesLabel, accountProfilesSelect);
+  accountCard.append(accountProfiles);
+
   const accountStarter = document.createElement("div");
   accountStarter.className = "account-card__starter";
   const accountStarterImage = document.createElement("img");
@@ -6328,6 +6684,9 @@ function createInterface(stats, options = {}) {
       updateAccountCard(account, starter);
       updateCommsInterface(account?.callSign);
     },
+    setStoredAccounts(accounts, activeCallSign) {
+      updateAccountDirectory(accounts, activeCallSign);
+    },
     updateMissions(missionState) {
       const snapshot = Array.isArray(missionState)
         ? missionState.map((mission) => ({ ...mission }))
@@ -6769,6 +7128,46 @@ function createInterface(stats, options = {}) {
       loginButton.textContent = "Log in";
       logoutButton.hidden = true;
     }
+  }
+
+  function updateAccountDirectory(entries, activeCallSign) {
+    const list = Array.isArray(entries) ? entries.filter(Boolean) : [];
+    accountProfilesSelect.innerHTML = "";
+
+    if (list.length === 0) {
+      accountProfiles.hidden = true;
+      accountProfilesSelection = "";
+      return;
+    }
+
+    accountProfiles.hidden = false;
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Select a profile";
+    accountProfilesSelect.append(placeholder);
+
+    for (const entry of list) {
+      if (!entry || typeof entry !== "object") {
+        continue;
+      }
+      const option = document.createElement("option");
+      option.value = entry.callSign;
+      const handleLabel =
+        entry.callSign && typeof entry.callSign === "string"
+          ? `@${entry.callSign}`
+          : typeof entry.handle === "string"
+            ? entry.handle
+            : "";
+      option.textContent = handleLabel ? `${entry.catName} · ${handleLabel}` : entry.catName;
+      accountProfilesSelect.append(option);
+    }
+
+    const hasActive =
+      typeof activeCallSign === "string" &&
+      list.some((entry) => entry?.callSign === activeCallSign);
+    const nextValue = hasActive ? activeCallSign : "";
+    accountProfilesSelect.value = nextValue;
+    accountProfilesSelection = nextValue;
   }
 
   function updateAccountCard(account, starterOverride) {
