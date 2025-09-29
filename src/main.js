@@ -1372,8 +1372,12 @@ const messageBoardStorageKey = "astrocat-message-boards";
 const lobbyLayoutStorageKey = "astrocat-lobby-layout-v1";
 const callSignLength = 5;
 
+let savedLobbyLayout = null;
+let hasCustomLobbyLayout = false;
+
 let storedAccounts = {};
 let activeAccountCallSign = null;
+let layoutEditor = null;
 
 function createCallSignExample() {
   const digits = "1234567890";
@@ -1421,6 +1425,65 @@ function extractMentionedCallSign(message) {
 
   const match = message.match(callSignMentionPattern);
   return match ? match[1] : null;
+}
+
+function sanitizeLobbyLayoutSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") {
+    return null;
+  }
+
+  const sanitizeCoordinate = (value) =>
+    typeof value === "number" && Number.isFinite(value) ? Math.round(value) : null;
+
+  const sanitized = {};
+
+  if (snapshot.interactables && typeof snapshot.interactables === "object") {
+    const entries = [];
+    for (const [id, value] of Object.entries(snapshot.interactables)) {
+      if (!value || typeof value !== "object") {
+        continue;
+      }
+      const x = sanitizeCoordinate(value.x);
+      const y = sanitizeCoordinate(value.y);
+      if (x === null && y === null) {
+        continue;
+      }
+      const normalizedId = typeof id === "string" ? id : String(id);
+      const entry = {};
+      if (x !== null) {
+        entry.x = x;
+      }
+      if (y !== null) {
+        entry.y = y;
+      }
+      entries.push([normalizedId, entry]);
+    }
+
+    if (entries.length > 0) {
+      entries.sort((a, b) => a[0].localeCompare(b[0]));
+      const interactables = {};
+      for (const [id, entry] of entries) {
+        interactables[id] = entry;
+      }
+      sanitized.interactables = interactables;
+    }
+  }
+
+  if (snapshot.portal && typeof snapshot.portal === "object") {
+    const portalX = sanitizeCoordinate(snapshot.portal.x);
+    const portalY = sanitizeCoordinate(snapshot.portal.y);
+    if (portalX !== null || portalY !== null) {
+      sanitized.portal = {};
+      if (portalX !== null) {
+        sanitized.portal.x = portalX;
+      }
+      if (portalY !== null) {
+        sanitized.portal.y = portalY;
+      }
+    }
+  }
+
+  return Object.keys(sanitized).length > 0 ? sanitized : null;
 }
 
 function loadCallSignRegistry() {
@@ -1592,7 +1655,7 @@ function loadLobbyLayoutSnapshot() {
     }
 
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : null;
+    return sanitizeLobbyLayoutSnapshot(parsed);
   } catch (error) {
     console.warn("Failed to read saved lobby layout", error);
     return null;
@@ -1606,7 +1669,15 @@ function saveLobbyLayoutSnapshot(layout) {
   }
 
   try {
-    storage.setItem(lobbyLayoutStorageKey, JSON.stringify(layout));
+    const sanitized = sanitizeLobbyLayoutSnapshot(layout);
+    if (!sanitized) {
+      return clearLobbyLayoutSnapshot();
+    }
+
+    storage.setItem(lobbyLayoutStorageKey, JSON.stringify(sanitized));
+    savedLobbyLayout = JSON.parse(JSON.stringify(sanitized));
+    hasCustomLobbyLayout = true;
+    updateActiveAccountLobbyLayout(sanitized);
     return true;
   } catch (error) {
     console.warn("Failed to persist lobby layout", error);
@@ -1617,11 +1688,17 @@ function saveLobbyLayoutSnapshot(layout) {
 function clearLobbyLayoutSnapshot() {
   const storage = getLocalStorage();
   if (!storage) {
+    savedLobbyLayout = null;
+    hasCustomLobbyLayout = false;
+    updateActiveAccountLobbyLayout(null);
     return false;
   }
 
   try {
     storage.removeItem(lobbyLayoutStorageKey);
+    savedLobbyLayout = null;
+    hasCustomLobbyLayout = false;
+    updateActiveAccountLobbyLayout(null);
     return true;
   } catch (error) {
     console.warn("Failed to clear lobby layout", error);
@@ -1694,12 +1771,21 @@ function sanitizeAccount(source = {}) {
   const callSign = generateCallSignCandidate(preferredCallSign);
   const handle = `@${callSign}`;
 
-  return {
+  const lobbyLayoutSnapshot = sanitizeLobbyLayoutSnapshot(
+    source.lobbyLayout ?? source.layout ?? source.lobbyLayoutSnapshot
+  );
+
+  const account = {
     handle,
     callSign,
     catName: name,
     starterId
   };
+  if (lobbyLayoutSnapshot) {
+    account.lobbyLayout = lobbyLayoutSnapshot;
+  }
+
+  return account;
 }
 
 function extractStoredCallSign(source) {
@@ -1789,6 +1875,10 @@ function buildAccountPayload(accounts, activeCallSign) {
       catName: entry.catName,
       starterId: entry.starterId
     };
+    const layoutSnapshot = sanitizeLobbyLayoutSnapshot(entry.lobbyLayout);
+    if (layoutSnapshot) {
+      sortedAccounts[key].lobbyLayout = layoutSnapshot;
+    }
   }
 
   return {
@@ -1822,6 +1912,47 @@ function persistStoredAccounts() {
     console.warn("Failed to persist account details", error);
     return false;
   }
+}
+
+function updateActiveAccountLobbyLayout(snapshot) {
+  const callSign = activeAccountCallSign;
+  if (!callSign || !storedAccounts[callSign]) {
+    return false;
+  }
+
+  const sanitized = sanitizeLobbyLayoutSnapshot(snapshot);
+  const existingLayout = storedAccounts[callSign]?.lobbyLayout ?? null;
+  const existingSerialized = existingLayout ? JSON.stringify(existingLayout) : null;
+  const nextSerialized = sanitized ? JSON.stringify(sanitized) : null;
+
+  if (existingSerialized === nextSerialized) {
+    return false;
+  }
+
+  const currentAccount = storedAccounts[callSign];
+  if (!currentAccount) {
+    return false;
+  }
+
+  if (sanitized) {
+    storedAccounts[callSign] = { ...currentAccount, lobbyLayout: sanitized };
+  } else {
+    const { lobbyLayout: _omit, ...rest } = currentAccount;
+    storedAccounts[callSign] = { ...rest };
+  }
+
+  if (activeAccount && activeAccount.callSign === callSign) {
+    if (sanitized) {
+      activeAccount = { ...activeAccount, lobbyLayout: sanitized };
+    } else {
+      const { lobbyLayout: _remove, ...restActive } = activeAccount;
+      activeAccount = { ...restActive };
+    }
+  }
+
+  persistStoredAccounts();
+  refreshStoredAccountDirectory();
+  return true;
 }
 
 function rememberAccount(account, options = {}) {
@@ -2651,6 +2782,28 @@ function applyActiveAccount(account) {
 
   activeAccount = account;
   activeAccountCallSign = account.callSign ?? null;
+
+  const layoutSnapshot = sanitizeLobbyLayoutSnapshot(account.lobbyLayout);
+  if (layoutSnapshot) {
+    applyLobbyLayoutSnapshot(defaultLobbyLayout);
+    if (areLayoutsEqual(layoutSnapshot, defaultLobbyLayout)) {
+      clearLobbyLayoutSnapshot();
+    } else {
+      applyLobbyLayoutSnapshot(layoutSnapshot);
+      saveLobbyLayoutSnapshot(layoutSnapshot);
+    }
+  } else {
+    applyLobbyLayoutSnapshot(defaultLobbyLayout);
+    clearLobbyLayoutSnapshot();
+  }
+
+  if (layoutEditor && typeof layoutEditor.setHasCustomLayout === "function") {
+    layoutEditor.setHasCustomLayout(hasCustomLobbyLayout);
+  }
+  if (typeof ui.setLayoutResetAvailable === "function") {
+    ui.setLayoutResetAvailable(hasCustomLobbyLayout);
+  }
+
   playerStats.name = account.catName;
   playerStats.handle = account.handle;
   playerStats.callSign = account.callSign;
@@ -3020,7 +3173,6 @@ if (!ctx) {
   throw new Error("Unable to acquire 2D context");
 }
 
-let layoutEditor = null;
 let renderScale = 1;
 let devicePixelScale = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
 let fallbackBackgroundGradient = null;
@@ -3512,11 +3664,21 @@ function areLayoutsEqual(candidate, reference) {
 }
 
 const defaultLobbyLayout = captureLobbyLayoutSnapshot();
-const savedLobbyLayout = loadLobbyLayoutSnapshot();
-const hasCustomLobbyLayout = Boolean(
+savedLobbyLayout = loadLobbyLayoutSnapshot();
+hasCustomLobbyLayout = Boolean(
   savedLobbyLayout && !areLayoutsEqual(savedLobbyLayout, defaultLobbyLayout)
 );
-if (hasCustomLobbyLayout) {
+
+const activeAccountLobbyLayout = sanitizeLobbyLayoutSnapshot(activeAccount?.lobbyLayout);
+if (activeAccountLobbyLayout) {
+  applyLobbyLayoutSnapshot(defaultLobbyLayout);
+  if (areLayoutsEqual(activeAccountLobbyLayout, defaultLobbyLayout)) {
+    clearLobbyLayoutSnapshot();
+  } else {
+    applyLobbyLayoutSnapshot(activeAccountLobbyLayout);
+    saveLobbyLayoutSnapshot(activeAccountLobbyLayout);
+  }
+} else if (hasCustomLobbyLayout) {
   applyLobbyLayoutSnapshot(savedLobbyLayout);
 }
 
@@ -4629,10 +4791,19 @@ function createLobbyLayoutEditor(options = {}) {
     }
   };
 
+  const setCustomLayoutState = (value) => {
+    const next = Boolean(value);
+    if (state.hasCustomLayout !== next) {
+      state.hasCustomLayout = next;
+      emitState();
+      return true;
+    }
+    return false;
+  };
+
   const persistLayout = () => {
     if (typeof captureLayout !== "function") {
-      state.hasCustomLayout = false;
-      emitState();
+      setCustomLayoutState(false);
       return;
     }
     const snapshot = captureLayout();
@@ -4644,11 +4815,12 @@ function createLobbyLayoutEditor(options = {}) {
     } else if (typeof persistLayoutSnapshot === "function") {
       persistLayoutSnapshot(snapshot);
     }
-    state.hasCustomLayout = !isDefault;
+    if (!setCustomLayoutState(!isDefault)) {
+      emitState();
+    }
     if (typeof refreshWorldBounds === "function") {
       refreshWorldBounds();
     }
-    emitState();
   };
 
   const cancelDrag = () => {
@@ -4896,7 +5068,10 @@ function createLobbyLayoutEditor(options = {}) {
     resetLayout,
     drawOverlay,
     isActive: () => state.active,
-    hasCustomLayout: () => Boolean(state.hasCustomLayout)
+    hasCustomLayout: () => Boolean(state.hasCustomLayout),
+    setHasCustomLayout: (value) => {
+      setCustomLayoutState(value);
+    }
   };
 }
 
