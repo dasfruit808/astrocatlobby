@@ -2724,19 +2724,28 @@ body.is-scroll-locked {
 .starter-carousel {
   position: relative;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: min-content minmax(0, 360px) min-content;
+  justify-content: center;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
+  width: min(100%, 520px);
+  margin: 0 auto;
 }
 
 .starter-carousel__viewport {
   overflow: hidden;
-  border-radius: 20px;
-  box-shadow: 0 14px 34px rgba(12, 14, 32, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 24px;
+  padding: clamp(12px, 2vw, 18px);
+  background: radial-gradient(circle at top, rgba(64, 86, 150, 0.55), rgba(14, 16, 34, 0.75));
+  box-shadow: 0 18px 38px rgba(12, 14, 32, 0.6);
 }
 
 .starter-carousel__track {
   display: flex;
+  align-items: center;
   transition: transform 320ms ease;
 }
 
@@ -2746,21 +2755,22 @@ body.is-scroll-locked {
   justify-content: center;
   align-items: center;
   padding: 12px;
+  margin: 0;
   box-sizing: border-box;
 }
 
 .starter-carousel__image {
   display: block;
   margin: 0 auto;
-  width: min(100%, 220px);
+  width: clamp(200px, 40vw, 260px);
   aspect-ratio: 1;
   border-radius: 20px;
   object-fit: cover;
   border: 2px solid rgba(140, 170, 255, 0.4);
-  background: rgba(20, 25, 44, 0.75);
+  background: rgba(20, 25, 44, 0.85);
   box-shadow:
     0 18px 32px rgba(10, 12, 32, 0.6),
-    inset 0 2px 8px rgba(255, 255, 255, 0.12);
+    inset 0 2px 10px rgba(255, 255, 255, 0.16);
 }
 
 .starter-carousel__control {
