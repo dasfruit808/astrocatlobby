@@ -3600,7 +3600,7 @@ function handleLogout() {
   closeOnboarding();
   activeAccount = null;
   activeAccountCallSign = null;
-  persistStoredAccounts();
+  const persisted = persistStoredAccounts();
   playerStats.name = fallbackAccount.catName;
   playerStats.handle = fallbackAccount.handle;
   playerStats.callSign = fallbackAccount.callSign;
@@ -3619,19 +3619,47 @@ function handleLogout() {
   ui.setAccount(null, starter);
   ui.refresh(playerStats);
   refreshStoredAccountDirectory();
-  showMessage("You have logged out. Create your Astrocat account to begin your mission.", 0);
+  if (persisted) {
+    showMessage("You have logged out. Create your Astrocat account to begin your mission.", 0);
+  } else {
+    showMessage(
+      {
+        text:
+          "Storage is unavailable, so your logout might not persist after refreshing. Enable storage to fully sign out.",
+        author: "Mission Command",
+        channel: "mission"
+      },
+      7000
+    );
+  }
   syncMiniGameProfile();
 }
 
 function completeAccountSetup(account, options = {}) {
   const { welcome = true, persist = true } = options;
+  const previousAccounts = { ...storedAccounts };
+  const previousActiveCallSign = activeAccountCallSign;
   const sanitized = rememberAccount(account);
   if (!sanitized) {
     return false;
   }
 
   if (persist) {
-    persistStoredAccounts();
+    const persisted = persistStoredAccounts();
+    if (!persisted) {
+      storedAccounts = previousAccounts;
+      activeAccountCallSign = previousActiveCallSign;
+      showMessage(
+        {
+          text:
+            "We couldn't save your Astrocat profile because storage is unavailable. Enable storage and try again.",
+          author: "Mission Command",
+          channel: "mission"
+        },
+        7000
+      );
+      return false;
+    }
   }
   applyActiveAccount(sanitized);
   if (welcome) {
