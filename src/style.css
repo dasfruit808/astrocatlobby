@@ -2385,6 +2385,52 @@ body.is-scroll-locked {
   line-height: 1.5;
 }
 
+.onboarding-signin {
+  margin: 12px 0 18px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(12, 24, 46, 0.8);
+  border: 1px solid rgba(134, 225, 255, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.onboarding-signin__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(230, 238, 255, 0.94);
+}
+
+.onboarding-signin__hint {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(197, 217, 255, 0.78);
+}
+
+.onboarding-form--signin {
+  gap: 14px;
+}
+
+.onboarding-signin__actions {
+  justify-content: flex-start;
+}
+
+.onboarding-feedback {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 214, 222, 0.88);
+}
+
+.onboarding-feedback.is-error {
+  color: #ff9aa2;
+}
+
+.onboarding-feedback.is-success {
+  color: #7cf3d8;
+}
+
 .onboarding-saved {
   margin: 18px 0 20px;
   padding: 16px 18px;
@@ -2532,6 +2578,22 @@ body.is-scroll-locked {
 .onboarding-submit:hover {
   transform: translateY(-1px);
   box-shadow: 0 12px 22px rgba(80, 120, 255, 0.45);
+}
+
+.onboarding-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  transform: none;
+  box-shadow: none;
+}
+
+.onboarding-submit--secondary {
+  background: linear-gradient(135deg, #5f8fff, #4ec9ff);
+  color: #0b1a2e;
+}
+
+.onboarding-submit--secondary:hover {
+  box-shadow: 0 12px 22px rgba(78, 180, 255, 0.42);
 }
 
 .minigame-overlay {

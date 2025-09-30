@@ -1414,6 +1414,106 @@ const callSignRegistryKey = "astrocat-call-signs";
 const messageBoardStorageKey = "astrocat-message-boards";
 const lobbyLayoutStorageKey = "astrocat-lobby-layout-v1";
 const callSignLength = 5;
+const passwordMinLength = 8;
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function sanitizeEmailAddress(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  return emailPattern.test(normalized) ? normalized : null;
+}
+
+function bufferToBase64(buffer) {
+  if (!buffer) {
+    return "";
+  }
+
+  const bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer;
+  if (!bytes || typeof bytes.length !== "number") {
+    return "";
+  }
+
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 1) {
+    binary += String.fromCharCode(bytes[index]);
+  }
+
+  if (typeof runtimeGlobal.btoa === "function") {
+    return runtimeGlobal.btoa(binary);
+  }
+
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function fallbackSimpleHash(text) {
+  if (typeof text !== "string") {
+    return "";
+  }
+
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = (hash * 16777619) >>> 0;
+  }
+
+  return `legacy-${hash.toString(16).padStart(8, "0")}`;
+}
+
+async function derivePasswordHash(password, callSign) {
+  if (typeof password !== "string" || !password) {
+    return null;
+  }
+
+  const salt = isValidCallSign(callSign) ? callSign : "00000";
+  const payload = `astrocat|${salt}|${password}`;
+
+  if (
+    runtimeGlobal.crypto &&
+    runtimeGlobal.crypto.subtle &&
+    typeof runtimeGlobal.crypto.subtle.digest === "function" &&
+    typeof TextEncoder === "function"
+  ) {
+    try {
+      const encoder = new TextEncoder();
+      const bytes = encoder.encode(payload);
+      const digest = await runtimeGlobal.crypto.subtle.digest("SHA-256", bytes);
+      return bufferToBase64(digest);
+    } catch (error) {
+      console.warn("Unable to derive password hash using SubtleCrypto", error);
+    }
+  }
+
+  return fallbackSimpleHash(payload);
+}
+
+function getAccountPasswordHash(account) {
+  if (!account || typeof account !== "object") {
+    return null;
+  }
+
+  if (typeof account.passwordHash === "string" && account.passwordHash) {
+    return account.passwordHash;
+  }
+
+  if (
+    account.auth &&
+    typeof account.auth === "object" &&
+    typeof account.auth.passwordHash === "string" &&
+    account.auth.passwordHash
+  ) {
+    return account.auth.passwordHash;
+  }
+
+  return null;
+}
 
 let savedLobbyLayout = null;
 let hasCustomLobbyLayout = false;
@@ -1850,12 +1950,27 @@ function sanitizeAccount(source = {}) {
     source.lobbyLayout ?? source.layout ?? source.lobbyLayoutSnapshot
   );
 
+  const email =
+    sanitizeEmailAddress(source.email) ??
+    sanitizeEmailAddress(source.contact) ??
+    sanitizeEmailAddress(source?.auth?.email);
+  const passwordHash = getAccountPasswordHash(source);
+
   const account = {
     handle,
     callSign,
     catName: name,
     starterId
   };
+
+  if (email) {
+    account.email = email;
+  }
+
+  if (passwordHash) {
+    account.passwordHash = passwordHash;
+  }
+
   if (lobbyLayoutSnapshot) {
     account.lobbyLayout = lobbyLayoutSnapshot;
   }
@@ -1950,6 +2065,15 @@ function buildAccountPayload(accounts, activeCallSign) {
       catName: entry.catName,
       starterId: entry.starterId
     };
+
+    if (typeof entry.email === "string" && entry.email) {
+      sortedAccounts[key].email = entry.email;
+    }
+
+    const passwordHash = getAccountPasswordHash(entry);
+    if (passwordHash) {
+      sortedAccounts[key].passwordHash = passwordHash;
+    }
     const layoutSnapshot = sanitizeLobbyLayoutSnapshot(entry.lobbyLayout);
     if (layoutSnapshot) {
       sortedAccounts[key].lobbyLayout = layoutSnapshot;
@@ -2039,6 +2163,23 @@ function rememberAccount(account, options = {}) {
   const originalCallSign = extractStoredCallSign(account);
   if (originalCallSign && originalCallSign !== sanitized.callSign) {
     delete storedAccounts[originalCallSign];
+  }
+
+  const existing = storedAccounts[sanitized.callSign];
+  if (existing) {
+    if (!sanitizeEmailAddress(sanitized.email) && typeof existing.email === "string") {
+      const preservedEmail = sanitizeEmailAddress(existing.email);
+      if (preservedEmail) {
+        sanitized.email = preservedEmail;
+      }
+    }
+
+    if (!getAccountPasswordHash(sanitized)) {
+      const existingHash = getAccountPasswordHash(existing);
+      if (existingHash) {
+        sanitized.passwordHash = existingHash;
+      }
+    }
   }
 
   storedAccounts[sanitized.callSign] = sanitized;
@@ -2936,6 +3077,62 @@ if (!activeAccount) {
   requestAccountLogin();
 }
 
+async function attemptAccountLogin(credentials = {}) {
+  const rawCallSign = typeof credentials.callSign === "string" ? credentials.callSign : "";
+  const normalizedCallSign = rawCallSign.replace(/\D+/g, "").slice(0, callSignLength);
+
+  if (!isValidCallSign(normalizedCallSign)) {
+    return { ok: false, error: `Enter your ${callSignLength}-digit call sign.` };
+  }
+
+  const password = typeof credentials.password === "string" ? credentials.password : "";
+  if (!password || password.length < passwordMinLength) {
+    return {
+      ok: false,
+      error: `Enter a password with at least ${passwordMinLength} characters.`
+    };
+  }
+
+  const account = storedAccounts[normalizedCallSign];
+  if (!account) {
+    return {
+      ok: false,
+      error: "No account matches that call sign. Double-check the digits and try again."
+    };
+  }
+
+  const storedHash = getAccountPasswordHash(account);
+  if (!storedHash) {
+    return {
+      ok: false,
+      error: "This profile was created before secure logins were available. Create a new account to continue."
+    };
+  }
+
+  const derivedHash = await derivePasswordHash(password, normalizedCallSign);
+  if (!derivedHash) {
+    return { ok: false, error: "Unable to verify your credentials. Try again." };
+  }
+
+  if (storedHash !== derivedHash) {
+    return { ok: false, error: "Incorrect password. Try again." };
+  }
+
+  const activated = activateStoredAccount(normalizedCallSign, {
+    message: {
+      text: `Welcome back, ${account.catName}. Mission systems synced.`,
+      author: "Mission Command",
+      channel: "mission"
+    }
+  });
+
+  if (!activated) {
+    return { ok: false, error: "Unable to activate the account. Try again." };
+  }
+
+  return { ok: true };
+}
+
 function requestAccountLogin() {
   const initialAccount = activeAccount
     ? { ...activeAccount }
@@ -2995,7 +3192,14 @@ function openOnboarding(initialAccount = null, savedAccounts = []) {
   }
 
   previousBodyOverflow = document.body.style.overflow;
-  onboardingInstance = createOnboardingExperience({
+  let experience = null;
+  const handleExistingSelection = (account) => {
+    if (account?.callSign && experience && typeof experience.prefillSignIn === "function") {
+      experience.prefillSignIn(account.callSign);
+    }
+  };
+
+  experience = createOnboardingExperience({
     initialAccount,
     savedAccounts,
     onComplete(account) {
@@ -3003,12 +3207,19 @@ function openOnboarding(initialAccount = null, savedAccounts = []) {
         closeOnboarding();
       }
     },
-    onSelectExisting(account) {
-      if (account?.callSign && activateStoredAccount(account.callSign)) {
+    async onAuthenticate(credentials) {
+      const result = await attemptAccountLogin(credentials);
+      if (result?.ok) {
         closeOnboarding();
       }
+      return result;
+    },
+    onSelectExisting(account) {
+      handleExistingSelection(account);
     }
   });
+
+  onboardingInstance = experience;
 
   if (onboardingInstance) {
     document.body.append(onboardingInstance.root);
@@ -6238,7 +6449,8 @@ function createOnboardingExperience(config = {}) {
     initialAccount = null,
     onComplete,
     savedAccounts = [],
-    onSelectExisting
+    onSelectExisting,
+    onAuthenticate
   } = config;
 
   const idSuffix = Math.random().toString(36).slice(2, 8);
@@ -6257,9 +6469,10 @@ function createOnboardingExperience(config = {}) {
   const intro = document.createElement("p");
   intro.className = "onboarding-intro";
   intro.textContent =
-    "Mission Control assigns your secure call sign. Name your companion to begin exploring.";
+    "Mission Control assigns your secure call sign. Set your credentials to explore from anywhere.";
   modal.append(intro);
 
+  const authenticate = typeof onAuthenticate === "function" ? onAuthenticate : null;
   const selectableAccounts = Array.isArray(savedAccounts)
     ? savedAccounts
         .filter((entry) => entry && typeof entry === "object")
@@ -6268,7 +6481,181 @@ function createOnboardingExperience(config = {}) {
   const handleExistingSelection =
     typeof onSelectExisting === "function" ? onSelectExisting : null;
 
-  if (selectableAccounts.length > 0 && handleExistingSelection) {
+  const signInSection = document.createElement("section");
+  signInSection.className = "onboarding-signin";
+
+  const signInTitle = document.createElement("h3");
+  signInTitle.className = "onboarding-signin__title";
+  signInTitle.textContent = "Sign in to your profile";
+
+  const signInHint = document.createElement("p");
+  signInHint.className = "onboarding-signin__hint";
+  signInHint.textContent =
+    "Use your call sign and password to resume progress on any device.";
+
+  const signInForm = document.createElement("form");
+  signInForm.className = "onboarding-form onboarding-form--signin";
+
+  const signInCallSignField = document.createElement("div");
+  signInCallSignField.className = "onboarding-field";
+  const signInCallSignLabel = document.createElement("label");
+  signInCallSignLabel.className = "onboarding-label";
+  signInCallSignLabel.textContent = "Call sign";
+  const signInCallSignInput = document.createElement("input");
+  signInCallSignInput.id = `onboarding-signin-call-${idSuffix}`;
+  signInCallSignInput.type = "text";
+  signInCallSignInput.inputMode = "numeric";
+  signInCallSignInput.autocomplete = "username";
+  signInCallSignInput.maxLength = callSignLength + 2;
+  signInCallSignInput.placeholder = callSignExample;
+  signInCallSignInput.className = "onboarding-input";
+  signInCallSignLabel.setAttribute("for", signInCallSignInput.id);
+  signInCallSignField.append(signInCallSignLabel, signInCallSignInput);
+
+  const signInPasswordField = document.createElement("div");
+  signInPasswordField.className = "onboarding-field";
+  const signInPasswordLabel = document.createElement("label");
+  signInPasswordLabel.className = "onboarding-label";
+  signInPasswordLabel.textContent = "Password";
+  const signInPasswordInput = document.createElement("input");
+  signInPasswordInput.id = `onboarding-signin-password-${idSuffix}`;
+  signInPasswordInput.type = "password";
+  signInPasswordInput.autocomplete = "current-password";
+  signInPasswordInput.minLength = passwordMinLength;
+  signInPasswordInput.className = "onboarding-input";
+  signInPasswordLabel.setAttribute("for", signInPasswordInput.id);
+  const signInPasswordHint = document.createElement("p");
+  signInPasswordHint.className = "onboarding-hint";
+  signInPasswordHint.textContent = `Minimum ${passwordMinLength} characters.`;
+  signInPasswordField.append(signInPasswordLabel, signInPasswordInput, signInPasswordHint);
+
+  const signInFeedback = document.createElement("p");
+  signInFeedback.className = "onboarding-feedback";
+  signInFeedback.hidden = true;
+
+  const signInActions = document.createElement("div");
+  signInActions.className = "onboarding-actions onboarding-signin__actions";
+  const signInSubmit = document.createElement("button");
+  signInSubmit.type = "submit";
+  signInSubmit.className = "onboarding-submit onboarding-submit--secondary";
+  signInSubmit.textContent = "Sign in";
+  signInActions.append(signInSubmit);
+
+  signInForm.append(signInCallSignField, signInPasswordField, signInFeedback, signInActions);
+  signInSection.append(signInTitle, signInHint, signInForm);
+  modal.append(signInSection);
+
+  const defaultSignInText = signInSubmit.textContent;
+
+  if (!authenticate) {
+    signInSubmit.disabled = true;
+  }
+
+  const resetSignInFeedback = () => {
+    signInFeedback.hidden = true;
+    signInFeedback.textContent = "";
+    signInFeedback.classList.remove("is-error", "is-success");
+    signInCallSignInput.setCustomValidity("");
+    signInPasswordInput.setCustomValidity("");
+  };
+
+  const applySignInPrefill = (value) => {
+    if (typeof value !== "string") {
+      return;
+    }
+    const normalized = value.replace(/\D+/g, "").slice(0, callSignLength);
+    if (!normalized) {
+      return;
+    }
+    signInCallSignInput.disabled = false;
+    signInPasswordInput.disabled = false;
+    if (authenticate) {
+      signInSubmit.disabled = false;
+    }
+    signInSubmit.textContent = defaultSignInText;
+    signInCallSignInput.value = normalized;
+    signInPasswordInput.value = "";
+    resetSignInFeedback();
+    try {
+      signInPasswordInput.focus({ preventScroll: true });
+    } catch (error) {
+      signInPasswordInput.focus();
+    }
+  };
+
+  signInCallSignInput.addEventListener("input", () => {
+    const normalized = signInCallSignInput.value.replace(/\D+/g, "").slice(0, callSignLength);
+    if (signInCallSignInput.value !== normalized) {
+      signInCallSignInput.value = normalized;
+    }
+    resetSignInFeedback();
+  });
+
+  signInPasswordInput.addEventListener("input", () => {
+    signInPasswordInput.setCustomValidity("");
+    resetSignInFeedback();
+  });
+
+  signInForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    resetSignInFeedback();
+
+    if (!authenticate) {
+      signInFeedback.textContent = "Sign-in is unavailable right now.";
+      signInFeedback.classList.add("is-error");
+      signInFeedback.hidden = false;
+      return;
+    }
+
+    const normalizedCallSign = signInCallSignInput.value.replace(/\D+/g, "").slice(0, callSignLength);
+    if (!isValidCallSign(normalizedCallSign)) {
+      signInCallSignInput.setCustomValidity(`Enter your ${callSignLength}-digit call sign.`);
+      signInCallSignInput.reportValidity();
+      return;
+    }
+
+    const passwordValue = signInPasswordInput.value;
+    if (!passwordValue || passwordValue.length < passwordMinLength) {
+      signInPasswordInput.setCustomValidity(
+        `Enter a password with at least ${passwordMinLength} characters.`
+      );
+      signInPasswordInput.reportValidity();
+      return;
+    }
+
+    signInSubmit.disabled = true;
+    signInCallSignInput.disabled = true;
+    signInPasswordInput.disabled = true;
+    signInSubmit.textContent = "Signing in…";
+
+    let succeeded = false;
+    try {
+      const result = await authenticate({
+        callSign: normalizedCallSign,
+        password: passwordValue
+      });
+      if (result && result.ok) {
+        succeeded = true;
+        return;
+      }
+
+      const message = result?.error ?? "Unable to sign in. Try again.";
+      signInFeedback.textContent = message;
+      signInFeedback.classList.add("is-error");
+      signInFeedback.hidden = false;
+      signInPasswordInput.focus();
+    } finally {
+      if (!succeeded) {
+        signInSubmit.disabled = !authenticate;
+        signInCallSignInput.disabled = false;
+        signInPasswordInput.disabled = false;
+        signInSubmit.textContent = defaultSignInText;
+        signInPasswordInput.value = "";
+      }
+    }
+  });
+
+  if (selectableAccounts.length > 0) {
     const savedSection = document.createElement("div");
     savedSection.className = "onboarding-saved";
 
@@ -6278,7 +6665,7 @@ function createOnboardingExperience(config = {}) {
 
     const savedHint = document.createElement("p");
     savedHint.className = "onboarding-saved__hint";
-    savedHint.textContent = "Select a saved profile to continue your mission.";
+    savedHint.textContent = "Select a saved profile to prefill your call sign.";
 
     const savedList = document.createElement("ul");
     savedList.className = "onboarding-saved__list";
@@ -6299,7 +6686,12 @@ function createOnboardingExperience(config = {}) {
           : "Unnamed";
       button.textContent = `${handleLabel} · ${nameLabel}`;
       button.addEventListener("click", () => {
-        handleExistingSelection(profile);
+        if (profile?.callSign) {
+          applySignInPrefill(profile.callSign);
+        }
+        if (handleExistingSelection) {
+          handleExistingSelection(profile);
+        }
       });
       item.append(button);
       savedList.append(item);
@@ -6338,11 +6730,69 @@ function createOnboardingExperience(config = {}) {
   nameInput.maxLength = 28;
   nameInput.placeholder = "Luna Voyager";
   nameInput.className = "onboarding-input";
+  nameInput.autocomplete = "nickname";
   nameLabel.setAttribute("for", nameInput.id);
   const nameHint = document.createElement("p");
   nameHint.className = "onboarding-hint";
   nameHint.textContent = "Give your cosmic companion a memorable title.";
   nameField.append(nameLabel, nameInput, nameHint);
+
+  const emailField = document.createElement("div");
+  emailField.className = "onboarding-field";
+  const emailLabel = document.createElement("label");
+  emailLabel.className = "onboarding-label";
+  emailLabel.textContent = "Email";
+  const emailInput = document.createElement("input");
+  emailInput.id = `onboarding-email-${idSuffix}`;
+  emailInput.name = "email";
+  emailInput.type = "email";
+  emailInput.required = true;
+  emailInput.maxLength = 120;
+  emailInput.placeholder = "pilot@astrocat.example";
+  emailInput.className = "onboarding-input";
+  emailInput.autocomplete = "email";
+  emailLabel.setAttribute("for", emailInput.id);
+  const emailHint = document.createElement("p");
+  emailHint.className = "onboarding-hint";
+  emailHint.textContent = "We'll use this to help recover your login.";
+  emailField.append(emailLabel, emailInput, emailHint);
+
+  const passwordField = document.createElement("div");
+  passwordField.className = "onboarding-field";
+  const passwordLabel = document.createElement("label");
+  passwordLabel.className = "onboarding-label";
+  passwordLabel.textContent = "Create password";
+  const passwordInput = document.createElement("input");
+  passwordInput.id = `onboarding-password-${idSuffix}`;
+  passwordInput.type = "password";
+  passwordInput.required = true;
+  passwordInput.minLength = passwordMinLength;
+  passwordInput.placeholder = "••••••••";
+  passwordInput.className = "onboarding-input";
+  passwordInput.autocomplete = "new-password";
+  passwordLabel.setAttribute("for", passwordInput.id);
+  const passwordHint = document.createElement("p");
+  passwordHint.className = "onboarding-hint";
+  passwordHint.textContent = `Use at least ${passwordMinLength} characters.`;
+  passwordField.append(passwordLabel, passwordInput, passwordHint);
+
+  const confirmField = document.createElement("div");
+  confirmField.className = "onboarding-field";
+  const confirmLabel = document.createElement("label");
+  confirmLabel.className = "onboarding-label";
+  confirmLabel.textContent = "Confirm password";
+  const confirmInput = document.createElement("input");
+  confirmInput.id = `onboarding-confirm-${idSuffix}`;
+  confirmInput.type = "password";
+  confirmInput.required = true;
+  confirmInput.placeholder = "Repeat password";
+  confirmInput.className = "onboarding-input";
+  confirmInput.autocomplete = "new-password";
+  confirmLabel.setAttribute("for", confirmInput.id);
+  const confirmHint = document.createElement("p");
+  confirmHint.className = "onboarding-hint";
+  confirmHint.textContent = "Re-enter your password to confirm.";
+  confirmField.append(confirmLabel, confirmInput, confirmHint);
 
   const actions = document.createElement("div");
   actions.className = "onboarding-actions";
@@ -6352,7 +6802,8 @@ function createOnboardingExperience(config = {}) {
   submitButton.textContent = "Create account";
   actions.append(submitButton);
 
-  form.append(callSignField, nameField, actions);
+  form.append(callSignField, nameField, emailField, passwordField, confirmField, actions);
+
   let pendingCallSign = null;
   if (initialAccount) {
     if (isValidCallSign(initialAccount.callSign)) {
@@ -6372,12 +6823,32 @@ function createOnboardingExperience(config = {}) {
     nameInput.value = initialAccount.catName;
   }
 
+  const initialEmail = sanitizeEmailAddress(initialAccount?.email);
+  if (initialEmail) {
+    emailInput.value = initialEmail;
+  }
+
   nameInput.addEventListener("input", () => {
     nameInput.setCustomValidity("");
   });
 
-  form.addEventListener("submit", (event) => {
+  emailInput.addEventListener("input", () => {
+    emailInput.setCustomValidity("");
+  });
+
+  passwordInput.addEventListener("input", () => {
+    passwordInput.setCustomValidity("");
+  });
+
+  confirmInput.addEventListener("input", () => {
+    confirmInput.setCustomValidity("");
+  });
+
+  const defaultSubmitText = submitButton.textContent;
+
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
+
     const trimmedName = nameInput.value.trim().replace(/\s+/g, " ");
     if (!trimmedName) {
       nameInput.setCustomValidity("Name your astrocat to continue.");
@@ -6385,33 +6856,97 @@ function createOnboardingExperience(config = {}) {
       return;
     }
 
-    const sanitized = sanitizeAccount({
-      callSign: pendingCallSign,
-      catName: trimmedName,
-      starterId: defaultStarterCharacter.id
-    });
-
-    if (!sanitized) {
-      nameInput.setCustomValidity("Please provide account details to continue.");
-      nameInput.reportValidity();
+    const sanitizedEmail = sanitizeEmailAddress(emailInput.value);
+    if (!sanitizedEmail) {
+      emailInput.setCustomValidity("Enter a valid email address.");
+      emailInput.reportValidity();
       return;
     }
 
-    pendingCallSign = sanitized.callSign;
-    callSignValue.textContent = `@${pendingCallSign}`;
-    nameInput.value = sanitized.catName;
-    if (typeof onComplete === "function") {
-      onComplete(sanitized);
+    const passwordValue = passwordInput.value;
+    if (!passwordValue || passwordValue.length < passwordMinLength) {
+      passwordInput.setCustomValidity(
+        `Use at least ${passwordMinLength} characters for your password.`
+      );
+      passwordInput.reportValidity();
+      return;
+    }
+
+    if (passwordValue !== confirmInput.value) {
+      confirmInput.setCustomValidity("Passwords do not match.");
+      confirmInput.reportValidity();
+      return;
+    }
+
+    submitButton.disabled = true;
+    submitButton.textContent = "Creating…";
+
+    try {
+      const passwordHash = await derivePasswordHash(passwordValue, pendingCallSign);
+      if (!passwordHash) {
+        passwordInput.setCustomValidity("Unable to secure your password. Try again.");
+        passwordInput.reportValidity();
+        return;
+      }
+
+      const sanitized = sanitizeAccount({
+        callSign: pendingCallSign,
+        catName: trimmedName,
+        starterId: defaultStarterCharacter.id,
+        email: sanitizedEmail,
+        passwordHash
+      });
+
+      if (!sanitized) {
+        nameInput.setCustomValidity("Please provide account details to continue.");
+        nameInput.reportValidity();
+        return;
+      }
+
+      pendingCallSign = sanitized.callSign;
+      callSignValue.textContent = `@${pendingCallSign}`;
+      nameInput.value = sanitized.catName;
+      emailInput.value = sanitized.email ?? sanitizedEmail;
+      passwordInput.value = "";
+      confirmInput.value = "";
+
+      if (typeof onComplete === "function") {
+        onComplete(sanitized);
+      }
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = defaultSubmitText;
     }
   });
+
+  if (selectableAccounts.length > 0 && isValidCallSign(initialAccount?.callSign)) {
+    applySignInPrefill(initialAccount.callSign);
+  }
 
   return {
     root,
     focus() {
-      nameInput.focus();
+      if (signInCallSignInput.value || selectableAccounts.length > 0) {
+        const target = signInCallSignInput.value ? signInPasswordInput : signInCallSignInput;
+        try {
+          target.focus({ preventScroll: true });
+        } catch (error) {
+          target.focus();
+        }
+        return;
+      }
+
+      try {
+        nameInput.focus({ preventScroll: true });
+      } catch (error) {
+        nameInput.focus();
+      }
     },
     close() {
       root.remove();
+    },
+    prefillSignIn(callSign) {
+      applySignInPrefill(callSign);
     }
   };
 }
