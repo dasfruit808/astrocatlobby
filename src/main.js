@@ -349,25 +349,8 @@ function resolvePublicAssetUrl(relativePath) {
 }
 
 function tryCreateAssetManifest() {
-  let glob;
-
   try {
-    glob = import.meta && import.meta.glob;
-  } catch (error) {
-    glob = undefined;
-  }
-
-  if (typeof glob !== "function") {
-    if (typeof console !== "undefined") {
-      console.warn(
-        "import.meta.glob is unavailable in this environment. Falling back to dynamic loading."
-      );
-    }
-    return null;
-  }
-
-  try {
-    return glob("./assets/*.{png,PNG}", {
+    return import.meta.glob("./assets/*.{png,PNG}", {
       eager: true,
       import: "default"
     });
@@ -386,25 +369,8 @@ function tryCreateAssetManifest() {
 const assetManifest = tryCreateAssetManifest();
 
 function tryCreateAudioManifest() {
-  let glob;
-
   try {
-    glob = import.meta && import.meta.glob;
-  } catch (error) {
-    glob = undefined;
-  }
-
-  if (typeof glob !== "function") {
-    if (typeof console !== "undefined") {
-      console.warn(
-        "import.meta.glob is unavailable for audio assets. Falling back to dynamic loading."
-      );
-    }
-    return null;
-  }
-
-  try {
-    return glob("./assets/audio/*.{wav,mp3,ogg}", {
+    return import.meta.glob("./assets/audio/*.{wav,mp3,ogg}", {
       eager: true,
       import: "default"
     });
@@ -1109,17 +1075,24 @@ function createOptionalSprite(assetPath) {
 }
 
 function createOptionalSpriteWithoutManifest(assetPath) {
-  let resolvedUrl;
-  try {
-    resolvedUrl = new URL(assetPath, import.meta.url).href;
-  } catch (error) {
-    console.warn(`Failed to resolve sprite asset at ${assetPath}`, error);
-    return createEmptySprite();
-  }
-
   const spriteState = createSpriteState(assetPath);
 
-  spriteState.setSource(resolvedUrl);
+  const normalizedPath = typeof assetPath === "string" ? assetPath.replace(/^\.\//, "") : "";
+  const resolvedFromPublic = resolvePublicAssetUrl(normalizedPath);
+
+  if (typeof resolvedFromPublic === "string" && resolvedFromPublic) {
+    spriteState.setSource(resolvedFromPublic);
+  } else {
+    let resolvedUrl;
+    try {
+      resolvedUrl = new URL(assetPath, import.meta.url).href;
+    } catch (error) {
+      console.warn(`Failed to resolve sprite asset at ${assetPath}`, error);
+      return createEmptySprite();
+    }
+
+    spriteState.setSource(resolvedUrl);
+  }
 
   return {
     image: spriteState.image,
@@ -1140,6 +1113,12 @@ function createSilentAudioHandle() {
 function resolveAudioSource(assetPath) {
   if (audioManifest) {
     return audioManifest[assetPath] ?? null;
+  }
+
+  const normalizedPath = typeof assetPath === "string" ? assetPath.replace(/^\.\//, "") : "";
+  const resolvedFromPublic = resolvePublicAssetUrl(normalizedPath);
+  if (typeof resolvedFromPublic === "string" && resolvedFromPublic) {
+    return resolvedFromPublic;
   }
 
   try {
