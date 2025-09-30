@@ -2640,11 +2640,14 @@ body.is-scroll-locked {
   flex: 0 0 100%;
   display: flex;
   justify-content: center;
+  align-items: center;
   padding: 12px;
   box-sizing: border-box;
 }
 
 .starter-carousel__image {
+  display: block;
+  margin: 0 auto;
   width: min(100%, 220px);
   aspect-ratio: 1;
   border-radius: 20px;
