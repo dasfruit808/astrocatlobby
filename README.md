@@ -74,3 +74,9 @@ This downlevels modern JavaScript features so the game boots cleanly across more
 ## Browser compatibility
 
 The Vite build now targets evergreen browsers as far back as Safari 13/Chrome 61 and includes runtime shims for `globalThis` and the `URL` constructor. Run `npm run build` before distributing the beta to ensure the transpiled output and compatibility helpers are included. Older browsers that still lack fundamental Web APIs will gracefully fall back to the lobby's built-in warnings instead of crashing.
+
+## Password hashing
+
+Account passwords are hashed with SHA-256 using the browser's Web Crypto API when it is available. When SubtleCrypto is missing, the lobby now falls back to a bundled SHA-256 implementation so the derived hash value remains as strong as the primary path. The fallback uses the same base64 encoding as SubtleCrypto to avoid format drift across browsers.【F:src/main.js†L1891-L2016】
+
+Players who return with a legacy `legacy-` password hash are automatically rehashed with SHA-256 during their next successful login and stored back to local persistence, ensuring the stronger protection applies to existing profiles without breaking sign in flows.【F:src/main.js†L3528-L3561】
