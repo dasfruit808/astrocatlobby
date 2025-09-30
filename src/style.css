@@ -2554,6 +2554,7 @@ body.is-scroll-locked {
   color: #f6f7ff;
   font-size: 15px;
   box-shadow: inset 0 0 0 1px rgba(10, 16, 34, 0.4);
+  box-sizing: border-box;
 }
 
 .onboarding-input:focus {
