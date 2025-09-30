@@ -1796,7 +1796,187 @@ function bufferToBase64(buffer) {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-function fallbackSimpleHash(text) {
+const sha256InitialStateValues = [
+  0x6a09e667,
+  0xbb67ae85,
+  0x3c6ef372,
+  0xa54ff53a,
+  0x510e527f,
+  0x9b05688c,
+  0x1f83d9ab,
+  0x5be0cd19
+];
+
+const sha256RoundConstants = [
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
+  0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe,
+  0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f,
+  0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
+  0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc,
+  0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
+  0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116,
+  0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7,
+  0xc67178f2
+];
+
+function rightRotate32(value, amount) {
+  return ((value >>> amount) | (value << (32 - amount))) >>> 0;
+}
+
+function add32(...values) {
+  let result = 0;
+  for (const value of values) {
+    result = (result + (value >>> 0)) >>> 0;
+  }
+  return result >>> 0;
+}
+
+function encodeTextAsUtf8(text) {
+  if (typeof TextEncoder === "function") {
+    try {
+      return new TextEncoder().encode(text);
+    } catch (error) {
+      // Fall through to manual encoding.
+    }
+  }
+
+  const bytes = [];
+  for (let index = 0; index < text.length; index += 1) {
+    let codePoint = text.charCodeAt(index);
+
+    if (codePoint >= 0xd800 && codePoint <= 0xdbff && index + 1 < text.length) {
+      const next = text.charCodeAt(index + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        codePoint = ((codePoint - 0xd800) << 10) + (next - 0xdc00) + 0x10000;
+        index += 1;
+      }
+    }
+
+    if (codePoint <= 0x7f) {
+      bytes.push(codePoint);
+    } else if (codePoint <= 0x7ff) {
+      bytes.push(0xc0 | ((codePoint >>> 6) & 0x1f));
+      bytes.push(0x80 | (codePoint & 0x3f));
+    } else if (codePoint <= 0xffff) {
+      bytes.push(0xe0 | ((codePoint >>> 12) & 0x0f));
+      bytes.push(0x80 | ((codePoint >>> 6) & 0x3f));
+      bytes.push(0x80 | (codePoint & 0x3f));
+    } else {
+      bytes.push(0xf0 | ((codePoint >>> 18) & 0x07));
+      bytes.push(0x80 | ((codePoint >>> 12) & 0x3f));
+      bytes.push(0x80 | ((codePoint >>> 6) & 0x3f));
+      bytes.push(0x80 | (codePoint & 0x3f));
+    }
+  }
+
+  return typeof Uint8Array === "function" ? new Uint8Array(bytes) : bytes;
+}
+
+function computeSha256Digest(bytes) {
+  const inputLength = bytes.length >>> 0;
+  const totalLength = ((inputLength + 9 + 63) >>> 6) << 6;
+  const buffer = typeof Uint8Array === "function" ? new Uint8Array(totalLength) : new Array(totalLength).fill(0);
+  for (let i = 0; i < inputLength; i += 1) {
+    buffer[i] = bytes[i];
+  }
+  buffer[inputLength] = 0x80;
+
+  const bitLength = inputLength * 8;
+  const high = Math.floor(bitLength / 0x100000000);
+  const low = bitLength >>> 0;
+  const last = totalLength - 8;
+  buffer[last] = (high >>> 24) & 0xff;
+  buffer[last + 1] = (high >>> 16) & 0xff;
+  buffer[last + 2] = (high >>> 8) & 0xff;
+  buffer[last + 3] = high & 0xff;
+  buffer[last + 4] = (low >>> 24) & 0xff;
+  buffer[last + 5] = (low >>> 16) & 0xff;
+  buffer[last + 6] = (low >>> 8) & 0xff;
+  buffer[last + 7] = low & 0xff;
+
+  const words = new Array(64).fill(0);
+  const hash = sha256InitialStateValues.slice();
+
+  for (let offset = 0; offset < totalLength; offset += 64) {
+    for (let i = 0; i < 16; i += 1) {
+      const index = offset + i * 4;
+      words[i] =
+        ((buffer[index] << 24) | (buffer[index + 1] << 16) | (buffer[index + 2] << 8) | buffer[index + 3]) >>> 0;
+    }
+
+    for (let i = 16; i < 64; i += 1) {
+      const s0 =
+        rightRotate32(words[i - 15], 7) ^ rightRotate32(words[i - 15], 18) ^ ((words[i - 15] >>> 3) >>> 0);
+      const s1 =
+        rightRotate32(words[i - 2], 17) ^ rightRotate32(words[i - 2], 19) ^ ((words[i - 2] >>> 10) >>> 0);
+      words[i] = add32(words[i - 16], s0, words[i - 7], s1);
+    }
+
+    let a = hash[0];
+    let b = hash[1];
+    let c = hash[2];
+    let d = hash[3];
+    let e = hash[4];
+    let f = hash[5];
+    let g = hash[6];
+    let h = hash[7];
+
+    for (let i = 0; i < 64; i += 1) {
+      const S1 = rightRotate32(e, 6) ^ rightRotate32(e, 11) ^ rightRotate32(e, 25);
+      const ch = (e & f) ^ (~e & g);
+      const temp1 = add32(h, S1, ch, sha256RoundConstants[i], words[i]);
+      const S0 = rightRotate32(a, 2) ^ rightRotate32(a, 13) ^ rightRotate32(a, 22);
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const temp2 = add32(S0, maj);
+
+      h = g;
+      g = f;
+      f = e;
+      e = add32(d, temp1);
+      d = c;
+      c = b;
+      b = a;
+      a = add32(temp1, temp2);
+    }
+
+    hash[0] = add32(hash[0], a);
+    hash[1] = add32(hash[1], b);
+    hash[2] = add32(hash[2], c);
+    hash[3] = add32(hash[3], d);
+    hash[4] = add32(hash[4], e);
+    hash[5] = add32(hash[5], f);
+    hash[6] = add32(hash[6], g);
+    hash[7] = add32(hash[7], h);
+  }
+
+  const digest = typeof Uint8Array === "function" ? new Uint8Array(32) : new Array(32).fill(0);
+  for (let i = 0; i < 8; i += 1) {
+    const value = hash[i];
+    digest[i * 4] = (value >>> 24) & 0xff;
+    digest[i * 4 + 1] = (value >>> 16) & 0xff;
+    digest[i * 4 + 2] = (value >>> 8) & 0xff;
+    digest[i * 4 + 3] = value & 0xff;
+  }
+
+  return digest;
+}
+
+async function fallbackSimpleHash(text) {
+  if (typeof text !== "string") {
+    throw new TypeError("Password hashing input must be a string");
+  }
+
+  const bytes = encodeTextAsUtf8(text);
+  if (!bytes || typeof bytes.length !== "number") {
+    throw new TypeError("Unable to encode password hash payload");
+  }
+
+  const digest = computeSha256Digest(bytes);
+  return bufferToBase64(digest);
+}
+
+function legacyFallbackSimpleHash(text) {
   if (typeof text !== "string") {
     return "";
   }
@@ -1834,7 +2014,12 @@ async function derivePasswordHash(password, callSign) {
     }
   }
 
-  return fallbackSimpleHash(payload);
+  try {
+    return await fallbackSimpleHash(payload);
+  } catch (error) {
+    console.warn("Unable to derive password hash using fallback SHA-256", error);
+    return null;
+  }
 }
 
 function getAccountPasswordHash(account) {
@@ -3564,13 +3749,27 @@ async function attemptAccountLogin(credentials = {}) {
     };
   }
 
+  const payload = `astrocat|${normalizedCallSign}|${password}`;
   const derivedHash = await derivePasswordHash(password, normalizedCallSign);
   if (!derivedHash) {
     return { ok: false, error: "Unable to verify your credentials. Try again." };
   }
 
   if (storedHash !== derivedHash) {
-    return { ok: false, error: "Incorrect password. Try again." };
+    if (storedHash.startsWith("legacy-")) {
+      const legacyHash = legacyFallbackSimpleHash(payload);
+      if (legacyHash === storedHash) {
+        account.passwordHash = derivedHash;
+        if (account.auth && typeof account.auth === "object") {
+          account.auth.passwordHash = derivedHash;
+        }
+        persistStoredAccounts();
+      } else {
+        return { ok: false, error: "Incorrect password. Try again." };
+      }
+    } else {
+      return { ok: false, error: "Incorrect password. Try again." };
+    }
   }
 
   const activated = activateStoredAccount(normalizedCallSign, {
