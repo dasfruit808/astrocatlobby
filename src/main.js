@@ -1512,24 +1512,89 @@ const defaultStarterDefinition = {
     accessory: "#ff477e",
     eye: "#1b1d3a",
     highlight: "#ffd166"
+  },
+  recommendedAllocation: {
+    agility: 2,
+    focus: 2,
+    strength: 1,
+    vitality: 1
   }
 };
 
-const defaultStarterCharacter = {
-  id: defaultStarterDefinition.id,
-  name: defaultStarterDefinition.name,
-  tagline: defaultStarterDefinition.tagline,
-  description: defaultStarterDefinition.description,
-  image: resolveStarterImageSource(
-    defaultStarterDefinition.imageAssets,
-    defaultStarterDefinition.palette
-  ),
+const starterDefinitions = [
+  defaultStarterDefinition,
+  {
+    id: "lunar-oracle",
+    name: "Lunar Oracle",
+    tagline: "A mystic seer attuned to cosmic energies.",
+    description: "Channels lunar wisdom for enhanced focus and shields.",
+    imageAssets: "./assets/characrter2.png",
+    spriteAssets: [
+      "./assets/playersprite2.png",
+      "./assets/characrter2.png"
+    ],
+    palette: {
+      background: "#2a225a",
+      body: "#7f5af0",
+      accent: "#fee440",
+      accessory: "#ff6ac1",
+      eye: "#1b1d3a",
+      highlight: "#cddafd"
+    },
+    recommendedAllocation: {
+      focus: 3,
+      vitality: 2,
+      agility: 1
+    }
+  },
+  {
+    id: "meteor-warden",
+    name: "Meteor Warden",
+    tagline: "A steadfast guardian forged in stardust.",
+    description: "Tanks incoming damage with reinforced armor plating.",
+    imageAssets: "./assets/character3.png",
+    spriteAssets: [
+      "./assets/playersprite3.png",
+      "./assets/character3.png"
+    ],
+    palette: {
+      background: "#201f3d",
+      body: "#4cc9f0",
+      accent: "#4361ee",
+      accessory: "#ffb703",
+      eye: "#1b1d3a",
+      highlight: "#90e0ef"
+    },
+    recommendedAllocation: {
+      vitality: 3,
+      strength: 3
+    }
+  }
+];
+
+const starterCharacters = starterDefinitions.map((definition) => ({
+  id: definition.id,
+  name: definition.name,
+  tagline: definition.tagline,
+  description: definition.description,
+  image: resolveStarterImageSource(definition.imageAssets, definition.palette),
   sprite: resolveStarterSpriteSource(
-    defaultStarterDefinition.spriteAssets ?? defaultStarterDefinition.imageAssets,
-    defaultStarterDefinition.palette
+    definition.spriteAssets ?? definition.imageAssets,
+    definition.palette
   ),
-  palette: defaultStarterDefinition.palette
-};
+  palette: definition.palette,
+  recommendedAllocation: definition.recommendedAllocation ?? null
+}));
+
+const starterCharactersById = new Map();
+for (const character of starterCharacters) {
+  if (character?.id) {
+    starterCharactersById.set(character.id, character);
+  }
+}
+
+const defaultStarterCharacter =
+  starterCharactersById.get(defaultStarterDefinition.id) ?? starterCharacters[0];
 
 const legacyAccountStorageKey = "astrocat-account";
 const accountStorageKey = "astrocat-accounts";
@@ -1552,6 +1617,10 @@ function sanitizeEmailAddress(value) {
   }
 
   return emailPattern.test(normalized) ? normalized : null;
+}
+
+function isValidStarterId(value) {
+  return typeof value === "string" && starterCharactersById.has(value);
 }
 
 function bufferToBase64(buffer) {
@@ -2047,10 +2116,15 @@ function sanitizeAccount(source = {}) {
 
   const rawName = typeof source.catName === "string" ? source.catName.trim() : "";
   const name = rawName.replace(/\s+/g, " ").slice(0, 28);
-  const starterId =
+  const requestedStarterId =
     typeof source.starterId === "string" && source.starterId
       ? source.starterId
-      : defaultStarterCharacter.id;
+      : typeof source.starter === "string"
+        ? source.starter
+        : null;
+  const starterId = isValidStarterId(requestedStarterId)
+    ? requestedStarterId
+    : defaultStarterCharacter.id;
 
   if (!name) {
     return null;
@@ -2096,6 +2170,23 @@ function sanitizeAccount(source = {}) {
 
   if (lobbyLayoutSnapshot) {
     account.lobbyLayout = lobbyLayoutSnapshot;
+  }
+
+  const attributeSource =
+    typeof source.attributes === "object"
+      ? source.attributes
+      : typeof source.attributeOverrides === "object"
+        ? source.attributeOverrides
+        : null;
+  if (attributeSource) {
+    const sanitizedAttributes = sanitizeAttributeValues(attributeSource);
+    if (hasCustomAttributes(sanitizedAttributes)) {
+      account.attributes = sanitizedAttributes;
+    }
+  }
+
+  if (Number.isFinite(source.statPoints)) {
+    account.statPoints = Math.max(0, Math.floor(source.statPoints));
   }
 
   return account;
@@ -2200,6 +2291,12 @@ function buildAccountPayload(accounts, activeCallSign) {
     const layoutSnapshot = sanitizeLobbyLayoutSnapshot(entry.lobbyLayout);
     if (layoutSnapshot) {
       sortedAccounts[key].lobbyLayout = layoutSnapshot;
+    }
+    if (hasCustomAttributes(entry.attributes)) {
+      sortedAccounts[key].attributes = sanitizeAttributeValues(entry.attributes);
+    }
+    if (Number.isFinite(entry.statPoints)) {
+      sortedAccounts[key].statPoints = Math.max(0, Math.floor(entry.statPoints));
     }
   }
 
@@ -2838,7 +2935,10 @@ function getMiniGameLoadoutBySlot(slots, slotId) {
   return slots[0];
 }
 
-function findStarterCharacter() {
+function findStarterCharacter(starterId) {
+  if (typeof starterId === "string" && starterCharactersById.has(starterId)) {
+    return starterCharactersById.get(starterId);
+  }
   return defaultStarterCharacter;
 }
 
@@ -2900,6 +3000,7 @@ const EXP_MILESTONE_BONUS = 160;
 const STAT_POINTS_PER_LEVEL = 2;
 const STAT_POINT_MILESTONE_INTERVAL = 5;
 const STAT_POINT_MILESTONE_BONUS = 3;
+const CHARACTER_CREATION_POINTS = 6;
 
 const attributeDefinitions = [
   {
@@ -2933,6 +3034,39 @@ function createInitialAttributeState() {
     attributes[definition.key] = definition.base;
   }
   return attributes;
+}
+
+function sanitizeAttributeValues(source) {
+  const attributes = createInitialAttributeState();
+  if (!source || typeof source !== "object") {
+    return attributes;
+  }
+
+  for (const definition of attributeDefinitions) {
+    const rawValue = source[definition.key];
+    if (Number.isFinite(rawValue)) {
+      const normalized = Math.max(definition.base, Math.floor(rawValue));
+      attributes[definition.key] = normalized;
+    }
+  }
+
+  return attributes;
+}
+
+function hasCustomAttributes(attributes) {
+  if (!attributes || typeof attributes !== "object") {
+    return false;
+  }
+
+  const base = createInitialAttributeState();
+  for (const definition of attributeDefinitions) {
+    const value = attributes[definition.key];
+    if (Number.isFinite(value) && Math.floor(value) !== base[definition.key]) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function applyAttributeScaling(stats, options = {}) {
@@ -3012,6 +3146,17 @@ function getExpForNextLevel(level) {
   return Math.round(BASE_EXP_REQUIREMENT * growth + milestoneBonus);
 }
 
+const initialAttributes = createInitialAttributeState();
+if (activeAccount?.attributes && typeof activeAccount.attributes === "object") {
+  for (const definition of attributeDefinitions) {
+    const rawValue = activeAccount.attributes[definition.key];
+    if (Number.isFinite(rawValue)) {
+      const normalized = Math.max(definition.base, Math.floor(rawValue));
+      initialAttributes[definition.key] = normalized;
+    }
+  }
+}
+
 const playerStats = {
   name: activeAccount?.catName ?? fallbackAccount.catName,
   handle: activeAccount?.handle ?? fallbackAccount.handle,
@@ -3025,8 +3170,10 @@ const playerStats = {
   maxHp: 100,
   mp: 40,
   maxMp: 60,
-  statPoints: getStatPointsForLevel(1),
-  attributes: createInitialAttributeState(),
+  statPoints: Number.isFinite(activeAccount?.statPoints)
+    ? Math.max(0, Math.floor(activeAccount.statPoints))
+    : getStatPointsForLevel(1),
+  attributes: initialAttributes,
   attackPower: 0,
   speedRating: 0
 };
@@ -3037,7 +3184,7 @@ const playerSpriteState = createSpriteState("starter sprite");
 let activePlayerSpriteKey = null;
 
 function setPlayerSpriteFromStarter() {
-  const starter = findStarterCharacter();
+  const starter = findStarterCharacter(playerStats.starterId);
   const spriteSources = starter?.sprite;
   const candidateSources = [];
 
@@ -3108,7 +3255,7 @@ const ui = createInterface(playerStats, {
 app.innerHTML = "";
 app.append(ui.root);
 
-const initialStarter = findStarterCharacter();
+const initialStarter = findStarterCharacter(playerStats.starterId);
 ui.setAccount(activeAccount, initialStarter);
 ui.addFeedMessage({
   author: "Mission Command",
@@ -3170,9 +3317,19 @@ function applyActiveAccount(account) {
   playerStats.name = account.catName;
   playerStats.handle = account.handle;
   playerStats.callSign = account.callSign;
-  playerStats.starterId = account.starterId;
+  playerStats.starterId = isValidStarterId(account.starterId)
+    ? account.starterId
+    : defaultStarterCharacter.id;
+  playerStats.attributes = sanitizeAttributeValues(account.attributes);
+  playerStats.statPoints = Number.isFinite(account.statPoints)
+    ? Math.max(0, Math.floor(account.statPoints))
+    : Math.max(0, Math.floor(playerStats.statPoints ?? getStatPointsForLevel(playerStats.level)));
+  applyAttributeScaling(playerStats, { preservePercent: false });
+  playerStats.hp = playerStats.maxHp;
+  playerStats.mp = playerStats.maxMp;
+  updateRankFromLevel();
   setPlayerSpriteFromStarter();
-  const chosenStarter = findStarterCharacter();
+  const chosenStarter = findStarterCharacter(playerStats.starterId);
   ui.setAccount(account, chosenStarter);
   ui.refresh(playerStats);
   syncMiniGameProfile();
@@ -3297,8 +3454,17 @@ function handleLogout() {
   playerStats.handle = fallbackAccount.handle;
   playerStats.callSign = fallbackAccount.callSign;
   playerStats.starterId = fallbackAccount.starterId;
+  playerStats.level = 1;
+  playerStats.exp = 0;
+  playerStats.maxExp = getExpForNextLevel(1);
+  playerStats.statPoints = getStatPointsForLevel(1);
+  playerStats.attributes = createInitialAttributeState();
+  applyAttributeScaling(playerStats, { preservePercent: false });
+  playerStats.hp = playerStats.maxHp;
+  playerStats.mp = playerStats.maxMp;
+  updateRankFromLevel();
   setPlayerSpriteFromStarter();
-  const starter = findStarterCharacter();
+  const starter = findStarterCharacter(playerStats.starterId);
   ui.setAccount(null, starter);
   ui.refresh(playerStats);
   refreshStoredAccountDirectory();
@@ -6918,6 +7084,323 @@ function createOnboardingExperience(config = {}) {
   callSignHint.textContent = "Share this number so other explorers can reach you.";
   callSignField.append(callSignLabel, callSignValue, callSignHint);
 
+  const availableStarters =
+    Array.isArray(starterCharacters) && starterCharacters.length > 0
+      ? starterCharacters
+      : [defaultStarterCharacter];
+  let activeStarterIndex = isValidStarterId(initialAccount?.starterId)
+    ? availableStarters.findIndex((entry) => entry.id === initialAccount.starterId)
+    : availableStarters.findIndex((entry) => entry.id === defaultStarterCharacter.id);
+  if (activeStarterIndex < 0) {
+    activeStarterIndex = 0;
+  }
+  let selectedStarterId =
+    availableStarters[activeStarterIndex]?.id ?? defaultStarterCharacter.id;
+
+  const starterField = document.createElement("div");
+  starterField.className = "onboarding-field onboarding-field--wide onboarding-field--starter";
+  const starterLabel = document.createElement("span");
+  starterLabel.className = "onboarding-label";
+  starterLabel.textContent = "Choose your Astrocat";
+  const starterCarousel = document.createElement("div");
+  starterCarousel.className = "starter-carousel";
+  starterCarousel.setAttribute("aria-label", "Starter selection");
+
+  const prevStarterButton = document.createElement("button");
+  prevStarterButton.type = "button";
+  prevStarterButton.className = "starter-carousel__control starter-carousel__control--prev";
+  prevStarterButton.setAttribute("aria-label", "Previous Astrocat");
+  prevStarterButton.innerHTML = "&#x2039;";
+
+  const nextStarterButton = document.createElement("button");
+  nextStarterButton.type = "button";
+  nextStarterButton.className = "starter-carousel__control starter-carousel__control--next";
+  nextStarterButton.setAttribute("aria-label", "Next Astrocat");
+  nextStarterButton.innerHTML = "&#x203A;";
+
+  const starterViewport = document.createElement("div");
+  starterViewport.className = "starter-carousel__viewport";
+  const starterTrack = document.createElement("div");
+  starterTrack.className = "starter-carousel__track";
+  starterViewport.append(starterTrack);
+
+  const starterIndicators = document.createElement("div");
+  starterIndicators.className = "starter-carousel__indicators";
+
+  starterCarousel.append(
+    prevStarterButton,
+    starterViewport,
+    nextStarterButton,
+    starterIndicators
+  );
+
+  const starterInfo = document.createElement("div");
+  starterInfo.className = "starter-carousel__info";
+  const starterName = document.createElement("h3");
+  starterName.className = "starter-carousel__name";
+  const starterTagline = document.createElement("p");
+  starterTagline.className = "starter-carousel__tagline";
+  const starterDescription = document.createElement("p");
+  starterDescription.className = "starter-carousel__description";
+  starterInfo.append(starterName, starterTagline, starterDescription);
+
+  const starterHint = document.createElement("p");
+  starterHint.className = "onboarding-hint";
+  starterHint.textContent =
+    "Cycle through the crew portraits to meet each Astrocat before choosing your companion.";
+
+  starterField.append(starterLabel, starterCarousel, starterInfo, starterHint);
+
+  const creationBaseAttributes = createInitialAttributeState();
+  const creationAllocation = {};
+  for (const definition of attributeDefinitions) {
+    creationAllocation[definition.key] = 0;
+  }
+  let remainingCreationPoints = CHARACTER_CREATION_POINTS;
+
+  const statsField = document.createElement("div");
+  statsField.className = "onboarding-field onboarding-field--wide onboarding-field--stats";
+  const statsHeader = document.createElement("div");
+  statsHeader.className = "stat-allocation__header";
+  const statsLabel = document.createElement("span");
+  statsLabel.className = "onboarding-label";
+  statsLabel.textContent = "Allocate stat points";
+  const statsPointsRemaining = document.createElement("span");
+  statsPointsRemaining.className = "stat-allocation__points";
+  statsHeader.append(statsLabel, statsPointsRemaining);
+  const statsHint = document.createElement("p");
+  statsHint.className = "onboarding-hint";
+  statsHint.textContent =
+    `Distribute ${CHARACTER_CREATION_POINTS} bonus points to shape your launch-ready build.`;
+  const statsList = document.createElement("div");
+  statsList.className = "stat-allocation__list";
+  const statsError = document.createElement("p");
+  statsError.className = "stat-allocation__error";
+  statsError.hidden = true;
+  statsField.append(statsHeader, statsHint, statsList, statsError);
+
+  const starterSlides = [];
+  const starterDots = [];
+  const statRows = new Map();
+
+  function normalizeCreationAllocation(bonusSource = {}) {
+    const normalized = {};
+    let used = 0;
+    for (const definition of attributeDefinitions) {
+      const raw = bonusSource?.[definition.key];
+      const bonus = Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
+      normalized[definition.key] = bonus;
+      used += bonus;
+    }
+    if (used > CHARACTER_CREATION_POINTS) {
+      let overflow = used - CHARACTER_CREATION_POINTS;
+      const reducers = attributeDefinitions
+        .map((definition) => ({
+          key: definition.key,
+          bonus: normalized[definition.key]
+        }))
+        .sort((a, b) => b.bonus - a.bonus || a.key.localeCompare(b.key));
+      for (const entry of reducers) {
+        while (entry.bonus > 0 && overflow > 0) {
+          entry.bonus -= 1;
+          normalized[entry.key] -= 1;
+          overflow -= 1;
+        }
+        if (overflow === 0) {
+          break;
+        }
+      }
+      used = CHARACTER_CREATION_POINTS;
+    }
+    return { allocation: normalized, used: Math.min(used, CHARACTER_CREATION_POINTS) };
+  }
+
+  function updateAllocationUI() {
+    const pointsLabel =
+      remainingCreationPoints === 1
+        ? "1 pt remaining"
+        : `${remainingCreationPoints} pts remaining`;
+    statsPointsRemaining.textContent = pointsLabel;
+    for (const definition of attributeDefinitions) {
+      const row = statRows.get(definition.key);
+      if (!row) {
+        continue;
+      }
+      const baseValue = creationBaseAttributes[definition.key];
+      const bonus = creationAllocation[definition.key] ?? 0;
+      const total = baseValue + bonus;
+      row.value.textContent = `${total}`;
+      row.value.title =
+        bonus > 0 ? `${baseValue} base + ${bonus} bonus` : `${baseValue} base`;
+      row.decrease.disabled = bonus === 0;
+      row.increase.disabled = remainingCreationPoints === 0;
+    }
+    statsError.hidden = true;
+  }
+
+  function applyStarterAllocation(starter, resetAllocation) {
+    if (!resetAllocation) {
+      updateAllocationUI();
+      return;
+    }
+    const normalized = normalizeCreationAllocation(starter?.recommendedAllocation ?? {});
+    for (const definition of attributeDefinitions) {
+      creationAllocation[definition.key] = normalized.allocation[definition.key] ?? 0;
+    }
+    remainingCreationPoints = Math.max(
+      0,
+      CHARACTER_CREATION_POINTS - normalized.used
+    );
+    updateAllocationUI();
+  }
+
+  function adjustAllocation(attributeKey, delta) {
+    if (!Object.prototype.hasOwnProperty.call(creationAllocation, attributeKey) || delta === 0) {
+      return;
+    }
+    const current = creationAllocation[attributeKey] ?? 0;
+    if (delta > 0) {
+      if (remainingCreationPoints === 0) {
+        return;
+      }
+      creationAllocation[attributeKey] = current + 1;
+      remainingCreationPoints = Math.max(0, remainingCreationPoints - 1);
+    } else if (delta < 0) {
+      if (current === 0) {
+        return;
+      }
+      creationAllocation[attributeKey] = current - 1;
+      remainingCreationPoints = Math.min(
+        CHARACTER_CREATION_POINTS,
+        remainingCreationPoints + 1
+      );
+    }
+    statsError.hidden = true;
+    updateAllocationUI();
+  }
+
+  function setActiveStarter(index, options = {}) {
+    if (availableStarters.length === 0) {
+      return;
+    }
+    const length = availableStarters.length;
+    const normalizedIndex = ((index % length) + length) % length;
+    activeStarterIndex = normalizedIndex;
+    const starter = availableStarters[normalizedIndex] ?? defaultStarterCharacter;
+    selectedStarterId = starter.id ?? defaultStarterCharacter.id;
+    starterTrack.style.transform = `translateX(-${normalizedIndex * 100}%)`;
+    starterSlides.forEach((slide, slideIndex) => {
+      slide.classList.toggle("is-active", slideIndex === normalizedIndex);
+    });
+    starterDots.forEach((button, buttonIndex) => {
+      const isActive = buttonIndex === normalizedIndex;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+    starterName.textContent = starter.name ?? "Astrocat";
+    starterTagline.textContent = starter.tagline ?? "";
+    starterDescription.textContent = starter.description ?? "";
+    const preserveAllocation = options.preserveAllocation === true;
+    applyStarterAllocation(starter, !preserveAllocation);
+  }
+
+  availableStarters.forEach((starter, index) => {
+    const slide = document.createElement("figure");
+    slide.className = "starter-carousel__slide";
+    const image = document.createElement("img");
+    image.className = "starter-carousel__image";
+    image.src = starter.image;
+    image.alt = `${starter.name} portrait`;
+    slide.append(image);
+    slide.addEventListener("click", () => {
+      setActiveStarter(index);
+    });
+    starterTrack.append(slide);
+    starterSlides.push(slide);
+
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "starter-carousel__indicator";
+    dot.setAttribute("aria-label", `Select ${starter.name}`);
+    dot.addEventListener("click", () => {
+      setActiveStarter(index);
+    });
+    starterIndicators.append(dot);
+    starterDots.push(dot);
+  });
+
+  prevStarterButton.addEventListener("click", () => {
+    if (availableStarters.length <= 1) {
+      return;
+    }
+    setActiveStarter(activeStarterIndex - 1);
+  });
+  nextStarterButton.addEventListener("click", () => {
+    if (availableStarters.length <= 1) {
+      return;
+    }
+    setActiveStarter(activeStarterIndex + 1);
+  });
+  prevStarterButton.disabled = availableStarters.length <= 1;
+  nextStarterButton.disabled = availableStarters.length <= 1;
+
+  for (const definition of attributeDefinitions) {
+    const item = document.createElement("div");
+    item.className = "stat-allocation__item";
+    const meta = document.createElement("div");
+    meta.className = "stat-allocation__meta";
+    const label = document.createElement("span");
+    label.className = "stat-allocation__label";
+    label.textContent = definition.label;
+    const hint = document.createElement("p");
+    hint.className = "stat-allocation__hint";
+    hint.textContent = definition.description;
+    meta.append(label, hint);
+    const controls = document.createElement("div");
+    controls.className = "stat-allocation__controls";
+    const decrease = document.createElement("button");
+    decrease.type = "button";
+    decrease.className = "stat-allocation__button";
+    decrease.textContent = "−";
+    decrease.setAttribute("aria-label", `Remove point from ${definition.label}`);
+    decrease.addEventListener("click", () => adjustAllocation(definition.key, -1));
+    const value = document.createElement("span");
+    value.className = "stat-allocation__value";
+    const increase = document.createElement("button");
+    increase.type = "button";
+    increase.className = "stat-allocation__button";
+    increase.textContent = "+";
+    increase.setAttribute("aria-label", `Add point to ${definition.label}`);
+    increase.addEventListener("click", () => adjustAllocation(definition.key, 1));
+    controls.append(decrease, value, increase);
+    item.append(meta, controls);
+    statsList.append(item);
+    statRows.set(definition.key, { value, increase, decrease });
+  }
+
+  if (initialAccount?.attributes && typeof initialAccount.attributes === "object") {
+    const bonusSource = {};
+    for (const definition of attributeDefinitions) {
+      const raw = initialAccount.attributes?.[definition.key];
+      if (Number.isFinite(raw)) {
+        const normalizedValue = Math.max(definition.base, Math.floor(raw));
+        bonusSource[definition.key] = Math.max(0, normalizedValue - definition.base);
+      }
+    }
+    const normalized = normalizeCreationAllocation(bonusSource);
+    for (const definition of attributeDefinitions) {
+      creationAllocation[definition.key] = normalized.allocation[definition.key] ?? 0;
+    }
+    remainingCreationPoints = Math.max(
+      0,
+      CHARACTER_CREATION_POINTS - normalized.used
+    );
+  }
+
+  setActiveStarter(activeStarterIndex, {
+    preserveAllocation: Boolean(initialAccount?.attributes)
+  });
+
   const nameField = document.createElement("div");
   nameField.className = "onboarding-field";
   const nameLabel = document.createElement("label");
@@ -7003,7 +7486,16 @@ function createOnboardingExperience(config = {}) {
   submitButton.textContent = "Create account";
   actions.append(submitButton);
 
-  form.append(callSignField, nameField, emailField, passwordField, confirmField, actions);
+  form.append(
+    callSignField,
+    starterField,
+    statsField,
+    nameField,
+    emailField,
+    passwordField,
+    confirmField,
+    actions
+  );
 
   let pendingCallSign = null;
   if (initialAccount) {
@@ -7079,6 +7571,20 @@ function createOnboardingExperience(config = {}) {
       return;
     }
 
+    if (remainingCreationPoints > 0) {
+      statsError.textContent =
+        remainingCreationPoints === 1
+          ? "Allocate your remaining stat point to continue."
+          : `Allocate your remaining ${remainingCreationPoints} stat points to continue.`;
+      statsError.hidden = false;
+      try {
+        statsField.scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch (error) {
+        statsField.scrollIntoView();
+      }
+      return;
+    }
+
     submitButton.disabled = true;
     submitButton.textContent = "Creating…";
 
@@ -7090,12 +7596,20 @@ function createOnboardingExperience(config = {}) {
         return;
       }
 
+      const attributeSnapshot = createInitialAttributeState();
+      for (const definition of attributeDefinitions) {
+        const baseValue = attributeSnapshot[definition.key];
+        const bonus = creationAllocation[definition.key] ?? 0;
+        attributeSnapshot[definition.key] = baseValue + bonus;
+      }
+
       const sanitized = sanitizeAccount({
         callSign: pendingCallSign,
         catName: trimmedName,
-        starterId: defaultStarterCharacter.id,
+        starterId: selectedStarterId,
         email: sanitizedEmail,
-        passwordHash
+        passwordHash,
+        attributes: attributeSnapshot
       });
 
       if (!sanitized) {
@@ -7105,6 +7619,15 @@ function createOnboardingExperience(config = {}) {
       }
 
       pendingCallSign = sanitized.callSign;
+      selectedStarterId = sanitized.starterId;
+      const sanitizedStarterIndex = availableStarters.findIndex(
+        (entry) => entry.id === sanitized.starterId
+      );
+      if (sanitizedStarterIndex >= 0) {
+        setActiveStarter(sanitizedStarterIndex, { preserveAllocation: true });
+      }
+      statsError.hidden = true;
+      updateAllocationUI();
       callSignValue.textContent = `@${pendingCallSign}`;
       nameInput.value = sanitized.catName;
       emailInput.value = sanitized.email ?? sanitizedEmail;
@@ -9588,7 +10111,7 @@ function createInterface(stats, options = {}) {
     }
 
     const resolvedStarter =
-      starterOverride ?? findStarterCharacter() ?? fallbackStarter;
+      starterOverride ?? findStarterCharacter(account?.starterId) ?? fallbackStarter;
     accountCard.classList.remove("account-card--empty");
     const callSignLabel = account.callSign ? `@${account.callSign}` : account.handle;
     if (callSignLabel) {
