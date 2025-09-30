@@ -2353,24 +2353,29 @@ body.is-scroll-locked {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px;
+  --onboarding-overlay-padding: clamp(16px, 4vh, 32px);
+  padding: var(--onboarding-overlay-padding);
   z-index: 100;
   backdrop-filter: blur(12px);
+  overflow-y: auto;
 }
 
 .onboarding-modal {
   width: min(960px, 100%);
-  max-width: calc(100vw - 64px);
+  max-width: calc(100vw - (var(--onboarding-overlay-padding) * 2));
+  max-height: calc(100vh - (var(--onboarding-overlay-padding) * 2));
   background: rgba(28, 36, 58, 0.95);
   border-radius: 22px;
-  padding: 32px;
+  padding: clamp(20px, 5vw, 32px);
+  padding-block: clamp(18px, 6vh, 32px);
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: clamp(16px, 4vh, 24px);
   border: 1px solid rgba(120, 150, 255, 0.35);
   box-shadow: 0 30px 60px rgba(10, 16, 35, 0.65);
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: auto;
+  scrollbar-gutter: stable both-edges;
 }
 
 .onboarding-heading {
@@ -2387,7 +2392,7 @@ body.is-scroll-locked {
 
 .onboarding-signin {
   margin: 0;
-  padding: 18px 20px;
+  padding: clamp(16px, 3vh, 18px) clamp(18px, 3vw, 20px);
   border-radius: 18px;
   background: rgba(12, 24, 46, 0.8);
   border: 1px solid rgba(134, 225, 255, 0.18);
@@ -2433,7 +2438,7 @@ body.is-scroll-locked {
 
 .onboarding-saved {
   margin: 0;
-  padding: 18px 20px;
+  padding: clamp(16px, 3vh, 18px) clamp(18px, 3vw, 20px);
   border-radius: 18px;
   background: rgba(14, 28, 58, 0.75);
   border: 1px solid rgba(138, 191, 255, 0.25);
@@ -2580,13 +2585,13 @@ body.is-scroll-locked {
 
 .onboarding-layout {
   display: flex;
-  gap: 24px;
+  gap: clamp(16px, 4vh, 24px);
 }
 
 .onboarding-column {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: clamp(14px, 3vh, 20px);
 }
 
 .onboarding-column--support {
@@ -2831,11 +2836,13 @@ body.is-scroll-locked {
 
 @media (max-width: 960px) {
   .onboarding-modal {
-    padding: 28px;
+    padding: clamp(24px, 6vw, 28px);
+    padding-block: clamp(20px, 7vh, 28px);
   }
 
   .onboarding-layout {
     flex-direction: column;
+    gap: clamp(18px, 4vh, 22px);
   }
 
   .onboarding-column--support {
@@ -2854,7 +2861,7 @@ body.is-scroll-locked {
   .starter-carousel {
     grid-template-columns: 1fr;
     justify-items: center;
-    gap: 16px;
+    gap: clamp(14px, 4vh, 18px);
   }
 
   .starter-carousel__control {
@@ -3024,8 +3031,9 @@ body.is-scroll-locked {
 
 @media (max-width: 640px) {
   .onboarding-modal {
-    padding: 22px;
-    max-width: calc(100vw - 44px);
+    padding: clamp(20px, 6vw, 24px);
+    padding-block: clamp(18px, 8vh, 24px);
+    max-width: calc(100vw - (var(--onboarding-overlay-padding) * 2));
   }
 
   .minigame-modal {
