@@ -1195,7 +1195,7 @@ function createOptionalSprite(assetPath) {
   if (assetManifest) {
     const source = assetManifest[assetPath];
     if (!source) {
-      return createEmptySprite();
+      return createOptionalSpriteWithoutManifest(assetPath);
     }
 
     const spriteState = createSpriteState(assetPath);
