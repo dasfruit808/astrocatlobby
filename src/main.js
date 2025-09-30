@@ -906,7 +906,7 @@ function applyCustomPageBackground() {
     }
 
     const applyFallbackBackground = () => {
-      applyPageBackgroundFromUrl(body, backgroundImageUrl);
+      applyPageBackgroundFromUrl(body, null);
     };
 
     applyFallbackBackground();
