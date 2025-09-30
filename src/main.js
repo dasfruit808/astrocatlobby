@@ -994,11 +994,25 @@ function createSpriteState(assetPath) {
   const image = new Image();
   let ready = false;
   let warned = false;
+  let pendingSources = [];
+  let currentSource = "";
+  const attemptedSources = new Set();
 
-  const markReady = () => {
+  function markReady() {
     ready = true;
-  };
-  const handleError = () => {
+    pendingSources = [];
+    currentSource = "";
+  }
+
+  function logSourceFailure(source) {
+    if (!source || attemptedSources.has(source)) {
+      return;
+    }
+    attemptedSources.add(source);
+    console.warn(`Failed to load sprite asset at ${source}. Attempting fallback for ${assetPath}.`);
+  }
+
+  function handleFatalError() {
     ready = false;
     if (!warned) {
       console.warn(
@@ -1006,7 +1020,41 @@ function createSpriteState(assetPath) {
       );
       warned = true;
     }
-  };
+  }
+
+  function tryNextSource() {
+    if (pendingSources.length === 0) {
+      currentSource = "";
+      handleFatalError();
+      return;
+    }
+
+    const nextSource = pendingSources.shift();
+    if (!nextSource) {
+      tryNextSource();
+      return;
+    }
+
+    ready = false;
+    currentSource = nextSource;
+    image.src = nextSource;
+    if (image.complete && image.naturalWidth > 0) {
+      markReady();
+    }
+  }
+
+  function handleError() {
+    if (currentSource) {
+      logSourceFailure(currentSource);
+    }
+
+    if (pendingSources.length > 0) {
+      tryNextSource();
+      return;
+    }
+
+    handleFatalError();
+  }
 
   image.addEventListener("load", markReady);
   image.addEventListener("error", handleError);
@@ -1016,15 +1064,27 @@ function createSpriteState(assetPath) {
     markReady,
     handleError,
     setSource(source) {
-      if (!source) {
-        handleError();
+      attemptedSources.clear();
+      warned = false;
+
+      if (Array.isArray(source)) {
+        pendingSources = source
+          .filter((candidate, index, all) => {
+            return typeof candidate === "string" && candidate && all.indexOf(candidate) === index;
+          })
+          .map((candidate) => `${candidate}`);
+      } else if (typeof source === "string" && source) {
+        pendingSources = [source];
+      } else {
+        pendingSources = [];
+      }
+
+      if (pendingSources.length === 0) {
+        handleFatalError();
         return;
       }
 
-      image.src = source;
-      if (image.complete && image.naturalWidth > 0) {
-        markReady();
-      }
+      tryNextSource();
     },
     isReady: () => ready
   };
@@ -1400,7 +1460,38 @@ function resolveStarterImageSource(assetPaths, fallbackPalette) {
 }
 
 function resolveStarterSpriteSource(assetPaths, fallbackPalette) {
-  return resolveStarterImageSource(assetPaths, fallbackPalette);
+  const candidatePaths = Array.isArray(assetPaths) ? assetPaths : [assetPaths];
+  const resolvedSources = [];
+
+  for (const candidate of candidatePaths) {
+    if (!candidate) {
+      continue;
+    }
+
+    if (assetManifest && assetManifest[candidate]) {
+      resolvedSources.push(assetManifest[candidate]);
+      continue;
+    }
+
+    try {
+      const resolvedUrl = new URL(candidate, import.meta.url).href;
+      resolvedSources.push(resolvedUrl);
+    } catch (error) {
+      console.warn(
+        `Failed to resolve starter sprite asset at ${candidate}. Continuing to next candidate.`,
+        error
+      );
+    }
+  }
+
+  const fallbackSource = createStarterSpriteDataUrl(fallbackPalette);
+  if (!resolvedSources.includes(fallbackSource)) {
+    resolvedSources.push(fallbackSource);
+  }
+
+  return resolvedSources.filter((candidate, index, all) => {
+    return typeof candidate === "string" && candidate && all.indexOf(candidate) === index;
+  });
 }
 
 const defaultStarterDefinition = {
@@ -1436,7 +1527,8 @@ const defaultStarterCharacter = {
   sprite: resolveStarterSpriteSource(
     defaultStarterDefinition.spriteAssets ?? defaultStarterDefinition.imageAssets,
     defaultStarterDefinition.palette
-  )
+  ),
+  palette: defaultStarterDefinition.palette
 };
 
 const legacyAccountStorageKey = "astrocat-account";
@@ -2942,23 +3034,47 @@ const playerStats = {
 applyAttributeScaling(playerStats, { preservePercent: true });
 
 const playerSpriteState = createSpriteState("starter sprite");
-let activePlayerSpriteSource = null;
+let activePlayerSpriteKey = null;
 
 function setPlayerSpriteFromStarter() {
   const starter = findStarterCharacter();
-  const source = starter?.sprite ?? starter?.image ?? null;
-  if (!source) {
-    activePlayerSpriteSource = null;
+  const spriteSources = starter?.sprite;
+  const candidateSources = [];
+
+  if (Array.isArray(spriteSources)) {
+    candidateSources.push(...spriteSources);
+  } else if (typeof spriteSources === "string" && spriteSources) {
+    candidateSources.push(spriteSources);
+  }
+
+  if (typeof starter?.image === "string" && starter.image) {
+    candidateSources.push(starter.image);
+  }
+
+  const fallbackPalette =
+    starter && typeof starter.palette === "object"
+      ? starter.palette
+      : defaultStarterDefinition.palette;
+  const fallbackSprite = createStarterSpriteDataUrl(fallbackPalette);
+  candidateSources.push(fallbackSprite);
+
+  const uniqueSources = candidateSources.filter((candidate, index, all) => {
+    return typeof candidate === "string" && candidate && all.indexOf(candidate) === index;
+  });
+
+  if (uniqueSources.length === 0) {
+    activePlayerSpriteKey = null;
     playerSpriteState.handleError();
     return;
   }
 
-  if (source === activePlayerSpriteSource) {
+  const sourceKey = uniqueSources.join("|");
+  if (sourceKey === activePlayerSpriteKey && playerSpriteState.isReady()) {
     return;
   }
 
-  activePlayerSpriteSource = source;
-  playerSpriteState.setSource(source);
+  activePlayerSpriteKey = sourceKey;
+  playerSpriteState.setSource(uniqueSources);
 }
 
 setPlayerSpriteFromStarter();
