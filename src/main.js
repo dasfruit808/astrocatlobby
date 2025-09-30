@@ -4821,9 +4821,18 @@ const isInteractiveElement = (target) => {
 };
 
 window.addEventListener("keydown", (event) => {
-  if (movementKeyCodes.has(event.code) && !isInteractiveElement(event.target)) {
+  if (onboardingInstance) {
+    return;
+  }
+
+  const interactive = isInteractiveElement(event.target);
+  if (movementKeyCodes.has(event.code) && !interactive) {
     event.preventDefault();
   }
+  if (interactive) {
+    return;
+  }
+
   audio.handleUserGesture();
   pressVirtualKey(event.code);
 });
