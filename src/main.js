@@ -6950,6 +6950,43 @@ function createOnboardingExperience(config = {}) {
     "Mission Control assigns your secure call sign. Set your credentials to explore from anywhere.";
   modal.append(intro);
 
+  const stepsList = document.createElement("ol");
+  stepsList.className = "onboarding-steps";
+  const stepDetails = [
+    {
+      title: "Secure your call sign",
+      description:
+        "Mission Control generates a unique ID. Copy or write it down so you can sign in later."
+    },
+    {
+      title: "Choose your Astrocat",
+      description:
+        "Preview each companion and spend your bonus stat points to lock in a launch-ready build."
+    },
+    {
+      title: "Set your credentials",
+      description:
+        "Name your Astrocat and create a password. Use these details with your call sign to sync progress."
+    }
+  ];
+
+  stepDetails.forEach((step, index) => {
+    const item = document.createElement("li");
+    item.className = "onboarding-steps__item";
+    const badge = document.createElement("span");
+    badge.className = "onboarding-steps__badge";
+    badge.textContent = `Step ${index + 1}`;
+    const title = document.createElement("span");
+    title.className = "onboarding-steps__title";
+    title.textContent = step.title;
+    const detail = document.createElement("p");
+    detail.className = "onboarding-steps__detail";
+    detail.textContent = step.description;
+    item.append(badge, title, detail);
+    stepsList.append(item);
+  });
+  modal.append(stepsList);
+
   const layout = document.createElement("div");
   layout.className = "onboarding-layout";
   modal.append(layout);
@@ -7155,7 +7192,8 @@ function createOnboardingExperience(config = {}) {
 
     const savedHint = document.createElement("p");
     savedHint.className = "onboarding-saved__hint";
-    savedHint.textContent = "Select a saved profile to prefill your call sign.";
+    savedHint.textContent =
+      "Profiles you create on this device appear here. Select one to fill your call sign instantly.";
 
     const savedList = document.createElement("ul");
     savedList.className = "onboarding-saved__list";
@@ -7202,10 +7240,31 @@ function createOnboardingExperience(config = {}) {
   callSignLabel.textContent = "Assigned call sign";
   const callSignValue = document.createElement("span");
   callSignValue.className = "onboarding-call-sign";
+  const callSignDisplay = document.createElement("div");
+  callSignDisplay.className = "onboarding-call-sign__display";
+  callSignDisplay.append(callSignValue);
+  const callSignCopyButton = document.createElement("button");
+  callSignCopyButton.type = "button";
+  callSignCopyButton.className = "onboarding-call-sign__copy";
+  callSignCopyButton.textContent = "Copy call sign";
+  callSignCopyButton.setAttribute("aria-label", "Copy your assigned call sign");
+  callSignDisplay.append(callSignCopyButton);
   const callSignHint = document.createElement("p");
   callSignHint.className = "onboarding-hint";
-  callSignHint.textContent = "Share this number so other explorers can reach you.";
-  callSignField.append(callSignLabel, callSignValue, callSignHint);
+  callSignHint.textContent = "We'll pin it to Saved Profiles on this device once you finish.";
+  const callSignNote = document.createElement("p");
+  callSignNote.className = "onboarding-call-sign__note";
+  callSignNote.textContent =
+    "You'll need this number with your password to sign in elsewhere. Copy it before you launch.";
+  const callSignCopyFeedback = document.createElement("span");
+  callSignCopyFeedback.className = "onboarding-call-sign__feedback";
+  callSignCopyFeedback.setAttribute("role", "status");
+  callSignCopyFeedback.setAttribute("aria-live", "polite");
+  callSignCopyFeedback.hidden = true;
+  const callSignActions = document.createElement("div");
+  callSignActions.className = "onboarding-call-sign__actions";
+  callSignActions.append(callSignCopyButton, callSignCopyFeedback);
+  callSignField.append(callSignLabel, callSignDisplay, callSignHint, callSignNote, callSignActions);
 
   const availableStarters =
     Array.isArray(starterCharacters) && starterCharacters.length > 0
@@ -7620,7 +7679,143 @@ function createOnboardingExperience(config = {}) {
     actions
   );
 
+  let callSignCopyFeedbackTimer = null;
+  let callSignCopyButtonTimer = null;
+  const defaultCopyCallSignLabel = callSignCopyButton.textContent;
+
+  function resetCallSignCopyFeedback() {
+    if (callSignCopyFeedbackTimer) {
+      clearTimeout(callSignCopyFeedbackTimer);
+      callSignCopyFeedbackTimer = null;
+    }
+    callSignCopyFeedback.textContent = "";
+    callSignCopyFeedback.hidden = true;
+    callSignCopyFeedback.classList.remove("is-success", "is-error");
+  }
+
+  function resetCallSignCopyButton() {
+    if (callSignCopyButtonTimer) {
+      clearTimeout(callSignCopyButtonTimer);
+      callSignCopyButtonTimer = null;
+    }
+    callSignCopyButton.disabled = false;
+    callSignCopyButton.textContent = defaultCopyCallSignLabel;
+  }
+
+  function resetCallSignCopyUI() {
+    resetCallSignCopyFeedback();
+    resetCallSignCopyButton();
+  }
+
+  function announceCallSignCopyFeedback(message, variant) {
+    resetCallSignCopyFeedback();
+    callSignCopyFeedback.textContent = message;
+    if (variant === "error") {
+      callSignCopyFeedback.classList.add("is-error");
+    } else {
+      callSignCopyFeedback.classList.add("is-success");
+    }
+    callSignCopyFeedback.hidden = false;
+    callSignCopyFeedbackTimer = setTimeout(() => {
+      resetCallSignCopyFeedback();
+    }, 4000);
+  }
+
+  function formatCallSignDisplay(value) {
+    const normalized =
+      typeof value === "string" ? value.replace(/\D+/g, "").slice(0, callSignLength) : "";
+    if (!normalized) {
+      return { text: "Generating…", raw: "" };
+    }
+    const leading = normalized.slice(0, 2);
+    const trailing = normalized.slice(2);
+    const formatted = trailing ? `${leading} ${trailing}` : leading;
+    return { text: `@${formatted}`, raw: normalized };
+  }
+
+  function updateCallSignDisplay(value) {
+    const formatted = formatCallSignDisplay(value);
+    callSignValue.textContent = formatted.text;
+    callSignValue.dataset.rawCallSign = formatted.raw;
+    callSignValue.title = formatted.raw ? `Call sign @${formatted.raw}` : "Generating call sign";
+    callSignValue.setAttribute(
+      "aria-label",
+      formatted.raw ? `Assigned call sign @${formatted.raw}` : "Generating call sign"
+    );
+    if (formatted.raw) {
+      resetCallSignCopyUI();
+    }
+  }
+
+  async function copyCallSignToClipboard(value) {
+    if (!value) {
+      return false;
+    }
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+    } catch (error) {
+      // Ignore and fall through to the legacy path.
+    }
+
+    if (typeof document === "undefined") {
+      return false;
+    }
+
+    try {
+      const helper = document.createElement("textarea");
+      helper.value = value;
+      helper.setAttribute("readonly", "");
+      helper.style.position = "fixed";
+      helper.style.opacity = "0";
+      helper.style.pointerEvents = "none";
+      document.body.append(helper);
+      helper.focus();
+      helper.select();
+      helper.setSelectionRange(0, helper.value.length);
+      const succeeded = document.execCommand("copy");
+      helper.remove();
+      return succeeded;
+    } catch (error) {
+      return false;
+    }
+  }
+
   let pendingCallSign = null;
+
+  callSignCopyButton.addEventListener("click", async () => {
+    resetCallSignCopyUI();
+    callSignCopyButton.disabled = true;
+    callSignCopyButton.textContent = "Copying…";
+    const rawCallSign = callSignValue.dataset.rawCallSign || pendingCallSign || "";
+    if (!rawCallSign) {
+      callSignCopyButton.disabled = false;
+      callSignCopyButton.textContent = defaultCopyCallSignLabel;
+      announceCallSignCopyFeedback("Call sign is generating. Try again in a moment.", "error");
+      return;
+    }
+
+    let success = await copyCallSignToClipboard(`@${rawCallSign}`);
+    if (!success) {
+      success = await copyCallSignToClipboard(rawCallSign);
+    }
+
+    if (success) {
+      callSignCopyButton.textContent = "Copied!";
+      callSignCopyButton.disabled = false;
+      callSignCopyButtonTimer = setTimeout(() => {
+        resetCallSignCopyButton();
+      }, 2400);
+      announceCallSignCopyFeedback("Call sign copied. Keep it safe!", "success");
+    } else {
+      callSignCopyButton.disabled = false;
+      callSignCopyButton.textContent = defaultCopyCallSignLabel;
+      announceCallSignCopyFeedback("Copy failed — jot the digits down manually.", "error");
+    }
+  });
+
   if (initialAccount) {
     if (isValidCallSign(initialAccount.callSign)) {
       pendingCallSign = initialAccount.callSign;
@@ -7633,7 +7828,7 @@ function createOnboardingExperience(config = {}) {
   }
 
   pendingCallSign = generateCallSignCandidate(pendingCallSign);
-  callSignValue.textContent = `@${pendingCallSign}`;
+  updateCallSignDisplay(pendingCallSign);
 
   if (initialAccount?.catName) {
     nameInput.value = initialAccount.catName;
@@ -7751,7 +7946,7 @@ function createOnboardingExperience(config = {}) {
       }
       statsError.hidden = true;
       updateAllocationUI();
-      callSignValue.textContent = `@${pendingCallSign}`;
+      updateCallSignDisplay(pendingCallSign);
       nameInput.value = sanitized.catName;
       emailInput.value = sanitized.email ?? sanitizedEmail;
       passwordInput.value = "";
