@@ -14922,7 +14922,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     function getComboDecayWindow() {
-        const baseWindow = getComboDecayWindow();
+        var _a, _b;
+        const configuredWindow = Number((_a = config === null || config === void 0 ? void 0 : config.comboDecayWindow) !== null && _a !== void 0 ? _a : NaN);
+        const fallbackWindow = Number((_b = baseGameConfig === null || baseGameConfig === void 0 ? void 0 : baseGameConfig.comboDecayWindow) !== null && _b !== void 0 ? _b : NaN);
+        const baseWindow = Number.isFinite(configuredWindow)
+            ? configuredWindow
+            : Number.isFinite(fallbackWindow)
+                ? fallbackWindow
+                : 5200;
         return Math.max(1000, Math.round(baseWindow * progressionEffects.comboWindowMultiplier));
     }
     function resetStreak() {

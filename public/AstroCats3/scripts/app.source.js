@@ -16005,7 +16005,13 @@ const MAX_LOADOUT_NAME_LENGTH = 32;
     }
 
     function getComboDecayWindow() {
-        const baseWindow = getComboDecayWindow();
+        const configuredWindow = Number(config?.comboDecayWindow);
+        const fallbackWindow = Number(baseGameConfig?.comboDecayWindow);
+        const baseWindow = Number.isFinite(configuredWindow)
+            ? configuredWindow
+            : Number.isFinite(fallbackWindow)
+                ? fallbackWindow
+                : 5200;
         return Math.max(1000, Math.round(baseWindow * progressionEffects.comboWindowMultiplier));
     }
 
