@@ -539,7 +539,14 @@ const baseCanvasHeight = 540;
 
 const customPageBackgroundSources = resolvePublicAssetCandidatesByBasename(
   "webpagebackground",
-  ["webpagebackground.png"]
+  [
+    "webpagebackground.png",
+    "webpagebackground.jpg",
+    "webpagebackground.jpeg",
+    "webpagebackground.webp",
+    "webpagebackground.avif",
+    "webpagebackground.gif"
+  ]
 );
 let customPageBackgroundUrl =
   customPageBackgroundSources.length > 0 ? customPageBackgroundSources[0] : null;
