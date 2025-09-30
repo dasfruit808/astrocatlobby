@@ -2563,6 +2563,33 @@ function rememberAccount(account, options = {}) {
   return sanitized;
 }
 
+function findStoredCallSignsByEmail(email) {
+  const sanitizedEmail = sanitizeEmailAddress(email);
+  if (!sanitizedEmail) {
+    return [];
+  }
+
+  const matches = new Set();
+
+  for (const account of Object.values(storedAccounts)) {
+    if (!account || typeof account !== "object") {
+      continue;
+    }
+
+    const accountEmail = sanitizeEmailAddress(account.email);
+    if (!accountEmail || accountEmail !== sanitizedEmail) {
+      continue;
+    }
+
+    const callSign = extractStoredCallSign(account);
+    if (callSign) {
+      matches.add(callSign);
+    }
+  }
+
+  return Array.from(matches).sort((a, b) => a.localeCompare(b));
+}
+
 function getStoredAccountsSnapshot() {
   return Object.values(storedAccounts)
     .map((entry) => ({ ...entry }))
@@ -6968,6 +6995,8 @@ function createOnboardingExperience(config = {}) {
     onAuthenticate
   } = config;
 
+  const initialEmail = sanitizeEmailAddress(initialAccount?.email);
+
   const idSuffix = Math.random().toString(36).slice(2, 8);
   const root = document.createElement("div");
   root.className = "onboarding-overlay";
@@ -7055,7 +7084,7 @@ function createOnboardingExperience(config = {}) {
   const signInHint = document.createElement("p");
   signInHint.className = "onboarding-signin__hint";
   signInHint.textContent =
-    "Use your call sign and password to resume progress on any device.";
+    "Use your call sign and password to resume progress on any device. Need a reminder? Recover it with the email you used to sign up.";
 
   const signInForm = document.createElement("form");
   signInForm.className = "onboarding-form onboarding-form--signin";
@@ -7105,11 +7134,168 @@ function createOnboardingExperience(config = {}) {
   signInSubmit.textContent = "Sign in";
   signInActions.append(signInSubmit);
 
+  const signInRecoveryToggle = document.createElement("button");
+  signInRecoveryToggle.type = "button";
+  signInRecoveryToggle.className = "onboarding-signin__recovery-toggle";
+  signInRecoveryToggle.textContent = "Forgot call sign?";
+  signInRecoveryToggle.setAttribute("aria-expanded", "false");
+
+  const signInRecovery = document.createElement("div");
+  signInRecovery.className = "onboarding-signin__recovery";
+  signInRecovery.id = `onboarding-signin-recovery-${idSuffix}`;
+  signInRecovery.hidden = true;
+  signInRecoveryToggle.setAttribute("aria-controls", signInRecovery.id);
+
+  const signInRecoveryIntro = document.createElement("p");
+  signInRecoveryIntro.className = "onboarding-hint onboarding-signin__recovery-hint";
+  signInRecoveryIntro.textContent =
+    "Enter the email tied to your profile and we'll list any matching call signs.";
+
+  const signInRecoveryForm = document.createElement("form");
+  signInRecoveryForm.className = "onboarding-form onboarding-form--recovery";
+  signInRecoveryForm.noValidate = true;
+
+  const signInRecoveryField = document.createElement("div");
+  signInRecoveryField.className = "onboarding-field onboarding-field--recovery";
+  const signInRecoveryLabel = document.createElement("label");
+  signInRecoveryLabel.className = "onboarding-label";
+  signInRecoveryLabel.textContent = "Email address";
+  const signInRecoveryInput = document.createElement("input");
+  signInRecoveryInput.id = `onboarding-recovery-email-${idSuffix}`;
+  signInRecoveryInput.type = "email";
+  signInRecoveryInput.autocomplete = "email";
+  signInRecoveryInput.className = "onboarding-input";
+  signInRecoveryInput.placeholder = "astrocat@example.com";
+  if (initialEmail) {
+    signInRecoveryInput.value = initialEmail;
+  }
+  signInRecoveryInput.defaultValue = initialEmail ?? "";
+  signInRecoveryLabel.setAttribute("for", signInRecoveryInput.id);
+  signInRecoveryField.append(signInRecoveryLabel, signInRecoveryInput);
+
+  const signInRecoveryActions = document.createElement("div");
+  signInRecoveryActions.className = "onboarding-actions onboarding-signin__recovery-actions";
+  const signInRecoverySubmit = document.createElement("button");
+  signInRecoverySubmit.type = "submit";
+  signInRecoverySubmit.className =
+    "onboarding-submit onboarding-submit--secondary onboarding-signin__recovery-submit";
+  signInRecoverySubmit.textContent = "Find call sign";
+  signInRecoveryActions.append(signInRecoverySubmit);
+
+  const signInRecoveryResults = document.createElement("div");
+  signInRecoveryResults.className = "onboarding-signin__recovery-results";
+  signInRecoveryResults.hidden = true;
+  signInRecoveryResults.setAttribute("aria-live", "polite");
+
+  signInRecoveryForm.append(signInRecoveryField, signInRecoveryActions);
+  signInRecovery.append(signInRecoveryIntro, signInRecoveryForm, signInRecoveryResults);
+
   signInForm.append(signInCallSignField, signInPasswordField, signInFeedback, signInActions);
-  signInSection.append(signInTitle, signInHint, signInForm);
+  signInSection.append(
+    signInTitle,
+    signInHint,
+    signInForm,
+    signInRecoveryToggle,
+    signInRecovery
+  );
   supportColumn.append(signInSection);
 
   const defaultSignInText = signInSubmit.textContent;
+  const defaultRecoveryToggleText = signInRecoveryToggle.textContent;
+  const expandedRecoveryToggleText = "Hide call sign recovery";
+
+  const resetSignInRecovery = () => {
+    signInRecoveryResults.innerHTML = "";
+    signInRecoveryResults.hidden = true;
+    signInRecoveryInput.setCustomValidity("");
+  };
+
+  const setSignInRecoveryExpanded = (expanded) => {
+    signInRecovery.hidden = !expanded;
+    signInRecoveryToggle.setAttribute("aria-expanded", String(expanded));
+    signInRecoveryToggle.textContent = expanded
+      ? expandedRecoveryToggleText
+      : defaultRecoveryToggleText;
+
+    if (expanded) {
+      if (!signInRecoveryInput.value && initialEmail) {
+        signInRecoveryInput.value = initialEmail;
+      }
+      try {
+        signInRecoveryInput.focus({ preventScroll: true });
+      } catch (error) {
+        signInRecoveryInput.focus();
+      }
+    } else {
+      signInRecoveryForm.reset();
+      resetSignInRecovery();
+    }
+  };
+
+  const renderSignInRecoveryResults = (email, matches) => {
+    resetSignInRecovery();
+    signInRecoveryResults.hidden = false;
+
+    const status = document.createElement("p");
+    status.className = "onboarding-feedback onboarding-signin__recovery-status";
+
+    if (matches.length > 0) {
+      status.classList.add("is-success");
+      status.textContent =
+        matches.length === 1
+          ? `We found a call sign linked to ${email}.`
+          : `We found ${matches.length} call signs linked to ${email}.`;
+      signInRecoveryResults.append(status);
+
+      const list = document.createElement("ul");
+      list.className = "onboarding-signin__recovery-list";
+      for (const callSign of matches) {
+        const item = document.createElement("li");
+        item.className = "onboarding-signin__recovery-item";
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "onboarding-signin__recovery-option";
+        button.textContent = `@${callSign}`;
+        button.addEventListener("click", () => {
+          applySignInPrefill(callSign);
+          setSignInRecoveryExpanded(false);
+        });
+        item.append(button);
+        list.append(item);
+      }
+      signInRecoveryResults.append(list);
+    } else {
+      status.classList.add("is-error");
+      status.textContent =
+        `We couldn't find a call sign for ${email}. Double-check the address or finish creating a new profile.`;
+      signInRecoveryResults.append(status);
+    }
+  };
+
+  signInRecoveryInput.addEventListener("input", () => {
+    signInRecoveryInput.setCustomValidity("");
+  });
+
+  signInRecoveryToggle.addEventListener("click", () => {
+    setSignInRecoveryExpanded(signInRecovery.hidden);
+  });
+
+  signInRecoveryForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    signInRecoveryInput.setCustomValidity("");
+
+    const sanitizedEmail = sanitizeEmailAddress(signInRecoveryInput.value);
+    if (!sanitizedEmail) {
+      signInRecoveryInput.setCustomValidity("Enter the email you used to sign up.");
+      signInRecoveryInput.reportValidity();
+      return;
+    }
+
+    signInRecoveryInput.value = sanitizedEmail;
+    renderSignInRecoveryResults(sanitizedEmail, findStoredCallSignsByEmail(sanitizedEmail));
+  });
+
+  setSignInRecoveryExpanded(false);
 
   if (!authenticate) {
     signInSubmit.disabled = true;
@@ -7871,7 +8057,6 @@ function createOnboardingExperience(config = {}) {
     nameInput.value = initialAccount.catName;
   }
 
-  const initialEmail = sanitizeEmailAddress(initialAccount?.email);
   if (initialEmail) {
     emailInput.value = initialEmail;
   }
