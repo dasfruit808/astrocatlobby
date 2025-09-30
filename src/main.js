@@ -3465,10 +3465,10 @@ const groundY = viewport.height - 96;
 const playerWidth = Math.round(72 * 1.1 * lobbySpriteScale);
 const playerHeight = Math.round(81 * 1.1 * lobbySpriteScale);
 
-const cameraAnchorX = viewport.width / 2 - playerWidth / 2;
+const playerStartX = Math.round(viewport.width / 2 - playerWidth / 2);
 
 const player = {
-  x: cameraAnchorX,
+  x: playerStartX,
   y: groundY - playerHeight,
   width: playerWidth,
   height: playerHeight,
@@ -3478,6 +3478,50 @@ const player = {
   onGround: false,
   appearance: playerAppearance
 };
+
+const CAMERA_BASE_MARGIN = Math.round(viewport.width * 0.3);
+const CAMERA_MAX_MARGIN = Math.floor((viewport.width - player.width) / 2);
+const CAMERA_MARGIN = Math.min(
+  Math.max(CAMERA_BASE_MARGIN, 0),
+  Math.max(CAMERA_MAX_MARGIN, 0)
+);
+const CAMERA_LEFT_LIMIT = CAMERA_MARGIN;
+const CAMERA_RIGHT_LIMIT = viewport.width - CAMERA_MARGIN;
+
+function clampCameraScroll(scroll) {
+  if (!Number.isFinite(scroll)) {
+    return 0;
+  }
+
+  const maxScroll =
+    Number.isFinite(worldWrapWidth) && worldWrapWidth > viewport.width
+      ? worldWrapWidth - viewport.width
+      : 0;
+
+  if (scroll < 0) {
+    return 0;
+  }
+
+  if (scroll > maxScroll) {
+    return maxScroll;
+  }
+
+  return scroll;
+}
+
+function updateCameraScrollPosition() {
+  const playerScreenLeft = player.x - cameraScrollX;
+  const playerScreenRight = playerScreenLeft + player.width;
+  let nextScroll = cameraScrollX;
+
+  if (playerScreenLeft < CAMERA_LEFT_LIMIT) {
+    nextScroll = player.x - CAMERA_LEFT_LIMIT;
+  } else if (playerScreenRight > CAMERA_RIGHT_LIMIT) {
+    nextScroll = player.x + player.width - CAMERA_RIGHT_LIMIT;
+  }
+
+  cameraScrollX = clampCameraScroll(nextScroll);
+}
 
 const platforms = [
   {
@@ -4219,6 +4263,7 @@ layoutEditor = createLobbyLayoutEditor({
   clearLayoutSnapshot: clearLobbyLayoutSnapshot,
   refreshWorldBounds: () => {
     worldWrapWidth = computeWorldWrapWidth();
+    cameraScrollX = clampCameraScroll(cameraScrollX);
   },
   getCameraOffset: () => cameraScrollX,
   getWorldWidth: () => worldWrapWidth,
@@ -4381,10 +4426,7 @@ function update(delta) {
     }
   }
 
-  cameraScrollX = player.x - cameraAnchorX;
-  if (!Number.isFinite(cameraScrollX)) {
-    cameraScrollX = 0;
-  }
+  updateCameraScrollPosition();
 
   const platformOffsets = getWorldOffsetsAround(player.x);
   for (const offset of platformOffsets) {
