@@ -458,82 +458,56 @@ function resolvePublicAssetUrl(relativePath) {
   return candidate.startsWith("/") ? candidate : `/${candidate}`;
 }
 
-function getImportMetaGlob() {
-  try {
-    if (typeof import.meta !== "object" || !import.meta) {
-      return null;
-    }
-
-    const glob = import.meta.glob;
-    return typeof glob === "function" ? glob.bind(import.meta) : null;
-  } catch (error) {
-    if (typeof console !== "undefined" && error) {
-      console.warn(
-        "Encountered an unexpected error while probing for import.meta.glob support.",
-        error
-      );
-    }
-    return null;
+function warnImportMetaGlobUnavailable(scope) {
+  if (typeof console === "undefined") {
+    return;
   }
+
+  const scopeSuffix = scope ? ` for ${scope}` : "";
+  console.warn(`import.meta.glob is unavailable${scopeSuffix}. Falling back to dynamic loading.`);
 }
 
-function tryCreateAssetManifest() {
-  const importMetaGlob = getImportMetaGlob();
-  if (!importMetaGlob) {
-    if (typeof console !== "undefined") {
-      console.warn(
-        "import.meta.glob is unavailable in this environment. Falling back to dynamic loading."
-      );
-    }
-    return null;
-  }
-
-  try {
-    return importMetaGlob("./assets/*.{png,PNG}", {
+let assetManifest = null;
+try {
+  if (typeof import.meta === "object" && import.meta && typeof import.meta.glob === "function") {
+    assetManifest = import.meta.glob("./assets/*.{png,PNG}", {
       eager: true,
       import: "default"
     });
-  } catch (error) {
-    if (typeof console !== "undefined" && error) {
-      console.warn(
-        "import.meta.glob failed while loading sprite assets. Falling back to dynamic loading.",
-        error
-      );
-    }
-    return null;
+  } else {
+    warnImportMetaGlobUnavailable("sprite assets");
   }
+} catch (error) {
+  warnImportMetaGlobUnavailable("sprite assets");
+  if (typeof console !== "undefined" && error) {
+    console.warn(
+      "import.meta.glob failed while loading sprite assets. Falling back to dynamic loading.",
+      error
+    );
+  }
+  assetManifest = null;
 }
 
-const assetManifest = tryCreateAssetManifest();
-
-function tryCreateAudioManifest() {
-  const importMetaGlob = getImportMetaGlob();
-  if (!importMetaGlob) {
-    if (typeof console !== "undefined") {
-      console.warn(
-        "import.meta.glob is unavailable for audio assets. Falling back to dynamic loading."
-      );
-    }
-    return null;
-  }
-
-  try {
-    return importMetaGlob("./assets/audio/*.{wav,mp3,ogg}", {
+let audioManifest = null;
+try {
+  if (typeof import.meta === "object" && import.meta && typeof import.meta.glob === "function") {
+    audioManifest = import.meta.glob("./assets/audio/*.{wav,mp3,ogg}", {
       eager: true,
       import: "default"
     });
-  } catch (error) {
-    if (typeof console !== "undefined" && error) {
-      console.warn(
-        "import.meta.glob failed while loading audio assets. Falling back to dynamic loading.",
-        error
-      );
-    }
-    return null;
+  } else {
+    warnImportMetaGlobUnavailable("audio assets");
   }
+} catch (error) {
+  warnImportMetaGlobUnavailable("audio assets");
+  if (typeof console !== "undefined" && error) {
+    console.warn(
+      "import.meta.glob failed while loading audio assets. Falling back to dynamic loading.",
+      error
+    );
+  }
+  audioManifest = null;
 }
-
-const audioManifest = tryCreateAudioManifest();
 
 const baseCanvasWidth = 960;
 const baseCanvasHeight = 540;
