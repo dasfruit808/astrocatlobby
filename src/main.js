@@ -513,15 +513,24 @@ function applyPageBackgroundFromUrl(body, imageUrl) {
     return;
   }
 
+  const root = body.ownerDocument?.documentElement ?? null;
+  const targets = root && root !== body ? [body, root] : [body];
+
+  const resetTarget = (element) => {
+    element.classList.remove("has-custom-background");
+    element.style.removeProperty("--page-background-overlay");
+  };
+
   if (typeof imageUrl !== "string" || !imageUrl) {
-    body.classList.remove("has-custom-background");
-    body.style.removeProperty("--page-background-overlay");
+    targets.forEach(resetTarget);
     return;
   }
 
   const escapedUrl = imageUrl.replace(/"/g, '\\"');
-  body.classList.add("has-custom-background");
-  body.style.setProperty("--page-background-overlay", `url("${escapedUrl}")`);
+  for (const element of targets) {
+    element.classList.add("has-custom-background");
+    element.style.setProperty("--page-background-overlay", `url("${escapedUrl}")`);
+  }
 }
 // The mini game entry point that loads inside the arcade cabinet overlay.
 function normaliseMiniGameEntryPoint(entry) {
