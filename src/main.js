@@ -323,13 +323,25 @@ function resolvePublicAssetUrl(relativePath) {
     return resolvedFromDocument;
   }
 
-  if (typeof window !== "undefined" && window.location?.protocol === "file:") {
-    return candidate.startsWith("./") || candidate.startsWith("../")
-      ? candidate
-      : `./${candidate}`;
+  if (typeof window !== "undefined" && window.location) {
+    const { location } = window;
+
+    if (location.protocol === "file:") {
+      return candidate.startsWith("./") || candidate.startsWith("../")
+        ? candidate
+        : `./${candidate}`;
+    }
+
+    if (typeof location.pathname === "string") {
+      const directoryPath = normalisePathnameForDirectory(location.pathname);
+      if (directoryPath && directoryPath !== "/") {
+        const trimmedCandidate = candidate.replace(/^\/+/, "");
+        return `${directoryPath}${trimmedCandidate}`;
+      }
+    }
   }
 
-  return `/${candidate}`;
+  return candidate.startsWith("/") ? candidate : `/${candidate}`;
 }
 
 function tryCreateAssetManifest() {
