@@ -114,16 +114,26 @@ function tryFindPublicManifestEntryByBasename(relativePath) {
     return null;
   }
 
-  let fallbackEntry = null;
+  const baseNameLower = baseName.toLowerCase();
+  let exactMatchEntry = null;
+  let caseInsensitiveMatch = null;
+
   for (const key of Object.keys(manifest)) {
     if (key === normalized) {
       continue;
     }
 
-    const manifestSeparatorIndex = key.lastIndexOf("/");
+    const normalisedKey = normalizePublicRelativePath(key);
+    if (!normalisedKey) {
+      continue;
+    }
+
+    const manifestSeparatorIndex = normalisedKey.lastIndexOf("/");
     const manifestBaseName =
-      manifestSeparatorIndex >= 0 ? key.slice(manifestSeparatorIndex + 1) : key;
-    if (manifestBaseName !== baseName) {
+      manifestSeparatorIndex >= 0
+        ? normalisedKey.slice(manifestSeparatorIndex + 1)
+        : normalisedKey;
+    if (!manifestBaseName) {
       continue;
     }
 
@@ -132,14 +142,114 @@ function tryFindPublicManifestEntryByBasename(relativePath) {
       continue;
     }
 
-    if (fallbackEntry) {
+    if (manifestBaseName === baseName) {
+      if (exactMatchEntry) {
+        return null;
+      }
+
+      exactMatchEntry = manifestValue;
+      continue;
+    }
+
+    if (manifestBaseName.toLowerCase() !== baseNameLower) {
+      continue;
+    }
+
+    if (caseInsensitiveMatch) {
       return null;
     }
 
-    fallbackEntry = manifestValue;
+    caseInsensitiveMatch = manifestValue;
   }
 
-  return fallbackEntry;
+  if (exactMatchEntry) {
+    return exactMatchEntry;
+  }
+
+  return caseInsensitiveMatch;
+}
+
+function collectManifestRelativePathsByBasename(baseName) {
+  const manifest = getPublicManifest();
+  if (!manifest) {
+    return [];
+  }
+
+  const trimmedBaseName = `${baseName ?? ""}`
+    .trim()
+    .replace(/\.[^.]+$/, "")
+    .toLowerCase();
+  if (!trimmedBaseName) {
+    return [];
+  }
+
+  const matches = [];
+
+  for (const key of Object.keys(manifest)) {
+    const normalizedKey = normalizePublicRelativePath(key);
+    if (!normalizedKey) {
+      continue;
+    }
+
+    const separatorIndex = normalizedKey.lastIndexOf("/");
+    const manifestBaseNameWithExtension =
+      separatorIndex >= 0
+        ? normalizedKey.slice(separatorIndex + 1)
+        : normalizedKey;
+    if (!manifestBaseNameWithExtension) {
+      continue;
+    }
+
+    const manifestStem = manifestBaseNameWithExtension
+      .replace(/\.[^.]+$/, "")
+      .toLowerCase();
+    if (!manifestStem || manifestStem !== trimmedBaseName) {
+      continue;
+    }
+
+    if (matches.indexOf(normalizedKey) >= 0) {
+      continue;
+    }
+
+    matches.push(normalizedKey);
+  }
+
+  return matches.sort((a, b) => {
+    const depthA = (a.match(/\//g) ?? []).length;
+    const depthB = (b.match(/\//g) ?? []).length;
+    if (depthA !== depthB) {
+      return depthA - depthB;
+    }
+    return a.localeCompare(b);
+  });
+}
+
+function resolvePublicAssetCandidatesByBasename(
+  baseName,
+  fallbackRelativePaths = []
+) {
+  const manifestCandidates = collectManifestRelativePathsByBasename(baseName);
+  const candidates = [...manifestCandidates, ...fallbackRelativePaths];
+  const resolved = [];
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string" || !candidate) {
+      continue;
+    }
+
+    const resolvedCandidate = resolvePublicAssetUrl(candidate);
+    if (typeof resolvedCandidate !== "string" || !resolvedCandidate) {
+      continue;
+    }
+
+    if (resolved.indexOf(resolvedCandidate) >= 0) {
+      continue;
+    }
+
+    resolved.push(resolvedCandidate);
+  }
+
+  return resolved;
 }
 
 function isResolvableBaseHref(baseHref) {
@@ -427,10 +537,17 @@ const baseCanvasHeight = 540;
 // Place a custom background image at public/webpagebackground.png to override
 // the gradient page backdrop.
 
-const customPageBackgroundUrl = resolvePublicAssetUrl("webpagebackground.png");
+const customPageBackgroundSources = resolvePublicAssetCandidatesByBasename(
+  "webpagebackground",
+  ["webpagebackground.png"]
+);
+let customPageBackgroundUrl =
+  customPageBackgroundSources.length > 0 ? customPageBackgroundSources[0] : null;
 const toolbarBackgroundImageSources = [
-  resolvePublicAssetUrl("toolbar-background.png"),
-  resolvePublicAssetUrl("AstroCats3/toolbar-background.png"),
+  ...resolvePublicAssetCandidatesByBasename("toolbar-background", [
+    "toolbar-background.png",
+    "AstroCats3/toolbar-background.png"
+  ]),
   toolbarBackgroundFallbackUrl
 ].filter((candidate, index, all) => {
   if (typeof candidate !== "string" || !candidate) {
@@ -439,21 +556,14 @@ const toolbarBackgroundImageSources = [
 
   return all.indexOf(candidate) === index;
 });
-const toolbarBrandImageSources = [
-  resolvePublicAssetUrl("toolbar-brand.png"),
-  resolvePublicAssetUrl("AstroCats3/toolbar-brand.png")
-]
-  .filter((candidate, index, all) => {
-    if (typeof candidate !== "string" || !candidate) {
-      return false;
-    }
-
-    return all.indexOf(candidate) === index;
-  });
+const toolbarBrandImageSources = resolvePublicAssetCandidatesByBasename(
+  "toolbar-brand",
+  ["toolbar-brand.png", "AstroCats3/toolbar-brand.png"]
+);
 let customBackgroundAvailabilityProbe = null;
 
 function shouldUseCustomPageBackground() {
-  if (!customPageBackgroundUrl) {
+  if (customPageBackgroundSources.length === 0) {
     return Promise.resolve(false);
   }
 
@@ -462,48 +572,66 @@ function shouldUseCustomPageBackground() {
   }
 
   if (typeof fetch !== "function") {
-    customBackgroundAvailabilityProbe = Promise.resolve(true);
+    customPageBackgroundUrl = customPageBackgroundSources[0] ?? null;
+    customBackgroundAvailabilityProbe = Promise.resolve(!!customPageBackgroundUrl);
     return customBackgroundAvailabilityProbe;
   }
 
-  customBackgroundAvailabilityProbe = fetch(customPageBackgroundUrl, {
-    method: "HEAD",
-    cache: "no-store"
-  })
-    .then((response) => {
-      if (!response) {
-        return true;
-      }
+  let sourceIndex = 0;
 
-      if (response?.ok) {
-        const contentType = response.headers.get("content-type");
-        if (!contentType) {
-          return true;
-        }
+  const probeNext = () => {
+    if (sourceIndex >= customPageBackgroundSources.length) {
+      return Promise.resolve(false);
+    }
 
-        if (contentType.toLowerCase().startsWith("image/")) {
-          return true;
-        }
+    const candidate = customPageBackgroundSources[sourceIndex++];
 
-        return false;
-      }
-
-      if (response.status === 405 || response.status === 501) {
-        return true;
-      }
-
-      return false;
+    return fetch(candidate, {
+      method: "HEAD",
+      cache: "no-store"
     })
-    .catch((error) => {
-      if (typeof console !== "undefined" && error) {
-        console.warn(
-          "Falling back to loading custom page background after HEAD probe failed.",
-          error
-        );
-      }
+      .then((response) => {
+        if (!response) {
+          customPageBackgroundUrl = candidate;
+          return true;
+        }
 
-      return true;
-    });
+        if (response?.ok) {
+          const contentType = response.headers.get("content-type");
+          if (!contentType || contentType.toLowerCase().startsWith("image/")) {
+            customPageBackgroundUrl = candidate;
+            return true;
+          }
+
+          return probeNext();
+        }
+
+        if (response.status === 405 || response.status === 501) {
+          customPageBackgroundUrl = candidate;
+          return true;
+        }
+
+        return probeNext();
+      })
+      .catch((error) => {
+        if (typeof console !== "undefined" && error) {
+          console.warn(
+            "Falling back to loading custom page background after HEAD probe failed.",
+            error
+          );
+        }
+
+        customPageBackgroundUrl = candidate;
+        return true;
+      });
+  };
+
+  customBackgroundAvailabilityProbe = probeNext().then((shouldApply) => {
+    if (!shouldApply) {
+      customPageBackgroundUrl = null;
+    }
+    return shouldApply;
+  });
 
   return customBackgroundAvailabilityProbe;
 }
