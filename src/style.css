@@ -2359,18 +2359,18 @@ body.is-scroll-locked {
 }
 
 .onboarding-modal {
-  width: min(520px, 100%);
+  width: min(960px, 100%);
   max-width: calc(100vw - 64px);
   background: rgba(28, 36, 58, 0.95);
   border-radius: 22px;
-  padding: 28px;
+  padding: 32px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 24px;
   border: 1px solid rgba(120, 150, 255, 0.35);
   box-shadow: 0 30px 60px rgba(10, 16, 35, 0.65);
   box-sizing: border-box;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 .onboarding-heading {
@@ -2386,8 +2386,8 @@ body.is-scroll-locked {
 }
 
 .onboarding-signin {
-  margin: 12px 0 18px;
-  padding: 16px 18px;
+  margin: 0;
+  padding: 18px 20px;
   border-radius: 18px;
   background: rgba(12, 24, 46, 0.8);
   border: 1px solid rgba(134, 225, 255, 0.18);
@@ -2432,8 +2432,8 @@ body.is-scroll-locked {
 }
 
 .onboarding-saved {
-  margin: 18px 0 20px;
-  padding: 16px 18px;
+  margin: 0;
+  padding: 18px 20px;
   border-radius: 18px;
   background: rgba(14, 28, 58, 0.75);
   border: 1px solid rgba(138, 191, 255, 0.25);
@@ -2500,10 +2500,20 @@ body.is-scroll-locked {
   gap: 16px;
 }
 
+.onboarding-form--create {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+}
+
 .onboarding-field {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.onboarding-field--wide {
+  grid-column: 1 / -1;
 }
 
 .onboarding-field--static {
@@ -2561,6 +2571,62 @@ body.is-scroll-locked {
 .onboarding-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.onboarding-form--create .onboarding-actions {
+  grid-column: 1 / -1;
+}
+
+.onboarding-layout {
+  display: flex;
+  gap: 24px;
+}
+
+.onboarding-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.onboarding-column--support {
+  flex: 0 0 320px;
+  max-width: 360px;
+}
+
+.onboarding-column--primary {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.onboarding-column--primary .onboarding-field {
+  min-width: 0;
+}
+
+.onboarding-form--create .onboarding-field {
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .onboarding-modal {
+    padding: 28px;
+  }
+
+  .onboarding-layout {
+    flex-direction: column;
+  }
+
+  .onboarding-column--support {
+    flex: none;
+    max-width: none;
+  }
+
+  .onboarding-form--create {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-field--wide {
+    grid-column: auto;
+  }
 }
 
 .onboarding-submit {

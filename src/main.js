@@ -6661,6 +6661,18 @@ function createOnboardingExperience(config = {}) {
     "Mission Control assigns your secure call sign. Set your credentials to explore from anywhere.";
   modal.append(intro);
 
+  const layout = document.createElement("div");
+  layout.className = "onboarding-layout";
+  modal.append(layout);
+
+  const supportColumn = document.createElement("div");
+  supportColumn.className = "onboarding-column onboarding-column--support";
+  layout.append(supportColumn);
+
+  const primaryColumn = document.createElement("div");
+  primaryColumn.className = "onboarding-column onboarding-column--primary";
+  layout.append(primaryColumn);
+
   const authenticate = typeof onAuthenticate === "function" ? onAuthenticate : null;
   const selectableAccounts = Array.isArray(savedAccounts)
     ? savedAccounts
@@ -6732,7 +6744,7 @@ function createOnboardingExperience(config = {}) {
 
   signInForm.append(signInCallSignField, signInPasswordField, signInFeedback, signInActions);
   signInSection.append(signInTitle, signInHint, signInForm);
-  modal.append(signInSection);
+  supportColumn.append(signInSection);
 
   const defaultSignInText = signInSubmit.textContent;
 
@@ -6887,15 +6899,15 @@ function createOnboardingExperience(config = {}) {
     }
 
     savedSection.append(savedTitle, savedHint, savedList);
-    modal.append(savedSection);
+    supportColumn.append(savedSection);
   }
 
   const form = document.createElement("form");
-  form.className = "onboarding-form";
-  modal.append(form);
+  form.className = "onboarding-form onboarding-form--create";
+  primaryColumn.append(form);
 
   const callSignField = document.createElement("div");
-  callSignField.className = "onboarding-field onboarding-field--static";
+  callSignField.className = "onboarding-field onboarding-field--static onboarding-field--wide";
   const callSignLabel = document.createElement("span");
   callSignLabel.className = "onboarding-label";
   callSignLabel.textContent = "Assigned call sign";
