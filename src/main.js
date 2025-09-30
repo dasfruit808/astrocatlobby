@@ -57,6 +57,10 @@ const backgroundImageUrl = new URL(
   "./assets/LobbyBackground.png",
   import.meta.url
 ).href;
+const toolbarBackgroundFallbackUrl = new URL(
+  "./assets/ParallaxNebula.svg",
+  import.meta.url
+).href;
 const parallaxLayerSources = [
   {
     source: backgroundImageUrl,
@@ -426,7 +430,8 @@ const baseCanvasHeight = 540;
 const customPageBackgroundUrl = resolvePublicAssetUrl("webpagebackground.png");
 const toolbarBackgroundImageSources = [
   resolvePublicAssetUrl("toolbar-background.png"),
-  resolvePublicAssetUrl("AstroCats3/toolbar-background.png")
+  resolvePublicAssetUrl("AstroCats3/toolbar-background.png"),
+  toolbarBackgroundFallbackUrl
 ].filter((candidate, index, all) => {
   if (typeof candidate !== "string" || !candidate) {
     return false;
@@ -501,6 +506,22 @@ function shouldUseCustomPageBackground() {
     });
 
   return customBackgroundAvailabilityProbe;
+}
+
+function applyPageBackgroundFromUrl(body, imageUrl) {
+  if (!body) {
+    return;
+  }
+
+  if (typeof imageUrl !== "string" || !imageUrl) {
+    body.classList.remove("has-custom-background");
+    body.style.removeProperty("--page-background-overlay");
+    return;
+  }
+
+  const escapedUrl = imageUrl.replace(/"/g, '\\"');
+  body.classList.add("has-custom-background");
+  body.style.setProperty("--page-background-overlay", `url("${escapedUrl}")`);
 }
 // The mini game entry point that loads inside the arcade cabinet overlay.
 function normaliseMiniGameEntryPoint(entry) {
@@ -884,10 +905,15 @@ function applyCustomPageBackground() {
       return;
     }
 
+    const applyFallbackBackground = () => {
+      applyPageBackgroundFromUrl(body, backgroundImageUrl);
+    };
+
+    applyFallbackBackground();
+
     shouldUseCustomPageBackground().then((shouldApply) => {
       if (!shouldApply) {
-        body.classList.remove("has-custom-background");
-        body.style.removeProperty("--page-background-overlay");
+        applyFallbackBackground();
         return;
       }
 
@@ -895,16 +921,12 @@ function applyCustomPageBackground() {
       pageBackground.decoding = "async";
 
       const handleLoad = () => {
-        body.classList.add("has-custom-background");
-        body.style.setProperty(
-          "--page-background-overlay",
-          `url("${pageBackground.src}")`
-        );
+        const resolvedUrl = pageBackground.currentSrc || pageBackground.src;
+        applyPageBackgroundFromUrl(body, resolvedUrl);
       };
 
       const handleError = () => {
-        body.classList.remove("has-custom-background");
-        body.style.removeProperty("--page-background-overlay");
+        applyFallbackBackground();
       };
 
       pageBackground.addEventListener("load", handleLoad, { once: true });
