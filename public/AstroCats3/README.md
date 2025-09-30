@@ -158,11 +158,12 @@ platform’s routing API.
 ### Configuring the client
 
 Expose the leaderboard base URL to the browser by setting the global
-`window.NYAN_ESCAPE_API_BASE_URL` before `index.html` loads, or by adding a
-`data-nyan-api-base` attribute to `<html>`/`<body>`. When the API is reachable
-the overlay displays the latest standings; if the network call fails the game
-falls back to a cached snapshot stored in `localStorage` and surfaces an offline
-warning in the HUD.
+`window.NYAN_ESCAPE_API_BASE_URL` before `index.html` loads, by adding a
+`data-nyan-api-base` attribute to `<html>`/`<body>`, or by editing the
+`public/leaderboard-config.js` helper bundled with the lobby. When the API is
+reachable the overlay displays the latest standings; if the network call fails
+the game falls back to a cached snapshot stored in `localStorage` and surfaces
+an offline warning in the HUD.
 
 Each submission now sends a deterministic `deviceId`, player name, score, streak
 information, timestamps, and a run token issued before launch. The UI reports

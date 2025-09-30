@@ -46,6 +46,13 @@ To replace the Astrocat Lobby wordmark in the navigation toolbar, add a `toolbar
 
 The cabinet now looks for `/public/AstroCats3/index.html` inside an iframe, falling back to `/AstroCats3/index.html` when needed, so ensure all asset paths remain relative to those files. You can also open the mini game directly in a new browser tab at `/public/AstroCats3/index.html` (or `/AstroCats3/index.html` if you rely on the legacy location) to verify it deploys correctly.
 
+### Configuring the mini game leaderboard
+
+The bundled AstroCats3 build no longer assumes a hosted leaderboard API when you run the lobby locally. This prevents console
+errors from failed network requests during development. To point the mini game at your own deployment, edit the helper at
+`public/leaderboard-config.js` and set `configuredBaseUrl` to the base URL that serves the leaderboard endpoints. The script runs
+before the mini game boots and keeps the existing dataset/global overrides in place if you already provide them elsewhere.
+
 ### Updating the bundled mini game script
 
 For broader browser compatibility the production build ships a transpiled version of the mini game script at
