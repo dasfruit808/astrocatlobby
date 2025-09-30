@@ -38,6 +38,10 @@ The background stretches to cover the entire viewport, so large landscape images
 
 To replace the Astrocat Lobby wordmark in the navigation toolbar, add a `toolbar-brand.png` image to either the `public/` directory or the embedded mini game folder at `public/AstroCats3/`. The lobby prefers the root image when both exist and gracefully falls back to text when no custom graphic is supplied.
 
+## Custom NPC sprites
+
+The lobby procedurally draws characters like Nova when no override graphic exists. To supply your own art, drop replacement PNGs in `src/assets/` using the exact filenames expected by the runtime. For Nova's portrait specifically, add your artwork as `src/assets/GuideSprite.png`. At build time the loader enumerates that directory with `import.meta.glob("./assets/*.{png,PNG}")`; if the file is missing or renamed, the manifest lookup fails and the game falls back to the default drawing.【F:src/main.js†L461-L482】【F:src/main.js†L1194-L1209】【F:src/main.js†L1474-L1482】
+
 ## Embedding the AstroCats3 mini game
 
 1. Copy the production build of the **AstroCats3** mini game into `public/AstroCats3/`, replacing the placeholder `index.html` with your own entry point and keeping all referenced assets alongside it.
