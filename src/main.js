@@ -4984,6 +4984,7 @@ function completeMission(missionId) {
 
 const keys = new Set();
 const justPressed = new Set();
+const frameJustPressed = new Set();
 const emptyJustPressedSet = new Set();
 let currentJustPressed = justPressed;
 
@@ -5271,7 +5272,10 @@ function loop(timestamp) {
 
   accumulatedFrameTime = Math.min(accumulatedFrameTime + frameTime, MAX_ACCUMULATED_TIME);
 
-  const frameJustPressed = new Set(justPressed);
+  frameJustPressed.clear();
+  for (const code of justPressed) {
+    frameJustPressed.add(code);
+  }
   let processedInput = false;
 
   while (accumulatedFrameTime >= FIXED_TIMESTEP) {
