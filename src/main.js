@@ -4808,6 +4808,8 @@ if (activeAccountLobbyLayout) {
 }
 
 let worldWrapWidth = computeWorldWrapWidth();
+const worldWrapOffsetsScratch = [0, 0, 0];
+const worldWrapRenderOffsetsScratch = [];
 
 function computeWorldWrapWidth() {
   const extents = [];
@@ -5830,25 +5832,36 @@ function getWorldLoopOrigin(value) {
 
 function getWorldOffsetsAround(value) {
   if (!Number.isFinite(worldWrapWidth) || worldWrapWidth <= 0) {
-    return [0];
+    worldWrapOffsetsScratch.length = 1;
+    worldWrapOffsetsScratch[0] = 0;
+    return worldWrapOffsetsScratch;
   }
   const origin = getWorldLoopOrigin(value);
-  return [origin - worldWrapWidth, origin, origin + worldWrapWidth];
+  worldWrapOffsetsScratch.length = 3;
+  worldWrapOffsetsScratch[0] = origin - worldWrapWidth;
+  worldWrapOffsetsScratch[1] = origin;
+  worldWrapOffsetsScratch[2] = origin + worldWrapWidth;
+  return worldWrapOffsetsScratch;
 }
 
 function getWorldWrapOffsetsForView(cameraOffset, margin = 0) {
   if (!Number.isFinite(worldWrapWidth) || worldWrapWidth <= 0) {
-    return [0];
+    worldWrapRenderOffsetsScratch.length = 1;
+    worldWrapRenderOffsetsScratch[0] = 0;
+    return worldWrapRenderOffsetsScratch;
   }
   const cameraLeft = cameraOffset - margin;
   const cameraRight = cameraOffset + viewport.width + margin;
   const startIndex = Math.floor(cameraLeft / worldWrapWidth);
   const endIndex = Math.floor(cameraRight / worldWrapWidth);
-  const offsets = [];
+  worldWrapRenderOffsetsScratch.length = 0;
   for (let index = startIndex; index <= endIndex; index += 1) {
-    offsets.push(index * worldWrapWidth);
+    worldWrapRenderOffsetsScratch.push(index * worldWrapWidth);
   }
-  return offsets.length > 0 ? offsets : [0];
+  if (worldWrapRenderOffsetsScratch.length === 0) {
+    worldWrapRenderOffsetsScratch.push(0);
+  }
+  return worldWrapRenderOffsetsScratch;
 }
 
 function createLobbyLayoutEditor(options = {}) {
