@@ -3595,6 +3595,12 @@ app.append(ui.root);
 const initialStarter = findStarterCharacter(playerStats.starterId);
 ui.setAccount(activeAccount, initialStarter);
 ui.addFeedMessage({
+  author: lobbyGuideName,
+  channel: "mission",
+  text: `${lobbyGuideName} reporting! I'm by the mission board if you want the grand tour.`,
+  timestamp: Date.now() - 1000 * 60 * 24
+});
+ui.addFeedMessage({
   author: "Mission Command",
   channel: "mission",
   text: "Mission Control is standing by for your first objective.",
@@ -4539,8 +4545,8 @@ const interactables = [
   {
     id: "nova-guide",
     type: "npc",
-    name: "Nova",
-    label: "Nova the Guide",
+    name: "Nova Mason",
+    label: "Nova Mason the Guide",
     x: guideX,
     y: guideY,
     width: guideWidth,
@@ -4574,6 +4580,24 @@ const interactables = [
     height: 78
   }
 ].map((interactable) => scaleLobbyEntity(interactable));
+
+const lobbyGuideInteractable = interactables.find((entry) => entry.id === "nova-guide");
+const fallbackGuideName = "Nova Mason";
+const lobbyGuideName =
+  typeof lobbyGuideInteractable?.name === "string" && lobbyGuideInteractable.name.trim()
+    ? lobbyGuideInteractable.name.trim()
+    : fallbackGuideName;
+const defaultMissionAuthor = lobbyGuideName;
+
+function getInteractableDisplayName(interactable, fallback = lobbyGuideName) {
+  if (!interactable || typeof interactable !== "object") {
+    return fallback;
+  }
+
+  const rawName =
+    typeof interactable.name === "string" ? interactable.name.trim() : "";
+  return rawName || fallback;
+}
 
 function normaliseLayoutCoordinate(value, fallback) {
   if (Number.isFinite(value)) {
@@ -4814,8 +4838,8 @@ const missionDefinitions = [
   {
     id: "mission-briefing",
     title: "Receive Your Briefing",
-    description: "Check in with Nova and soak up every sparkling tip about the lobby.",
-    flavor: "Her pep talk smells faintly of stardust and optimism.",
+    description: `Check in with ${lobbyGuideName} and soak up every sparkling tip about the lobby.`,
+    flavor: `${lobbyGuideName}'s pep talk smells faintly of stardust and optimism.`,
     xp: 160,
     requiredLevel: 1
   },
@@ -4847,7 +4871,7 @@ const missionDefinitions = [
     id: "mission-crystal-charge",
     title: "Charge the Portal Core",
     description: "Collect every lobby crystal to flood the dormant portal with light.",
-    flavor: "Nova swears the crackling glow makes your whiskers sparkle.",
+    flavor: `${lobbyGuideName} swears the crackling glow makes your whiskers sparkle.`,
     xp: 210,
     requiredLevel: 2
   },
@@ -5602,7 +5626,8 @@ function update(delta) {
           }
         }
       } else if (interactable.type === "npc") {
-        promptText = "Press E to talk to Nova";
+        const guideName = getInteractableDisplayName(interactable);
+        promptText = `Press E to talk to ${guideName}`;
         promptTarget = instance;
         if (wasKeyJustPressed("KeyE")) {
           const missionResult = completeMission(interactable.missionId);
@@ -5616,15 +5641,15 @@ function update(delta) {
               message += ` Level up! You reached level ${playerStats.level}.`;
             }
             showMessage(
-              { text: message, author: interactable.name, channel: "mission" },
+              { text: message, author: guideName, channel: "mission" },
               5600
             );
           } else if (missionResult.locked) {
             const required = Math.max(1, missionResult.mission?.requiredLevel ?? 1);
             showMessage(
               {
-                text: `Train to Level ${required} so Nova can log your official briefing.`,
-                author: interactable.name,
+                text: `Train to Level ${required} so ${guideName} can log your official briefing.`,
+                author: guideName,
                 channel: "mission"
               },
               4600
@@ -5634,7 +5659,7 @@ function update(delta) {
             interactable.lineIndex =
               (interactable.lineIndex + 1) % interactable.dialogue.length;
             showMessage(
-              { text: line, author: interactable.name, channel: "mission" },
+              { text: line, author: guideName, channel: "mission" },
               4600
             );
           }
@@ -7008,7 +7033,7 @@ function showMessage(input, duration, meta = {}) {
   const author =
     payload.author ??
     meta.author ??
-    (channel === "friend" ? "Crewmate" : "Mission Command");
+    (channel === "friend" ? "Crewmate" : defaultMissionAuthor);
   const animate =
     typeof payload.animate === "boolean"
       ? payload.animate
@@ -10315,7 +10340,7 @@ function createInterface(stats, options = {}) {
       const resolvedText = text ?? "";
       message.textContent = resolvedText;
       const channel = meta.channel ?? "mission";
-      const author = meta.author ?? (channel === "friend" ? "Crewmate" : "Mission Command");
+      const author = meta.author ?? (channel === "friend" ? "Crewmate" : defaultMissionAuthor);
       const silent = Boolean(meta.silent);
       const shouldAnimate = Boolean(
         meta.animate ?? (!silent && Boolean(resolvedText))
@@ -10561,7 +10586,7 @@ function createInterface(stats, options = {}) {
     const legend = document.createElement("div");
     legend.className = "chat-board__legend";
     legend.append(
-      createLegendBadge("mission", "Mission Command"),
+      createLegendBadge("mission", defaultMissionAuthor),
       createLegendBadge("friend", "Friends")
     );
 
@@ -10579,13 +10604,13 @@ function createInterface(stats, options = {}) {
 
     const mascotImage = document.createElement("img");
     mascotImage.className = "chat-board__mascot-image";
-    mascotImage.alt = "Mission mascot";
+    mascotImage.alt = `${defaultMissionAuthor} portrait`;
     mascotImage.decoding = "async";
     mascotImage.hidden = true;
 
     const mascotPlaceholder = document.createElement("span");
     mascotPlaceholder.className = "chat-board__mascot-placeholder";
-    mascotPlaceholder.textContent = "MC";
+    mascotPlaceholder.textContent = computeInitials(defaultMissionAuthor);
 
     mascotAvatar.append(mascotImage, mascotPlaceholder);
     mascotFigure.append(mascotAvatar);
@@ -10597,7 +10622,7 @@ function createInterface(stats, options = {}) {
 
     const bubbleLabel = document.createElement("span");
     bubbleLabel.className = "chat-board__bubble-label";
-    bubbleLabel.textContent = "Mission Command";
+    bubbleLabel.textContent = defaultMissionAuthor;
 
     const bubbleText = document.createElement("p");
     bubbleText.className = "chat-board__bubble-text";
@@ -10625,7 +10650,7 @@ function createInterface(stats, options = {}) {
       }
       const resolvedChannel = channel ?? "mission";
       const resolvedAuthor =
-        author ?? (resolvedChannel === "friend" ? "Crewmate" : "Mission Command");
+        author ?? (resolvedChannel === "friend" ? "Crewmate" : defaultMissionAuthor);
       bubbleLabel.textContent = resolvedAuthor;
       bubbleText.textContent = text;
       mascotStage.dataset.channel = resolvedChannel;
@@ -10657,7 +10682,7 @@ function createInterface(stats, options = {}) {
       }
       const resolvedChannel = channel ?? "mission";
       const resolvedAuthor =
-        author ?? (resolvedChannel === "friend" ? "Crewmate" : "Mission Command");
+        author ?? (resolvedChannel === "friend" ? "Crewmate" : defaultMissionAuthor);
 
       const item = document.createElement("li");
       item.className = "chat-board__item";
@@ -10700,6 +10725,13 @@ function createInterface(stats, options = {}) {
         mascotImage.src = mascotSprite.image.src;
         mascotImage.hidden = false;
         mascotPlaceholder.hidden = true;
+        return;
+      }
+
+      if (guideSprite && guideSprite.image && guideSprite.image.src) {
+        mascotImage.src = guideSprite.image.src;
+        mascotImage.hidden = false;
+        mascotPlaceholder.hidden = true;
       }
     }
 
@@ -10708,6 +10740,14 @@ function createInterface(stats, options = {}) {
         updateMascotSprite();
       } else {
         mascotSprite.image.addEventListener("load", updateMascotSprite, { once: true });
+      }
+    }
+
+    if (guideSprite && guideSprite.image) {
+      if (guideSprite.isReady()) {
+        updateMascotSprite();
+      } else {
+        guideSprite.image.addEventListener("load", updateMascotSprite, { once: true });
       }
     }
 
