@@ -73,7 +73,7 @@ This downlevels modern JavaScript features so the game boots cleanly across more
 
 ## Browser compatibility
 
-The Vite build now targets evergreen browsers as far back as Safari 13/Chrome 61 and includes runtime shims for `globalThis` and the `URL` constructor. Run `npm run build` before distributing the beta to ensure the transpiled output and compatibility helpers are included. Older browsers that still lack fundamental Web APIs will gracefully fall back to the lobby's built-in warnings instead of crashing.
+The Vite build now targets ES2015-era evergreen browsers such as Safari 11 and Chrome 61 and includes runtime shims for `globalThis` and the `URL` constructor. Run `npm run build` before distributing the beta to ensure the transpiled output and compatibility helpers are included. Older browsers that still lack fundamental Web APIs will gracefully fall back to the lobby's built-in warnings instead of crashing.
 
 ## Password hashing
 
