@@ -6247,17 +6247,33 @@ function createLobbyLayoutEditor(options = {}) {
   };
 }
 
+const worldInstanceCache = new WeakMap();
+
 function createWorldInstance(entity, offset) {
   if (!entity || !Number.isFinite(offset) || offset === 0) {
     return entity;
   }
-  const instance = { ...entity };
+
+  let instance = worldInstanceCache.get(entity);
+  if (!instance) {
+    instance = {};
+    worldInstanceCache.set(entity, instance);
+  }
+
+  Object.assign(instance, entity);
+
   if (typeof entity.x === "number") {
     instance.x = entity.x + offset;
+  } else {
+    delete instance.x;
   }
+
   if (typeof entity.promptAnchorX === "number") {
     instance.promptAnchorX = entity.promptAnchorX + offset;
+  } else {
+    delete instance.promptAnchorX;
   }
+
   return instance;
 }
 
