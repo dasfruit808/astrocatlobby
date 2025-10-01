@@ -177,13 +177,16 @@ export default defineConfig({
   base: "./",
   plugins: [publicManifestPlugin()],
   build: {
-    target: ["es2018", "safari13"],
-    cssTarget: ["chrome61", "safari13"],
+    target: ["es2015", "safari11"],
+    cssTarget: ["chrome61", "safari11"],
     modulePreload: { polyfill: true }
+  },
+  esbuild: {
+    target: "es2015"
   },
   optimizeDeps: {
     esbuildOptions: {
-      target: "es2018"
+      target: "es2015"
     }
   }
 });
