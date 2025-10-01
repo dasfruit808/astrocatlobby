@@ -3571,6 +3571,10 @@ setPlayerSpriteFromStarter();
 const defaultMessage =
   "Check the Recruit Missions panel for onboarding tasks. Use A/D or ←/→ to move. Press Space to jump.";
 let messageTimerId = 0;
+let ui = null;
+const fallbackGuideName = "Nova Mason";
+let lobbyGuideName = fallbackGuideName;
+let defaultMissionAuthor = fallbackGuideName;
 
 function updateRankFromLevel() {
   let resolvedTitle = rankThresholds[0].title;
@@ -3586,43 +3590,54 @@ function updateRankFromLevel() {
 
 updateRankFromLevel();
 
-const ui = createInterface(playerStats, {
-  onRequestLogin: requestAccountLogin,
-  onRequestLogout: handleLogout,
-  onSelectAccount(callSign) {
-    activateStoredAccount(callSign);
-  },
-  portalLevelRequirement: portalRequiredLevel
-});
-app.innerHTML = "";
-app.append(ui.root);
+function createLegendBadge(channel, label) {
+  const badge = document.createElement("span");
+  badge.className = `chat-board__badge chat-board__badge--${channel}`;
+  badge.textContent = label;
+  return badge;
+}
 
-const initialStarter = findStarterCharacter(playerStats.starterId);
-ui.setAccount(activeAccount, initialStarter);
-ui.addFeedMessage({
-  author: lobbyGuideName,
-  channel: "mission",
-  text: `${lobbyGuideName} reporting! I'm by the mission board if you want the grand tour.`,
-  timestamp: Date.now() - 1000 * 60 * 24
-});
-ui.addFeedMessage({
-  author: "Mission Command",
-  channel: "mission",
-  text: "Mission Control is standing by for your first objective.",
-  timestamp: Date.now() - 1000 * 60 * 18
-});
-ui.addFeedMessage({
-  author: "@StarryScout",
-  channel: "friend",
-  text: "Save me a seat by the portal lounge!",
-  timestamp: Date.now() - 1000 * 60 * 11
-});
-ui.addFeedMessage({
-  author: "@NebulaNeko",
-  channel: "friend",
-  text: "Just dropped fresh intel in the bulletin board. Check it out!",
-  timestamp: Date.now() - 1000 * 60 * 5
-});
+function computeInitials(source) {
+  if (!source) {
+    return "MC";
+  }
+  const trimmed = source.trim();
+  if (!trimmed) {
+    return "MC";
+  }
+  if (trimmed.startsWith("@")) {
+    return trimmed.slice(0, 2).toUpperCase();
+  }
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function formatTimestamp(date) {
+  const hours = `${date.getHours()}`.padStart(2, "0");
+  const minutes = `${date.getMinutes()}`.padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function initializeInterface() {
+  ui = createInterface(playerStats, {
+    onRequestLogin: requestAccountLogin,
+    onRequestLogout: handleLogout,
+    onSelectAccount(callSign) {
+      activateStoredAccount(callSign);
+    },
+    portalLevelRequirement: portalRequiredLevel
+  });
+  app.innerHTML = "";
+  app.append(ui.root);
+
+  const initialStarter = findStarterCharacter(playerStats.starterId);
+  ui.setAccount(activeAccount, initialStarter);
+}
+
+initializeInterface();
 
 function refreshStoredAccountDirectory() {
   if (!ui || typeof ui.setStoredAccounts !== "function") {
@@ -4587,12 +4602,38 @@ const interactables = [
 ].map((interactable) => scaleLobbyEntity(interactable));
 
 const lobbyGuideInteractable = interactables.find((entry) => entry.id === "nova-guide");
-const fallbackGuideName = "Nova Mason";
-const lobbyGuideName =
+lobbyGuideName =
   typeof lobbyGuideInteractable?.name === "string" && lobbyGuideInteractable.name.trim()
     ? lobbyGuideInteractable.name.trim()
     : fallbackGuideName;
-const defaultMissionAuthor = lobbyGuideName;
+defaultMissionAuthor = lobbyGuideName;
+
+if (ui) {
+  ui.addFeedMessage({
+    author: lobbyGuideName,
+    channel: "mission",
+    text: `${lobbyGuideName} reporting! I'm by the mission board if you want the grand tour.`,
+    timestamp: Date.now() - 1000 * 60 * 24
+  });
+  ui.addFeedMessage({
+    author: "Mission Command",
+    channel: "mission",
+    text: "Mission Control is standing by for your first objective.",
+    timestamp: Date.now() - 1000 * 60 * 18
+  });
+  ui.addFeedMessage({
+    author: "@StarryScout",
+    channel: "friend",
+    text: "Save me a seat by the portal lounge!",
+    timestamp: Date.now() - 1000 * 60 * 11
+  });
+  ui.addFeedMessage({
+    author: "@NebulaNeko",
+    channel: "friend",
+    text: "Just dropped fresh intel in the bulletin board. Check it out!",
+    timestamp: Date.now() - 1000 * 60 * 5
+  });
+}
 
 function getInteractableDisplayName(interactable, fallback = lobbyGuideName) {
   if (!interactable || typeof interactable !== "object") {
@@ -10795,37 +10836,6 @@ function createInterface(stats, options = {}) {
       hideMascot,
       addMessage
     };
-
-    function createLegendBadge(channel, label) {
-      const badge = document.createElement("span");
-      badge.className = `chat-board__badge chat-board__badge--${channel}`;
-      badge.textContent = label;
-      return badge;
-    }
-
-    function computeInitials(source) {
-      if (!source) {
-        return "MC";
-      }
-      const trimmed = source.trim();
-      if (!trimmed) {
-        return "MC";
-      }
-      if (trimmed.startsWith("@")) {
-        return trimmed.slice(0, 2).toUpperCase();
-      }
-      const parts = trimmed.split(/\s+/).filter(Boolean);
-      if (parts.length === 1) {
-        return parts[0].slice(0, 2).toUpperCase();
-      }
-      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-    }
-
-    function formatTimestamp(date) {
-      const hours = `${date.getHours()}`.padStart(2, "0");
-      const minutes = `${date.getMinutes()}`.padStart(2, "0");
-      return `${hours}:${minutes}`;
-    }
   }
 
 
