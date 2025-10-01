@@ -2557,6 +2557,11 @@ function normalizeStoredAccountPayload(payload) {
   }
 
   let activeCallSign = null;
+  const hasExplicitNullActive =
+    payload &&
+    typeof payload === "object" &&
+    Object.prototype.hasOwnProperty.call(payload, "activeCallSign") &&
+    payload.activeCallSign === null;
   const requestedActive =
     payload && typeof payload === "object" && typeof payload.activeCallSign === "string"
       ? payload.activeCallSign
@@ -2568,7 +2573,7 @@ function normalizeStoredAccountPayload(payload) {
     }
   }
 
-  if (!activeCallSign && fallbackActive && accounts[fallbackActive]) {
+  if (!activeCallSign && !hasExplicitNullActive && fallbackActive && accounts[fallbackActive]) {
     activeCallSign = fallbackActive;
   }
 
@@ -2818,7 +2823,7 @@ function loadStoredAccount() {
       ? storedAccounts[activeAccountCallSign]
       : null;
 
-  if (!activeAccount) {
+  if (!activeAccount && activeAccountCallSign) {
     const fallbackKey = accountKeys[0];
     activeAccount = storedAccounts[fallbackKey];
     activeAccountCallSign = activeAccount?.callSign ?? null;
