@@ -3284,66 +3284,6 @@ function findStarterCharacter(starterId) {
   return defaultStarterCharacter;
 }
 
-let activeAccount = loadStoredAccount();
-const fallbackAccount = {
-  handle: "",
-  callSign: "",
-  catName: "PixelHero",
-  starterId: defaultStarterCharacter.id
-};
-
-let miniGameLoadoutState = loadMiniGameLoadoutsFromStorage();
-
-const appearancePresets = [
-  {
-    label: "Starbound Scout",
-    hair: "#8b5a2b",
-    skin: "#ffb6c1",
-    shirt: "#4b6cff"
-  },
-  {
-    label: "Nebula Nomad",
-    hair: "#1f1b2e",
-    skin: "#f6d1b1",
-    shirt: "#f06292"
-  },
-  {
-    label: "Solar Sailor",
-    hair: "#d89c59",
-    skin: "#d7a98c",
-    shirt: "#3ddad7"
-  },
-  {
-    label: "Lunar Pathfinder",
-    hair: "#6a4c93",
-    skin: "#bfa0d4",
-    shirt: "#8bc34a"
-  }
-];
-const playerAppearance = {
-  hair: appearancePresets[0].hair,
-  skin: appearancePresets[0].skin,
-  shirt: appearancePresets[0].shirt
-};
-
-const rankThresholds = [
-  { level: 1, title: "Recruit" },
-  { level: 3, title: "Astrocat Cadet" },
-  { level: 5, title: "Star Voyager" },
-  { level: 8, title: "Cosmic Trailblazer" }
-];
-
-const portalRequiredLevel = 3;
-
-const BASE_EXP_REQUIREMENT = 120;
-const EXP_GROWTH_RATE = 1.28;
-const EXP_MILESTONE_INTERVAL = 5;
-const EXP_MILESTONE_BONUS = 160;
-const STAT_POINTS_PER_LEVEL = 2;
-const STAT_POINT_MILESTONE_INTERVAL = 5;
-const STAT_POINT_MILESTONE_BONUS = 3;
-const CHARACTER_CREATION_POINTS = 6;
-
 const attributeDefinitions = [
   {
     key: "vitality",
@@ -3448,6 +3388,66 @@ function applyAttributeScaling(stats, options = {}) {
   stats.attackPower = 8 + strength * 3;
   stats.speedRating = 8 + agility * 2;
 }
+
+let activeAccount = loadStoredAccount();
+const fallbackAccount = {
+  handle: "",
+  callSign: "",
+  catName: "PixelHero",
+  starterId: defaultStarterCharacter.id
+};
+
+let miniGameLoadoutState = loadMiniGameLoadoutsFromStorage();
+
+const appearancePresets = [
+  {
+    label: "Starbound Scout",
+    hair: "#8b5a2b",
+    skin: "#ffb6c1",
+    shirt: "#4b6cff"
+  },
+  {
+    label: "Nebula Nomad",
+    hair: "#1f1b2e",
+    skin: "#f6d1b1",
+    shirt: "#f06292"
+  },
+  {
+    label: "Solar Sailor",
+    hair: "#d89c59",
+    skin: "#d7a98c",
+    shirt: "#3ddad7"
+  },
+  {
+    label: "Lunar Pathfinder",
+    hair: "#6a4c93",
+    skin: "#bfa0d4",
+    shirt: "#8bc34a"
+  }
+];
+const playerAppearance = {
+  hair: appearancePresets[0].hair,
+  skin: appearancePresets[0].skin,
+  shirt: appearancePresets[0].shirt
+};
+
+const rankThresholds = [
+  { level: 1, title: "Recruit" },
+  { level: 3, title: "Astrocat Cadet" },
+  { level: 5, title: "Star Voyager" },
+  { level: 8, title: "Cosmic Trailblazer" }
+];
+
+const portalRequiredLevel = 3;
+
+const BASE_EXP_REQUIREMENT = 120;
+const EXP_GROWTH_RATE = 1.28;
+const EXP_MILESTONE_INTERVAL = 5;
+const EXP_MILESTONE_BONUS = 160;
+const STAT_POINTS_PER_LEVEL = 2;
+const STAT_POINT_MILESTONE_INTERVAL = 5;
+const STAT_POINT_MILESTONE_BONUS = 3;
+const CHARACTER_CREATION_POINTS = 6;
 
 function getBonusStatPointsForLevel(level) {
   if (typeof level !== "number" || !Number.isFinite(level)) {
