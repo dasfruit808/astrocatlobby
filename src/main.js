@@ -3895,6 +3895,7 @@ function handleLogout() {
   ui.setAccount(null, starter);
   ui.refresh(playerStats);
   refreshStoredAccountDirectory();
+  clearFirstSessionChecklist();
   if (persisted) {
     showMessage("You have logged out. Create your Astrocat account to begin your mission.", 0);
   } else {
@@ -3950,6 +3951,7 @@ function completeAccountSetup(account, options = {}) {
   } else {
     showMessage(defaultMessage, 0);
   }
+  beginFirstSessionChecklist();
   return true;
 }
 
@@ -4999,6 +5001,313 @@ const missionDefinitions = [
   }
 ];
 
+const CHECKLIST_EVENTS = {
+  CRYSTAL_COLLECTED: "crystal-collected",
+  NPC_INTERACTION: "npc-interaction",
+  MINI_GAME_LAUNCHED: "mini-game-launched"
+};
+
+const firstSessionChecklistDefinition = {
+  id: "checklist-first-session",
+  title: "First Session Checklist",
+  description: "Warm up the lobby systems with these quick wins.",
+  tasks: [
+    {
+      id: "collect-first-crystal",
+      label: "Collect your first crystal",
+      description: "Crystals power the portal. Walk through one to scoop it up.",
+      event: CHECKLIST_EVENTS.CRYSTAL_COLLECTED,
+      condition: (context = {}) => Boolean(context.first)
+    },
+    {
+      id: "greet-lobby-guide",
+      label: "Greet a lobby guide",
+      description: "Approach Nova Mason (or another guide) and press E to chat.",
+      event: CHECKLIST_EVENTS.NPC_INTERACTION
+    },
+    {
+      id: "launch-starcade",
+      label: "Open the Starcade cabinet",
+      description: "Press E near the arcade to boot the Starcade mini-game.",
+      event: CHECKLIST_EVENTS.MINI_GAME_LAUNCHED
+    }
+  ]
+};
+
+class ChecklistManager {
+  constructor(definition, options = {}) {
+    this.definition = definition ?? {};
+    this.tasks = Array.isArray(this.definition.tasks)
+      ? this.definition.tasks.map((task) => ({ ...task, completed: Boolean(task.completed) }))
+      : [];
+    this.onComplete = typeof options.onComplete === "function" ? options.onComplete : null;
+    this.completed = this.tasks.every((task) => task.completed);
+    this.dock = null;
+    this.taskItems = new Map();
+
+    this.root = document.createElement("section");
+    this.root.className = "mission-log mission-log--checklist";
+    this.root.dataset.checklistId = this.definition.id ?? "checklist";
+
+    this.title = document.createElement("h2");
+    this.title.className = "mission-log__title";
+    this.title.textContent = this.definition.title ?? "Checklist";
+
+    this.summary = document.createElement("p");
+    this.summary.className = "mission-log__summary";
+
+    this.description = document.createElement("p");
+    this.description.className = "mission-log__requirement";
+    if (this.definition.description) {
+      this.description.textContent = this.definition.description;
+      this.description.hidden = false;
+    } else {
+      this.description.textContent = "";
+      this.description.hidden = true;
+    }
+
+    this.list = document.createElement("ul");
+    this.list.className = "mission-log__list";
+
+    this.root.append(this.title, this.summary, this.description, this.list);
+
+    this.buildTaskItems();
+    this.updateSummary();
+
+    if (options.dock) {
+      this.mount(options.dock);
+    }
+  }
+
+  buildTaskItems() {
+    this.list.innerHTML = "";
+    this.taskItems.clear();
+    for (const task of this.tasks) {
+      const item = document.createElement("li");
+      item.className = "mission-log__item mission-log__item--checklist";
+      if (task.completed) {
+        item.classList.add("is-completed");
+      }
+
+      const status = document.createElement("span");
+      status.className = "mission-log__status";
+      status.textContent = task.completed ? "✓" : "•";
+
+      const content = document.createElement("div");
+      content.className = "mission-log__content";
+
+      const label = document.createElement("p");
+      label.className = "mission-log__name";
+      label.textContent = task.label ?? "Checklist task";
+
+      const detail = document.createElement("p");
+      detail.className = "mission-log__description";
+      if (task.description) {
+        detail.textContent = task.description;
+        detail.hidden = false;
+      } else {
+        detail.textContent = "";
+        detail.hidden = true;
+      }
+
+      if (task.description) {
+        content.append(label, detail);
+      } else {
+        content.append(label);
+      }
+      item.append(status, content);
+      this.list.append(item);
+      this.taskItems.set(task.id, { item, status, detail });
+    }
+  }
+
+  mount(dock) {
+    if (!dock) {
+      return;
+    }
+    this.dock = dock;
+    this.dock.hidden = false;
+    this.dock.innerHTML = "";
+    this.dock.append(this.root);
+  }
+
+  notify(eventName, context = {}) {
+    if (!eventName || this.completed) {
+      return false;
+    }
+    let updated = false;
+    for (const task of this.tasks) {
+      if (task.completed || task.event !== eventName) {
+        continue;
+      }
+      if (!this.evaluateCondition(task, context)) {
+        continue;
+      }
+      if (this.completeTask(task)) {
+        updated = true;
+      }
+    }
+    if (updated) {
+      this.updateSummary();
+    }
+    return updated;
+  }
+
+  evaluateCondition(task, context) {
+    if (typeof task.condition === "function") {
+      try {
+        return task.condition(context, task) !== false;
+      } catch (error) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  markTaskComplete(taskId) {
+    if (!taskId || this.completed) {
+      return false;
+    }
+    const task = this.tasks.find((entry) => entry.id === taskId);
+    if (!task || task.completed) {
+      return false;
+    }
+    const completed = this.completeTask(task);
+    if (completed) {
+      this.updateSummary();
+    }
+    return completed;
+  }
+
+  completeTask(task) {
+    if (!task || task.completed) {
+      return false;
+    }
+    task.completed = true;
+    const entry = this.taskItems.get(task.id);
+    if (entry) {
+      entry.item.classList.add("is-completed");
+      entry.status.textContent = "✓";
+    }
+    const allComplete = this.tasks.every((candidate) => candidate.completed);
+    if (allComplete && !this.completed) {
+      this.completed = true;
+      this.root.classList.add("mission-log--complete");
+      this.updateSummary();
+      if (typeof this.onComplete === "function") {
+        this.onComplete(this);
+      }
+    }
+    return true;
+  }
+
+  updateSummary() {
+    const total = this.tasks.length;
+    const completed = this.tasks.filter((task) => task.completed).length;
+    if (total === 0) {
+      this.summary.textContent = "No onboarding tasks right now.";
+    } else if (completed >= total && total > 0) {
+      this.summary.textContent = "All onboarding steps complete!";
+    } else {
+      this.summary.textContent = `${completed} / ${total} tasks complete`;
+    }
+  }
+
+  syncWithWorldState(state = {}) {
+    if (!state || typeof state !== "object") {
+      return;
+    }
+    if (state.portalCharge > 0) {
+      this.markTaskComplete("collect-first-crystal");
+    }
+    if (state.npcInteracted) {
+      this.markTaskComplete("greet-lobby-guide");
+    }
+    if (state.miniGameActive) {
+      this.markTaskComplete("launch-starcade");
+    }
+  }
+
+  destroy() {
+    if (this.root && this.root.parentNode) {
+      this.root.parentNode.removeChild(this.root);
+    }
+    if (this.dock) {
+      this.dock.hidden = true;
+      this.dock.innerHTML = "";
+    }
+    this.taskItems.clear();
+    this.tasks = [];
+    this.completed = true;
+    this.root = null;
+    this.summary = null;
+    this.description = null;
+    this.dock = null;
+  }
+}
+
+let firstSessionChecklistManager = null;
+
+function clearFirstSessionChecklist() {
+  if (firstSessionChecklistManager) {
+    firstSessionChecklistManager.destroy();
+    firstSessionChecklistManager = null;
+  }
+}
+
+function beginFirstSessionChecklist() {
+  if (!ui || typeof ui.getChecklistContainer !== "function") {
+    return null;
+  }
+  const container = ui.getChecklistContainer();
+  if (!container) {
+    return null;
+  }
+
+  clearFirstSessionChecklist();
+
+  firstSessionChecklistManager = new ChecklistManager(firstSessionChecklistDefinition, {
+    dock: container,
+    onComplete(instance) {
+      showMessage(
+        {
+          text: "First session checklist complete! Mission Control is impressed.",
+          author: "Mission Command",
+          channel: "mission"
+        },
+        5200
+      );
+      setTimeout(() => {
+        if (instance) {
+          instance.destroy();
+        }
+        if (firstSessionChecklistManager === instance) {
+          firstSessionChecklistManager = null;
+        }
+      }, 2200);
+    }
+  });
+
+  const npcInteracted = interactables.some(
+    (entry) => entry && entry.type === "npc" && typeof entry.lineIndex === "number" && entry.lineIndex > 0
+  );
+
+  firstSessionChecklistManager.syncWithWorldState({
+    portalCharge,
+    npcInteracted,
+    miniGameActive
+  });
+
+  return firstSessionChecklistManager;
+}
+
+function notifyFirstSessionChecklist(eventName, context) {
+  if (!firstSessionChecklistManager) {
+    return;
+  }
+  firstSessionChecklistManager.notify(eventName, context);
+}
+
 const missions = missionDefinitions.map((mission) => ({
   ...mission,
   completed: false,
@@ -5541,6 +5850,10 @@ function update(delta) {
         crystal.collected = true;
         audio.playEffect("crystal");
         const hadNoCharge = portalCharge === 0;
+        notifyFirstSessionChecklist(CHECKLIST_EVENTS.CRYSTAL_COLLECTED, {
+          first: hadNoCharge,
+          crystal
+        });
         const now =
           typeof performance !== "undefined" && typeof performance.now === "function"
             ? performance.now()
@@ -5722,6 +6035,9 @@ function update(delta) {
         if (wasKeyJustPressed("KeyE")) {
           audio.playEffect("dialogue");
           openMiniGame();
+          notifyFirstSessionChecklist(CHECKLIST_EVENTS.MINI_GAME_LAUNCHED, {
+            interactable
+          });
           showMessage(
             {
               text: "The arcade cabinet hums to life. Press Escape or Back to lobby to return.",
@@ -5767,6 +6083,10 @@ function update(delta) {
         promptText = `Press E to talk to ${guideName}`;
         promptTarget = instance;
         if (wasKeyJustPressed("KeyE")) {
+          notifyFirstSessionChecklist(CHECKLIST_EVENTS.NPC_INTERACTION, {
+            interactable,
+            guideName
+          });
           const missionResult = completeMission(interactable.missionId);
           audio.playEffect("dialogue");
           if (missionResult.completed) {
@@ -10280,6 +10600,11 @@ function createInterface(stats, options = {}) {
   profileSection.append(subtitle, accountCard, crystalsLabel, message);
   panel.insertBefore(profileSection, hudButtons);
 
+  const checklistDock = document.createElement("div");
+  checklistDock.className = "hud-panel__checklist";
+  checklistDock.hidden = true;
+  panel.insertBefore(checklistDock, hudButtons);
+
   registerHudPopup({
     id: "hud-stats",
     label: "Stats",
@@ -10611,6 +10936,9 @@ function createInterface(stats, options = {}) {
     canvasSurface,
     layoutCustomizeButton,
     layoutResetButton,
+    getChecklistContainer() {
+      return checklistDock;
+    },
     promptText: "",
     promptEntity: null,
     setLayoutEditingActive,
