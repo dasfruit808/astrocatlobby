@@ -80,3 +80,7 @@ The Vite build now targets ES2015-era evergreen browsers such as Safari 11 and C
 Account passwords are hashed with SHA-256 using the browser's Web Crypto API when it is available. When SubtleCrypto is missing, the lobby now falls back to a bundled SHA-256 implementation so the derived hash value remains as strong as the primary path. The fallback uses the same base64 encoding as SubtleCrypto to avoid format drift across browsers.【F:src/main.js†L1891-L2016】
 
 Players who return with a legacy `legacy-` password hash are automatically rehashed with SHA-256 during their next successful login and stored back to local persistence, ensuring the stronger protection applies to existing profiles without breaking sign in flows.【F:src/main.js†L3528-L3561】
+
+## Enhancing the lobby experience
+
+Looking for feature inspiration beyond the core prototype? Check out [Gameplay User Experience Enhancement Ideas](docs/gameplay-ux-enhancement-ideas.md) for a curated list of onboarding, feedback, accessibility, and social improvements that can enrich future iterations of the lobby.
