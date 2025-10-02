@@ -5387,6 +5387,9 @@ function update(delta) {
     player.vy = -10.8;
     player.onGround = false;
     audio.playEffect("jump");
+    queueEffect(
+      createJumpDustEffect(player.x + player.width / 2, player.y + player.height)
+    );
   }
 
   player.vy += gravity;
@@ -5455,6 +5458,7 @@ function update(delta) {
       if (overlapX && overlapY) {
         crystal.collected = true;
         audio.playEffect("crystal");
+        queueEffect(createCrystalBurstEffect(crystalX, crystal.y));
         const hadNoCharge = portalCharge === 0;
         const now =
           typeof performance !== "undefined" && typeof performance.now === "function"
@@ -5803,6 +5807,15 @@ function update(delta) {
         promptTarget = portalInstance;
         if (wasKeyJustPressed("KeyE")) {
           audio.playEffect("portalActivate");
+          queueEffect(
+            createPortalActivationEffect(
+              portalInstance.x + portalInstance.width / 2,
+              portalInstance.y + portalInstance.height / 2
+            )
+          );
+          queueEffect(
+            createScreenShakeEffect({ magnitude: 9, duration: 420, frequency: 12 })
+          );
           portalCompleted = true;
           const bonusExp = gainExperience(120);
           playerStats.hp = playerStats.maxHp;
@@ -6450,8 +6463,208 @@ function renderParallaxBackdrop(ctx, time) {
   drawGroundPlane(ctx);
 }
 
+const activeEffects = [];
+
+function getCurrentTime() {
+  if (typeof performance !== "undefined" && typeof performance.now === "function") {
+    return performance.now();
+  }
+  return Date.now();
+}
+
+function queueEffect(effect) {
+  if (!effect || typeof effect !== "object") {
+    return;
+  }
+  if (typeof effect.startedAt !== "number") {
+    effect.startedAt = getCurrentTime();
+  }
+  if (typeof effect.duration !== "number" || effect.duration <= 0) {
+    return;
+  }
+  activeEffects.push(effect);
+}
+
+function createParticleBurstEffect(originX, originY, options = {}) {
+  const now = getCurrentTime();
+  const count = Math.max(1, Math.floor(options.count ?? 12));
+  const duration = Math.max(16, options.duration ?? 480);
+  const palette = Array.isArray(options.palette) && options.palette.length > 0
+    ? options.palette
+    : ["rgba(220, 255, 244, 0.85)"];
+  const baseAngle = typeof options.baseAngle === "number" ? options.baseAngle : -Math.PI / 2;
+  const spread = typeof options.spread === "number" ? options.spread : Math.PI * 2;
+  const speedMin = typeof options.speedMin === "number" ? options.speedMin : 60;
+  const speedMax = typeof options.speedMax === "number" ? options.speedMax : 160;
+  const sizeMin = typeof options.sizeMin === "number" ? options.sizeMin : 1.5;
+  const sizeMax = typeof options.sizeMax === "number" ? options.sizeMax : 3.5;
+  const gravity = typeof options.gravity === "number" ? options.gravity : 0;
+  const fade = options.fade !== false;
+
+  const particles = Array.from({ length: count }, () => {
+    const angle = baseAngle + (Math.random() - 0.5) * spread;
+    const speed = speedMin + Math.random() * Math.max(0, speedMax - speedMin);
+    const size = sizeMin + Math.random() * Math.max(0, sizeMax - sizeMin);
+    const color = palette[Math.floor(Math.random() * palette.length)] ?? palette[0];
+    return {
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: duration,
+      size,
+      color
+    };
+  });
+
+  return {
+    type: "particleBurst",
+    originX,
+    originY,
+    duration,
+    startedAt: now,
+    gravity,
+    fade,
+    particles
+  };
+}
+
+function createScreenShakeEffect(options = {}) {
+  const now = getCurrentTime();
+  const duration = Math.max(16, options.duration ?? 300);
+  const magnitude = typeof options.magnitude === "number" ? options.magnitude : 6;
+  const frequency = typeof options.frequency === "number" ? options.frequency : 11;
+  return {
+    type: "screenShake",
+    duration,
+    startedAt: now,
+    magnitude,
+    frequency,
+    seedX: Math.random() * Math.PI * 2,
+    seedY: Math.random() * Math.PI * 2
+  };
+}
+
+function createJumpDustEffect(x, y) {
+  return createParticleBurstEffect(x, y, {
+    count: 10,
+    duration: 360,
+    palette: ["rgba(120, 230, 210, 0.5)", "rgba(190, 255, 240, 0.65)"],
+    baseAngle: -Math.PI / 2,
+    spread: Math.PI * 0.75,
+    speedMin: 80,
+    speedMax: 180,
+    gravity: 420,
+    sizeMin: 1.5,
+    sizeMax: 3.2
+  });
+}
+
+function createCrystalBurstEffect(x, y) {
+  return createParticleBurstEffect(x, y, {
+    count: 14,
+    duration: 520,
+    palette: ["rgba(120, 255, 230, 0.9)", "rgba(180, 255, 250, 0.95)", "rgba(255, 255, 255, 0.8)"],
+    baseAngle: -Math.PI / 2,
+    spread: Math.PI * 1.5,
+    speedMin: 90,
+    speedMax: 200,
+    gravity: 60,
+    sizeMin: 1.2,
+    sizeMax: 2.8
+  });
+}
+
+function createPortalActivationEffect(x, y) {
+  return createParticleBurstEffect(x, y, {
+    count: 26,
+    duration: 640,
+    palette: [
+      "rgba(130, 245, 255, 0.95)",
+      "rgba(90, 170, 255, 0.85)",
+      "rgba(200, 255, 255, 0.75)"
+    ],
+    baseAngle: -Math.PI / 2,
+    spread: Math.PI * 2,
+    speedMin: 120,
+    speedMax: 260,
+    gravity: 120,
+    sizeMin: 1.8,
+    sizeMax: 3.8
+  });
+}
+
+function getScreenShakeOffset(now) {
+  let offsetX = 0;
+  let offsetY = 0;
+  for (const effect of activeEffects) {
+    if (effect.type !== "screenShake") {
+      continue;
+    }
+    const elapsed = now - effect.startedAt;
+    if (elapsed < 0 || elapsed >= effect.duration) {
+      continue;
+    }
+    const decay = 1 - elapsed / effect.duration;
+    const frequency = effect.frequency ?? 11;
+    const timeSeconds = elapsed / 1000;
+    offsetX += Math.sin(timeSeconds * frequency * Math.PI * 2 + effect.seedX) * effect.magnitude * decay;
+    offsetY += Math.cos(timeSeconds * (frequency * 0.8) * Math.PI * 2 + effect.seedY) * effect.magnitude * 0.6 * decay;
+  }
+  return { offsetX, offsetY };
+}
+
+function renderWorldEffects(ctx, now) {
+  if (!activeEffects.length) {
+    return;
+  }
+  for (const effect of activeEffects) {
+    if (effect.type !== "particleBurst") {
+      continue;
+    }
+    const elapsed = now - effect.startedAt;
+    if (elapsed < 0 || elapsed >= effect.duration) {
+      continue;
+    }
+    ctx.save();
+    for (const particle of effect.particles) {
+      const particleAge = Math.min(elapsed, particle.life);
+      const seconds = particleAge / 1000;
+      const fade = effect.fade ? 1 - particleAge / particle.life : 1;
+      const alpha = Math.max(0, Math.min(1, fade));
+      if (alpha <= 0) {
+        continue;
+      }
+      const px = effect.originX + particle.vx * seconds;
+      const py = effect.originY + particle.vy * seconds + (effect.gravity * seconds * seconds) / 2;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = particle.color;
+      ctx.beginPath();
+      ctx.arc(px, py, particle.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+function cleanupExpiredEffects(now) {
+  if (!activeEffects.length) {
+    return;
+  }
+  for (let index = activeEffects.length - 1; index >= 0; index -= 1) {
+    const effect = activeEffects[index];
+    const elapsed = now - effect.startedAt;
+    if (elapsed >= effect.duration) {
+      activeEffects.splice(index, 1);
+    }
+  }
+}
+
 function render(timestamp) {
+  const now =
+    typeof performance !== "undefined" && typeof performance.now === "function"
+      ? timestamp
+      : Date.now();
   const time = timestamp / 1000;
+  const shakeOffset = getScreenShakeOffset(now);
 
   ctx.setTransform(
     renderScale * devicePixelScale,
@@ -6465,7 +6678,7 @@ function render(timestamp) {
   renderParallaxBackdrop(ctx, time);
 
   ctx.save();
-  ctx.translate(-cameraScrollX, 0);
+  ctx.translate(-cameraScrollX + shakeOffset.offsetX, shakeOffset.offsetY);
 
   const renderOffsets = getWorldWrapOffsetsForView(cameraScrollX, viewport.width);
 
@@ -6549,6 +6762,8 @@ function render(timestamp) {
 
   drawPlayer(player, time);
 
+  renderWorldEffects(ctx, now);
+
   ctx.restore();
 
   if (layoutEditor && typeof layoutEditor.drawOverlay === "function" && layoutEditor.isActive()) {
@@ -6558,6 +6773,8 @@ function render(timestamp) {
   if (ui.promptText) {
     drawPromptBubble(ui.promptText, ui.promptEntity || player);
   }
+
+  cleanupExpiredEffects(now);
 }
 
 function drawPortal(portalInstance, time) {
