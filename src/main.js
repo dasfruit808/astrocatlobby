@@ -2023,6 +2023,57 @@ let hasCustomLobbyLayout = false;
 let storedAccounts = {};
 let activeAccountCallSign = null;
 let layoutEditor = null;
+let ui = null;
+
+const MOVEMENT_HINT_STORAGE_KEY = "astrocatlobby.movementHintAcknowledged";
+const MOVEMENT_HINT_IDLE_THRESHOLD = 5200;
+let movementHintIdleTime = 0;
+let movementHintVisible = false;
+let movementHintAcknowledged = false;
+let movementHintShownThisSession = false;
+
+{
+  const storage = getLocalStorage();
+  if (storage && storage.getItem(MOVEMENT_HINT_STORAGE_KEY) === "1") {
+    movementHintAcknowledged = true;
+    movementHintShownThisSession = true;
+  }
+}
+
+function persistMovementHintAcknowledged() {
+  if (!movementHintAcknowledged) {
+    return;
+  }
+
+  const storage = getLocalStorage();
+  try {
+    storage?.setItem(MOVEMENT_HINT_STORAGE_KEY, "1");
+  } catch (error) {
+    console.warn("Failed to store movement hint acknowledgment", error);
+  }
+}
+
+function dismissMovementHint() {
+  if (!movementHintVisible) {
+    return;
+  }
+
+  if (ui && typeof ui.hideMovementHint === "function") {
+    ui.hideMovementHint();
+  }
+  movementHintVisible = false;
+  movementHintIdleTime = 0;
+}
+
+function acknowledgeMovementHint() {
+  if (!movementHintAcknowledged) {
+    movementHintAcknowledged = true;
+    movementHintShownThisSession = true;
+    persistMovementHintAcknowledged();
+  }
+  movementHintIdleTime = 0;
+  dismissMovementHint();
+}
 
 function createCallSignExample() {
   const digits = "1234567890";
@@ -3571,7 +3622,6 @@ setPlayerSpriteFromStarter();
 const defaultMessage =
   "Check the Recruit Missions panel for onboarding tasks. Use A/D or ←/→ to move. Press Space to jump.";
 let messageTimerId = 0;
-let ui = null;
 const fallbackGuideName = "Nova Mason";
 let lobbyGuideName = fallbackGuideName;
 let defaultMissionAuthor = fallbackGuideName;
@@ -5347,6 +5397,7 @@ function update(delta) {
     player.vy = 0;
     player.onGround = true;
     ui.setPrompt("");
+    dismissMovementHint();
     return;
   }
 
@@ -5355,6 +5406,7 @@ function update(delta) {
     player.vy = 0;
     player.onGround = true;
     ui.setPrompt("");
+    dismissMovementHint();
     return;
   }
 
@@ -5364,6 +5416,29 @@ function update(delta) {
     wasKeyJustPressed("Space") ||
     wasKeyJustPressed("ArrowUp") ||
     wasKeyJustPressed("KeyW");
+
+  const jumpHeld = keys.has("Space") || keys.has("ArrowUp") || keys.has("KeyW");
+  const horizontalHeld =
+    moveLeft ||
+    moveRight ||
+    keys.has("ArrowLeft") ||
+    keys.has("ArrowRight") ||
+    keys.has("KeyA") ||
+    keys.has("KeyD");
+  const hasMovementOrJumpInput = horizontalHeld || jumpHeld || jumpPressed;
+
+  if (hasMovementOrJumpInput) {
+    if (movementHintVisible) {
+      dismissMovementHint();
+    } else {
+      movementHintIdleTime = 0;
+    }
+  } else if (!movementHintAcknowledged && !movementHintShownThisSession) {
+    movementHintIdleTime = Math.min(
+      movementHintIdleTime + delta,
+      MOVEMENT_HINT_IDLE_THRESHOLD * 2
+    );
+  }
 
   const acceleration = 0.35 * (delta / 16.666);
   const maxSpeed = 4.2;
@@ -5415,6 +5490,16 @@ function update(delta) {
   }
 
   updateCameraScrollPosition();
+
+  if (
+    !movementHintAcknowledged &&
+    !movementHintVisible &&
+    !movementHintShownThisSession &&
+    movementHintIdleTime >= MOVEMENT_HINT_IDLE_THRESHOLD
+  ) {
+    movementHintShownThisSession = true;
+    movementHintVisible = true;
+  }
 
   const platformOffsets = getWorldOffsetsAround(player.x);
   for (const offset of platformOffsets) {
@@ -5853,7 +5938,23 @@ function update(delta) {
   }
   }
 
-  ui.setPrompt(promptText, promptTarget);
+  if (movementHintVisible) {
+    if (ui && typeof ui.showMovementHint === "function") {
+      ui.showMovementHint(player, {
+        cameraOffset: cameraScrollX,
+        viewportWidth: viewport.width,
+        viewportHeight: viewport.height,
+        scale: renderScale,
+        onAcknowledge: acknowledgeMovementHint
+      });
+      ui.setPrompt("");
+    } else {
+      movementHintVisible = false;
+      ui.setPrompt(promptText, promptTarget);
+    }
+  } else {
+    ui.setPrompt(promptText, promptTarget);
+  }
 }
 
 function wrapOffset(value, length) {
@@ -10144,28 +10245,35 @@ function createInterface(stats, options = {}) {
     applyMissionState(missionState, level);
   });
 
-  const instructions = document.createElement("ul");
-  instructions.className = "instruction-list";
   const instructionItems = [
     { action: "Move", keys: "A/D or ←/→" },
     { action: "Jump", keys: "Space or W/↑" },
     { action: "Interact", keys: "E (near objects)" }
   ];
-  for (const entry of instructionItems) {
-    const item = document.createElement("li");
-    item.className = "instruction-list__item";
+  function buildInstructionList() {
+    const list = document.createElement("ul");
+    list.className = "instruction-list";
 
-    const action = document.createElement("span");
-    action.className = "instruction-list__action";
-    action.textContent = entry.action;
+    for (const entry of instructionItems) {
+      const item = document.createElement("li");
+      item.className = "instruction-list__item";
 
-    const keys = document.createElement("span");
-    keys.className = "instruction-list__keys";
-    keys.textContent = entry.keys;
+      const action = document.createElement("span");
+      action.className = "instruction-list__action";
+      action.textContent = entry.action;
 
-    item.append(action, keys);
-    instructions.append(item);
+      const keys = document.createElement("span");
+      keys.className = "instruction-list__keys";
+      keys.textContent = entry.keys;
+
+      item.append(action, keys);
+      list.append(item);
+    }
+
+    return list;
   }
+
+  const instructions = buildInstructionList();
 
   const profileSection = document.createElement("section");
   profileSection.className = "hud-panel__profile";
@@ -10252,6 +10360,131 @@ function createInterface(stats, options = {}) {
       }
     ]
   });
+
+  const movementHintState = {
+    root: null,
+    body: null,
+    acknowledgeButton: null,
+    visible: false,
+    onAcknowledge: null
+  };
+
+  function ensureMovementHintElement() {
+    if (movementHintState.root) {
+      return movementHintState;
+    }
+
+    const overlay = document.createElement("div");
+    overlay.className = "movement-hint";
+    overlay.setAttribute("aria-hidden", "true");
+    overlay.setAttribute("role", "status");
+
+    const title = document.createElement("p");
+    title.className = "movement-hint__title";
+    title.textContent = "Need a refresher?";
+
+    const body = document.createElement("div");
+    body.className = "movement-hint__body";
+    const list = buildInstructionList();
+    list.classList.add("movement-hint__list");
+    body.append(list);
+
+    const footer = document.createElement("div");
+    footer.className = "movement-hint__footer";
+    const acknowledgeButton = document.createElement("button");
+    acknowledgeButton.type = "button";
+    acknowledgeButton.className = "movement-hint__ack";
+    acknowledgeButton.textContent = "Got it";
+    acknowledgeButton.addEventListener("click", () => {
+      if (typeof movementHintState.onAcknowledge === "function") {
+        movementHintState.onAcknowledge();
+      } else if (movementHintState.root) {
+        movementHintState.root.classList.remove("is-visible");
+        movementHintState.root.setAttribute("aria-hidden", "true");
+        movementHintState.visible = false;
+        movementHintState.onAcknowledge = null;
+      }
+    });
+    footer.append(acknowledgeButton);
+
+    overlay.append(title, body, footer);
+    canvasSurface.append(overlay);
+
+    movementHintState.root = overlay;
+    movementHintState.body = body;
+    movementHintState.acknowledgeButton = acknowledgeButton;
+
+    return movementHintState;
+  }
+
+  function refreshMovementHintInstructions() {
+    const state = ensureMovementHintElement();
+    if (!state.body) {
+      return;
+    }
+
+    state.body.textContent = "";
+    const list = buildInstructionList();
+    list.classList.add("movement-hint__list");
+    state.body.append(list);
+  }
+
+  function positionMovementHintOverlay(target, options = {}) {
+    const state = ensureMovementHintElement();
+    const { root } = state;
+    if (!root || !target) {
+      return;
+    }
+
+    const cameraOffset = Number.isFinite(options.cameraOffset)
+      ? options.cameraOffset
+      : 0;
+    const scale = Number.isFinite(options.scale) && options.scale > 0 ? options.scale : 1;
+    const viewportWidth = Number.isFinite(options.viewportWidth)
+      ? options.viewportWidth
+      : null;
+    const viewportHeight = Number.isFinite(options.viewportHeight)
+      ? options.viewportHeight
+      : null;
+
+    const targetWidth = typeof target.width === "number" ? target.width : 0;
+    const targetX = (typeof target.x === "number" ? target.x : 0) - cameraOffset;
+    const centerX = targetX + targetWidth / 2;
+    const anchorTop =
+      typeof target.promptAnchorY === "number"
+        ? target.promptAnchorY
+        : typeof target.y === "number"
+          ? target.y
+          : 0;
+    const anchorHeight = typeof target.height === "number" ? target.height : 0;
+    const tailGap = Math.min(14, Math.max(6, anchorHeight ? anchorHeight * 0.12 : 8));
+
+    let clampedX = centerX;
+    if (Number.isFinite(viewportWidth) && viewportWidth > 0) {
+      const margin = 24;
+      clampedX = Math.max(margin, Math.min(centerX, viewportWidth - margin));
+    }
+
+    const anchorY = anchorTop - tailGap;
+    const surfaceWidth = canvasSurface.clientWidth;
+    const surfaceHeight = canvasSurface.clientHeight;
+    const canvasWidth =
+      Number.isFinite(viewportWidth) && viewportWidth > 0
+        ? viewportWidth * scale
+        : surfaceWidth;
+    const canvasHeight =
+      Number.isFinite(viewportHeight) && viewportHeight > 0
+        ? viewportHeight * scale
+        : surfaceHeight;
+    const offsetX = (surfaceWidth - canvasWidth) / 2;
+    const offsetY = (surfaceHeight - canvasHeight) / 2;
+
+    const computedLeft = offsetX + clampedX * scale;
+    const computedTop = offsetY + anchorY * scale;
+
+    root.style.left = `${Number.isFinite(computedLeft) ? computedLeft : 0}px`;
+    root.style.top = `${Number.isFinite(computedTop) ? computedTop : 0}px`;
+  }
 
   root.append(canvasWrapper, panel);
 
@@ -10447,6 +10680,38 @@ function createInterface(stats, options = {}) {
     setPrompt(text, entity) {
       this.promptText = text;
       this.promptEntity = text ? entity ?? null : null;
+    },
+    showMovementHint(target, options = {}) {
+      const state = ensureMovementHintElement();
+      if (!state.root) {
+        return;
+      }
+
+      if (!state.visible || !state.body?.firstChild) {
+        refreshMovementHintInstructions();
+      }
+
+      state.onAcknowledge =
+        typeof options.onAcknowledge === "function" ? options.onAcknowledge : null;
+
+      positionMovementHintOverlay(target, options);
+      state.root.classList.add("is-visible");
+      state.root.setAttribute("aria-hidden", "false");
+      state.visible = true;
+    },
+    hideMovementHint() {
+      const state = movementHintState;
+      if (!state.root) {
+        return;
+      }
+
+      if (state.visible) {
+        state.root.classList.remove("is-visible");
+        state.root.setAttribute("aria-hidden", "true");
+        state.visible = false;
+      }
+
+      state.onAcknowledge = null;
     },
     setAccount(account, starter) {
       updateAccountCard(account, starter);
