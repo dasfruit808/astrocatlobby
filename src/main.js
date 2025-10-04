@@ -2699,6 +2699,50 @@ function persistStoredAccounts() {
   }
 }
 
+function syncActiveAccountProgress() {
+  if (!activeAccount) {
+    return false;
+  }
+
+  const callSign = activeAccount.callSign ?? activeAccountCallSign;
+  if (!callSign) {
+    return false;
+  }
+
+  const normalizedLevel = Number.isFinite(playerStats?.level)
+    ? Math.max(1, Math.floor(playerStats.level))
+    : 1;
+  const normalizedExp = Number.isFinite(playerStats?.exp)
+    ? Math.max(0, playerStats.exp)
+    : 0;
+  const normalizedStatPoints = Number.isFinite(playerStats?.statPoints)
+    ? Math.max(0, Math.floor(playerStats.statPoints))
+    : 0;
+  const sanitizedAttributes = sanitizeAttributeValues(playerStats?.attributes);
+
+  playerStats.level = normalizedLevel;
+  playerStats.exp = normalizedExp;
+  playerStats.statPoints = normalizedStatPoints;
+  playerStats.attributes = sanitizedAttributes;
+
+  const progressUpdate = {
+    level: normalizedLevel,
+    exp: normalizedExp,
+    statPoints: normalizedStatPoints,
+    attributes: sanitizedAttributes
+  };
+
+  activeAccount = { ...activeAccount, ...progressUpdate };
+
+  const existingStoredAccount = storedAccounts[callSign] ?? { callSign };
+  storedAccounts = {
+    ...storedAccounts,
+    [callSign]: { ...existingStoredAccount, ...progressUpdate }
+  };
+
+  return persistStoredAccounts();
+}
+
 function updateActiveAccountLobbyLayout(snapshot) {
   const callSign = activeAccountCallSign;
   if (!callSign || !storedAccounts[callSign]) {
@@ -7724,6 +7768,7 @@ function gainExperience(amount) {
     applyAttributeScaling(playerStats);
   }
   updateRankFromLevel();
+  syncActiveAccountProgress();
   if (leveledUp) {
     audio.playEffect("levelUp");
   }
@@ -11122,6 +11167,7 @@ function createInterface(stats, options = {}) {
     stats.attributes[attributeKey] = currentValue + 1;
     stats.statPoints = availablePoints - 1;
     applyAttributeScaling(stats);
+    syncActiveAccountProgress();
     updateBar(hpBar, stats.hp, stats.maxHp);
     updateBar(mpBar, stats.mp, stats.maxMp);
     updateAttributeInterface(stats);
