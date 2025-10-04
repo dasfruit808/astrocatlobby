@@ -2470,6 +2470,47 @@ function appendMessageToBoard(callSign, message) {
   return sanitizedEntry;
 }
 
+const defaultAccountLevel = 1;
+const maxAccountLevel = 999;
+const defaultAccountExp = 0;
+const maxAccountExp = Number.MAX_SAFE_INTEGER;
+
+function normalizeAccountLevel(value) {
+  if (!Number.isFinite(value)) {
+    return defaultAccountLevel;
+  }
+
+  const floored = Math.floor(value);
+  if (!Number.isFinite(floored)) {
+    return defaultAccountLevel;
+  }
+
+  return Math.max(defaultAccountLevel, Math.min(maxAccountLevel, floored));
+}
+
+function normalizeAccountExp(value) {
+  if (!Number.isFinite(value)) {
+    return defaultAccountExp;
+  }
+
+  const floored = Math.floor(value);
+  if (!Number.isFinite(floored)) {
+    return defaultAccountExp;
+  }
+
+  return Math.max(defaultAccountExp, Math.min(maxAccountExp, floored));
+}
+
+function pickFiniteNumber(...candidates) {
+  for (const candidate of candidates) {
+    if (Number.isFinite(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 function sanitizeAccount(source = {}) {
   if (!source || typeof source !== "object") {
     return null;
@@ -2514,11 +2555,26 @@ function sanitizeAccount(source = {}) {
     sanitizeEmailAddress(source?.auth?.email);
   const passwordHash = getAccountPasswordHash(source);
 
+  const rawLevel = pickFiniteNumber(
+    source.level,
+    source?.stats?.level,
+    source?.profile?.level
+  );
+  const rawExp = pickFiniteNumber(
+    source.exp,
+    source?.xp,
+    source?.experience,
+    source?.stats?.exp,
+    source?.stats?.experience
+  );
+
   const account = {
     handle,
     callSign,
     catName: name,
-    starterId
+    starterId,
+    level: rawLevel === null ? defaultAccountLevel : normalizeAccountLevel(rawLevel),
+    exp: rawExp === null ? defaultAccountExp : normalizeAccountExp(rawExp)
   };
 
   if (email) {
@@ -2643,7 +2699,9 @@ function buildAccountPayload(accounts, activeCallSign) {
       handle: entry.handle,
       callSign: entry.callSign,
       catName: entry.catName,
-      starterId: entry.starterId
+      starterId: entry.starterId,
+      level: normalizeAccountLevel(entry.level),
+      exp: normalizeAccountExp(entry.exp)
     };
 
     if (typeof entry.email === "string" && entry.email) {
@@ -2741,6 +2799,19 @@ function updateActiveAccountLobbyLayout(snapshot) {
 }
 
 function rememberAccount(account, options = {}) {
+  const explicitLevel = pickFiniteNumber(
+    account?.level,
+    account?.stats?.level,
+    account?.profile?.level
+  );
+  const explicitExp = pickFiniteNumber(
+    account?.exp,
+    account?.xp,
+    account?.experience,
+    account?.stats?.exp,
+    account?.stats?.experience
+  );
+
   const sanitized = sanitizeAccount(account);
   if (!sanitized) {
     return null;
@@ -2765,6 +2836,14 @@ function rememberAccount(account, options = {}) {
       if (existingHash) {
         sanitized.passwordHash = existingHash;
       }
+    }
+
+    if (!Number.isFinite(explicitLevel) && Number.isFinite(existing.level)) {
+      sanitized.level = normalizeAccountLevel(existing.level);
+    }
+
+    if (!Number.isFinite(explicitExp) && Number.isFinite(existing.exp)) {
+      sanitized.exp = normalizeAccountExp(existing.exp);
     }
   }
 
@@ -3550,22 +3629,29 @@ if (activeAccount?.attributes && typeof activeAccount.attributes === "object") {
   }
 }
 
+const initialPlayerLevel = normalizeAccountLevel(activeAccount?.level);
+const initialPlayerMaxExp = getExpForNextLevel(initialPlayerLevel);
+const initialPlayerExp = Math.min(
+  normalizeAccountExp(activeAccount?.exp),
+  initialPlayerMaxExp
+);
+
 const playerStats = {
   name: activeAccount?.catName ?? fallbackAccount.catName,
   handle: activeAccount?.handle ?? fallbackAccount.handle,
   callSign: activeAccount?.callSign ?? fallbackAccount.callSign,
   starterId: activeAccount?.starterId ?? fallbackAccount.starterId,
-  level: 1,
+  level: initialPlayerLevel,
   rank: rankThresholds[0].title,
-  exp: 0,
-  maxExp: getExpForNextLevel(1),
+  exp: initialPlayerExp,
+  maxExp: initialPlayerMaxExp,
   hp: 85,
   maxHp: 100,
   mp: 40,
   maxMp: 60,
   statPoints: Number.isFinite(activeAccount?.statPoints)
     ? Math.max(0, Math.floor(activeAccount.statPoints))
-    : getStatPointsForLevel(1),
+    : getStatPointsForLevel(initialPlayerLevel),
   attributes: initialAttributes,
   attackPower: 0,
   speedRating: 0
@@ -3733,10 +3819,17 @@ function applyActiveAccount(account) {
   playerStats.starterId = isValidStarterId(account.starterId)
     ? account.starterId
     : defaultStarterCharacter.id;
+  const normalizedLevel = normalizeAccountLevel(account.level);
+  playerStats.level = normalizedLevel;
+  playerStats.maxExp = getExpForNextLevel(normalizedLevel);
+  playerStats.exp = Math.min(
+    normalizeAccountExp(account.exp),
+    playerStats.maxExp
+  );
   playerStats.attributes = sanitizeAttributeValues(account.attributes);
   playerStats.statPoints = Number.isFinite(account.statPoints)
     ? Math.max(0, Math.floor(account.statPoints))
-    : Math.max(0, Math.floor(playerStats.statPoints ?? getStatPointsForLevel(playerStats.level)));
+    : Math.max(0, Math.floor(getStatPointsForLevel(normalizedLevel)));
   applyAttributeScaling(playerStats, { preservePercent: false });
   playerStats.hp = playerStats.maxHp;
   playerStats.mp = playerStats.maxMp;
