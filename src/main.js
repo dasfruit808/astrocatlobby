@@ -14,6 +14,15 @@ import {
   createPortalActivationEffect,
   createScreenShakeEffect
 } from "./game/render.js";
+import {
+  getPhantomProvider,
+  isPhantomInstalled,
+  connectPhantomWallet,
+  disconnectPhantomWallet,
+  attachAccountChangeListener,
+  formatWalletAddress,
+  getPhantomInstallUrl
+} from "./wallet/phantom.js";
 
 // Provide minimal runtime shims before the rest of the lobby bootstraps. These
 // ensure the game can execute on browsers that predate modern globals but still
@@ -2042,6 +2051,11 @@ let activeAccountCallSign = null;
 let layoutEditor = null;
 let ui = null;
 
+let walletProviderInstance = null;
+let walletAccountChangeUnsubscribe = null;
+let activeWalletAddress = null;
+let suppressWalletAccountChange = false;
+
 const MOVEMENT_HINT_STORAGE_KEY = "astrocatlobby.movementHintAcknowledged";
 const MOVEMENT_HINT_IDLE_THRESHOLD = 5200;
 let movementHintIdleTime = 0;
@@ -2602,6 +2616,29 @@ function sanitizeAccount(source = {}) {
     account.passwordHash = passwordHash;
   }
 
+  const walletAddressSource =
+    typeof source.walletAddress === "string"
+      ? source.walletAddress
+      : typeof source.wallet?.address === "string"
+        ? source.wallet.address
+        : "";
+  const normalizedWalletAddress = walletAddressSource.trim();
+  if (normalizedWalletAddress) {
+    account.walletAddress = normalizedWalletAddress.slice(0, 128);
+    const walletTypeSource =
+      typeof source.walletType === "string"
+        ? source.walletType
+        : typeof source.wallet?.type === "string"
+          ? source.wallet.type
+          : "";
+    const normalizedType = walletTypeSource.trim().slice(0, 24).toLowerCase();
+    if (normalizedType) {
+      account.walletType = normalizedType;
+    } else {
+      account.walletType = "solana";
+    }
+  }
+
   if (lobbyLayoutSnapshot) {
     account.lobbyLayout = lobbyLayoutSnapshot;
   }
@@ -2738,6 +2775,13 @@ function buildAccountPayload(accounts, activeCallSign) {
     }
     if (Number.isFinite(entry.statPoints)) {
       sortedAccounts[key].statPoints = Math.max(0, Math.floor(entry.statPoints));
+    }
+
+    if (typeof entry.walletAddress === "string" && entry.walletAddress) {
+      sortedAccounts[key].walletAddress = entry.walletAddress;
+      if (typeof entry.walletType === "string" && entry.walletType) {
+        sortedAccounts[key].walletType = entry.walletType;
+      }
     }
   }
 
@@ -2906,6 +2950,17 @@ function rememberAccount(account, options = {}) {
     if (!Number.isFinite(explicitExp) && Number.isFinite(existing.exp)) {
       sanitized.exp = normalizeAccountExp(existing.exp);
     }
+
+    if (!sanitized.walletAddress && typeof existing.walletAddress === "string") {
+      sanitized.walletAddress = existing.walletAddress;
+      if (typeof existing.walletType === "string" && existing.walletType) {
+        sanitized.walletType = existing.walletType;
+      }
+    }
+  }
+
+  if (sanitized.walletAddress && !sanitized.walletType) {
+    sanitized.walletType = "solana";
   }
 
   storedAccounts[sanitized.callSign] = sanitized;
@@ -2916,6 +2971,79 @@ function rememberAccount(account, options = {}) {
 
   registerCallSign(sanitized.callSign);
   return sanitized;
+}
+
+function normalizeWalletAddress(address) {
+  if (typeof address !== "string") {
+    return "";
+  }
+  const trimmed = address.trim();
+  return trimmed ? trimmed.slice(0, 128) : "";
+}
+
+function findStoredAccountByWalletAddress(address) {
+  const normalized = normalizeWalletAddress(address);
+  if (!normalized) {
+    return null;
+  }
+
+  for (const account of Object.values(storedAccounts)) {
+    if (!account || typeof account !== "object") {
+      continue;
+    }
+    const candidate = normalizeWalletAddress(account.walletAddress);
+    if (candidate && candidate === normalized) {
+      return account;
+    }
+  }
+
+  return null;
+}
+
+function createWalletDisplayName(address) {
+  const normalized = normalizeWalletAddress(address);
+  if (!normalized) {
+    return "Starbound Pilot";
+  }
+  const previewLength = 4;
+  const start = normalized.slice(0, previewLength);
+  const end = normalized.slice(-previewLength);
+  return `Pilot ${start}-${end}`;
+}
+
+function ensureAccountForWalletAddress(address) {
+  const normalized = normalizeWalletAddress(address);
+  if (!normalized) {
+    return null;
+  }
+
+  const existing = findStoredAccountByWalletAddress(normalized);
+  if (existing) {
+    const hydrated = {
+      ...existing,
+      walletAddress: normalized,
+      walletType: existing.walletType || "solana"
+    };
+    storedAccounts[hydrated.callSign] = hydrated;
+    return hydrated;
+  }
+
+  const generatedCallSign = generateCallSignCandidate();
+  const newAccount = rememberAccount(
+    {
+      catName: createWalletDisplayName(normalized),
+      callSign: generatedCallSign,
+      starterId: defaultStarterCharacter.id,
+      level: 1,
+      exp: 0,
+      statPoints: getStatPointsForLevel(1),
+      walletAddress: normalized,
+      walletType: "solana"
+    },
+    { setActive: false }
+  );
+
+  return newAccount;
 }
 
 function findStoredCallSignsByEmail(email) {
@@ -3581,6 +3709,158 @@ function applyAttributeScaling(stats, options = {}) {
 }
 
 let activeAccount = loadStoredAccount();
+
+function cleanupWalletAccountListener() {
+  if (walletAccountChangeUnsubscribe) {
+    try {
+      walletAccountChangeUnsubscribe();
+    } catch (error) {
+      console.warn("Failed to remove Phantom account listener", error);
+    }
+  }
+  walletAccountChangeUnsubscribe = null;
+}
+
+function attachWalletAccountListener(provider) {
+  cleanupWalletAccountListener();
+  if (!provider) {
+    return;
+  }
+  walletAccountChangeUnsubscribe = attachAccountChangeListener(
+    provider,
+    handlePhantomAccountChange
+  );
+}
+
+function syncWalletUi(overrides = {}) {
+  if (!ui || typeof ui.setWalletState !== "function") {
+    return;
+  }
+  const state = {
+    available: isPhantomInstalled(),
+    connected: Boolean(activeWalletAddress),
+    address: activeWalletAddress,
+    callSign: activeAccount?.callSign ?? null,
+    ...overrides
+  };
+  ui.setWalletState(state);
+}
+
+function handlePhantomAccountChange(nextPublicKey) {
+  if (suppressWalletAccountChange) {
+    suppressWalletAccountChange = false;
+    return;
+  }
+
+  if (!nextPublicKey) {
+    cleanupWalletAccountListener();
+    walletProviderInstance = null;
+    activeWalletAddress = null;
+    handleLogout();
+    syncWalletUi({ connected: false, address: null });
+    return;
+  }
+
+  const address = normalizeWalletAddress(
+    typeof nextPublicKey === "string" ? nextPublicKey : nextPublicKey?.toString?.()
+  );
+  if (!address) {
+    return;
+  }
+
+  if (address === activeWalletAddress) {
+    return;
+  }
+
+  activeWalletAddress = address;
+  const account = ensureAccountForWalletAddress(address);
+  if (!account) {
+    console.warn("Unable to map wallet address to an account");
+    return;
+  }
+
+  activateStoredAccount(account.callSign, {
+    message: {
+      text: `Wallet switched. Call sign @${account.callSign} is now linked.`,
+      author: "Mission Command",
+      channel: "mission"
+    }
+  });
+  syncWalletUi({ connected: true, address });
+}
+
+async function requestWalletLogin() {
+  const provider = getPhantomProvider();
+  if (!provider) {
+    syncWalletUi({ available: false, connected: false });
+    showMessage(
+      {
+        text: "Install the Phantom wallet extension to link your mission data.",
+        author: "Mission Command",
+        channel: "mission"
+      },
+      6000
+    );
+    return;
+  }
+
+  try {
+    const { publicKey } = await connectPhantomWallet();
+    const address = normalizeWalletAddress(publicKey);
+    if (!address) {
+      throw new Error("Invalid wallet address returned by Phantom");
+    }
+    walletProviderInstance = provider;
+    activeWalletAddress = address;
+    attachWalletAccountListener(provider);
+    const account = ensureAccountForWalletAddress(address);
+    if (!account) {
+      throw new Error("Unable to create an account for the connected wallet");
+    }
+    activateStoredAccount(account.callSign, {
+      message: {
+        text: `Wallet linked. Call sign @${account.callSign} is ready for transmissions.`,
+        author: "Mission Command",
+        channel: "mission"
+      }
+    });
+    syncWalletUi({ connected: true, address });
+  } catch (error) {
+    const message =
+      error?.code === 4001
+        ? "Connection request was dismissed. Confirm in Phantom to continue."
+        : "Phantom wallet connection failed. Try again.";
+    console.warn("Failed to connect Phantom wallet", error);
+    showMessage(
+      {
+        text: message,
+        author: "Mission Command",
+        channel: "mission"
+      },
+      6400
+    );
+    syncWalletUi({ connected: Boolean(activeWalletAddress) });
+  }
+}
+
+async function requestWalletDisconnect() {
+  const provider = walletProviderInstance ?? getPhantomProvider();
+  suppressWalletAccountChange = true;
+  try {
+    if (provider) {
+      await disconnectPhantomWallet(provider);
+    }
+  } catch (error) {
+    console.warn("Failed to disconnect Phantom wallet", error);
+  }
+  cleanupWalletAccountListener();
+  walletProviderInstance = null;
+  activeWalletAddress = null;
+  handleLogout();
+  syncWalletUi({ connected: false, address: null });
+  suppressWalletAccountChange = false;
+}
+
 const fallbackAccount = {
   handle: "",
   callSign: "",
@@ -3822,6 +4102,8 @@ function initializeInterface() {
   ui = createInterface(playerStats, {
     onRequestLogin: requestAccountLogin,
     onRequestLogout: handleLogout,
+    onRequestWalletLogin: requestWalletLogin,
+    onRequestWalletDisconnect: requestWalletDisconnect,
     onSelectAccount(callSign) {
       activateStoredAccount(callSign);
     },
@@ -3832,6 +4114,7 @@ function initializeInterface() {
 
   const initialStarter = findStarterCharacter(playerStats.starterId);
   ui.setAccount(activeAccount, initialStarter);
+  syncWalletUi();
 }
 
 initializeInterface();
@@ -3901,6 +4184,7 @@ function applyActiveAccount(account) {
   ui.refresh(playerStats);
   syncMiniGameProfile();
   refreshStoredAccountDirectory();
+  syncWalletUi();
   return true;
 }
 
@@ -4064,6 +4348,7 @@ function handleLogout() {
     );
   }
   syncMiniGameProfile();
+  syncWalletUi({ callSign: null });
 }
 
 function completeAccountSetup(account, options = {}) {
@@ -8310,19 +8595,139 @@ function createMiniGameLoadoutPanel(initialState, options = {}) {
 }
 
 function createInterface(stats, options = {}) {
-  const { onRequestLogin, onRequestLogout, portalLevelRequirement = 1 } = options;
+  const {
+    onRequestLogin,
+    onRequestLogout,
+    onRequestWalletLogin,
+    onRequestWalletDisconnect,
+    portalLevelRequirement = 1
+  } = options;
   const root = document.createElement("div");
   root.className = "game-root";
 
   const interfaceRoot = document.createElement("div");
   interfaceRoot.className = "lobby-shell";
 
-  const toolbar = createToolbar();
+  let accountLoggedIn = Boolean(stats?.callSign);
+  let walletUiState = {
+    available: false,
+    connected: false,
+    address: null,
+    callSign: isValidCallSign(stats?.callSign) ? stats.callSign : null
+  };
+
+  const walletControls = createWalletToolbarSection({
+    onConnect: onRequestWalletLogin,
+    onDisconnect: onRequestWalletDisconnect
+  });
+
+  const toolbar = createToolbar(walletControls);
   const toolbarContent = document.createElement("div");
   toolbarContent.className = "lobby-shell__content";
   toolbarContent.append(root);
 
   interfaceRoot.append(toolbar, toolbarContent);
+
+  function createWalletToolbarSection(handlers = {}) {
+    const { onConnect, onDisconnect } = handlers;
+
+    const container = document.createElement("div");
+    container.className = "site-toolbar__wallet";
+    container.dataset.state = "missing";
+
+    const label = document.createElement("span");
+    label.className = "wallet-status__label";
+    label.textContent = "Solana Wallet";
+
+    const infoRow = document.createElement("div");
+    infoRow.className = "wallet-status__row";
+
+    const callSignBadge = document.createElement("span");
+    callSignBadge.className = "wallet-status__call-sign";
+    callSignBadge.hidden = true;
+
+    const addressText = document.createElement("span");
+    addressText.className = "wallet-status__address";
+    addressText.textContent = "Install Phantom to connect.";
+
+    infoRow.append(callSignBadge, addressText);
+
+    const actionButton = document.createElement("button");
+    actionButton.type = "button";
+    actionButton.className = "wallet-status__action";
+    actionButton.textContent = "Get Phantom";
+
+    container.append(label, infoRow, actionButton);
+
+    function openInstallPage() {
+      const url = getPhantomInstallUrl();
+      if (typeof window !== "undefined" && url) {
+        try {
+          window.open(url, "_blank", "noreferrer");
+        } catch (error) {
+          window.location.href = url;
+        }
+      }
+    }
+
+    function update(nextState = {}) {
+      const state = {
+        available: false,
+        connected: false,
+        callSign: null,
+        address: null,
+        ...nextState
+      };
+
+      container.dataset.state = state.available
+        ? state.connected
+          ? "connected"
+          : "ready"
+        : "missing";
+
+      if (state.connected && state.callSign) {
+        callSignBadge.hidden = false;
+        callSignBadge.textContent = `@${state.callSign}`;
+      } else {
+        callSignBadge.hidden = true;
+        callSignBadge.textContent = "";
+      }
+
+      if (!state.available) {
+        addressText.textContent = "Install Phantom to connect.";
+        actionButton.textContent = "Get Phantom";
+        actionButton.disabled = false;
+        actionButton.onclick = openInstallPage;
+      } else if (!state.connected) {
+        addressText.textContent = "Ready to connect";
+        actionButton.textContent = "Connect Wallet";
+        actionButton.disabled = typeof onConnect !== "function";
+        actionButton.onclick = () => {
+          if (typeof onConnect === "function") {
+            onConnect();
+          }
+        };
+      } else {
+        addressText.textContent = state.address
+          ? formatWalletAddress(state.address)
+          : "Connected";
+        actionButton.textContent = "Disconnect";
+        actionButton.disabled = typeof onDisconnect !== "function";
+        actionButton.onclick = () => {
+          if (typeof onDisconnect === "function") {
+            onDisconnect();
+          }
+        };
+      }
+    }
+
+    update();
+
+    return {
+      root: container,
+      setState: update
+    };
+  }
 
   const canvasWrapper = document.createElement("div");
   canvasWrapper.className = "canvas-wrapper";
@@ -8798,6 +9203,10 @@ function createInterface(stats, options = {}) {
   loginButton.className = "account-card__action";
   loginButton.textContent = "Log in";
   loginButton.addEventListener("click", () => {
+    if (walletUiState.available && typeof onRequestWalletLogin === "function") {
+      onRequestWalletLogin();
+      return;
+    }
     if (typeof onRequestLogin === "function") {
       onRequestLogin();
     }
@@ -8808,6 +9217,10 @@ function createInterface(stats, options = {}) {
   logoutButton.textContent = "Log out";
   logoutButton.hidden = true;
   logoutButton.addEventListener("click", () => {
+    if (walletUiState.connected && typeof onRequestWalletDisconnect === "function") {
+      onRequestWalletDisconnect();
+      return;
+    }
     if (typeof onRequestLogout === "function") {
       onRequestLogout();
     }
@@ -9728,6 +10141,13 @@ function createInterface(stats, options = {}) {
 
       state.onAcknowledge = null;
     },
+    setWalletState(state = {}) {
+      walletUiState = { ...walletUiState, ...state };
+      if (walletControls && typeof walletControls.setState === "function") {
+        walletControls.setState(walletUiState);
+      }
+      updateAccountActions(accountLoggedIn);
+    },
     setAccount(account, starter) {
       updateAccountCard(account, starter);
       updateCommsInterface(account?.callSign);
@@ -9861,7 +10281,7 @@ function createInterface(stats, options = {}) {
     return image;
   }
 
-  function createToolbar() {
+  function createToolbar(walletSection) {
     const header = document.createElement("header");
     header.className = "site-toolbar";
 
@@ -9926,6 +10346,9 @@ function createInterface(stats, options = {}) {
 
     nav.append(list);
     inner.append(brandGroup, nav);
+    if (walletSection?.root) {
+      inner.append(walletSection.root);
+    }
     header.append(inner);
 
     return header;
@@ -10153,12 +10576,20 @@ function createInterface(stats, options = {}) {
   }
 
   function updateAccountActions(isLoggedIn) {
-    if (isLoggedIn) {
-      loginButton.textContent = "Switch account";
+    accountLoggedIn = Boolean(isLoggedIn);
+
+    if (walletUiState.connected) {
+      loginButton.textContent = "Switch wallet";
+      logoutButton.textContent = "Disconnect";
       logoutButton.hidden = false;
+    } else if (walletUiState.available) {
+      loginButton.textContent = accountLoggedIn ? "Switch wallet" : "Connect wallet";
+      logoutButton.textContent = "Sign out";
+      logoutButton.hidden = !accountLoggedIn;
     } else {
-      loginButton.textContent = "Log in";
-      logoutButton.hidden = true;
+      loginButton.textContent = accountLoggedIn ? "Switch account" : "Log in";
+      logoutButton.textContent = "Log out";
+      logoutButton.hidden = !accountLoggedIn;
     }
   }
 
@@ -10204,6 +10635,8 @@ function createInterface(stats, options = {}) {
 
   function updateAccountCard(account, starterOverride) {
     const fallbackStarter = starterOverride ?? defaultStarterCharacter;
+
+    accountLoggedIn = Boolean(account);
 
     if (!account) {
       accountCard.classList.add("account-card--empty");
