@@ -108,6 +108,22 @@ function normalizePublicRelativePath(relativePath) {
     .replace(/\\/g, "/");
 }
 
+function clamp(value, min, max) {
+  if (!Number.isFinite(value)) {
+    value = Number.isFinite(min) ? min : 0;
+  }
+
+  if (Number.isFinite(min)) {
+    value = Math.max(min, value);
+  }
+
+  if (Number.isFinite(max)) {
+    value = Math.min(max, value);
+  }
+
+  return value;
+}
+
 function getPublicManifest() {
   if (typeof globalThis === "undefined") {
     return null;
