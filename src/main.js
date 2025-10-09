@@ -96,6 +96,99 @@ const parallaxLayerSources = [
   }
 ];
 
+function createAssetManifestFromPublicManifest({ extensions = [] } = {}) {
+  const manifest = getPublicManifest();
+  if (!manifest) {
+    return null;
+  }
+
+  const normalizedExtensions = extensions
+    .map((extension) => `${extension ?? ""}`.trim())
+    .filter((extension) => extension);
+  const extensionPattern =
+    normalizedExtensions.length > 0
+      ? new RegExp(`\\.(?:${normalizedExtensions
+          .map((extension) => extension.replace(/^\./, ""))
+          .join("|")})$`, "i")
+      : null;
+
+  const publicManifest = {};
+
+  for (const [key, value] of Object.entries(manifest)) {
+    if (typeof value !== "string" || !value) {
+      continue;
+    }
+
+    const normalizedKey = normalizePublicRelativePath(key);
+    if (!normalizedKey) {
+      continue;
+    }
+
+    const separatorIndex = normalizedKey.lastIndexOf("/");
+    const baseName =
+      separatorIndex >= 0
+        ? normalizedKey.slice(separatorIndex + 1)
+        : normalizedKey;
+
+    if (!baseName) {
+      continue;
+    }
+
+    if (extensionPattern && !extensionPattern.test(baseName)) {
+      continue;
+    }
+
+    const canonicalKey = `./assets/${baseName}`;
+    if (!(canonicalKey in publicManifest)) {
+      publicManifest[canonicalKey] = value;
+    }
+
+    const lowerCaseKey = `./assets/${baseName.toLowerCase()}`;
+    if (!(lowerCaseKey in publicManifest)) {
+      publicManifest[lowerCaseKey] = value;
+    }
+  }
+
+  return Object.keys(publicManifest).length > 0 ? publicManifest : null;
+}
+
+function readFromAssetManifest(manifest, assetPath) {
+  if (!manifest || typeof assetPath !== "string" || !assetPath) {
+    return undefined;
+  }
+
+  const directMatch = manifest[assetPath];
+  if (typeof directMatch === "string" && directMatch) {
+    return directMatch;
+  }
+
+  const lowerCaseKey = assetPath.toLowerCase();
+  if (lowerCaseKey !== assetPath) {
+    const lowerMatch = manifest[lowerCaseKey];
+    if (typeof lowerMatch === "string" && lowerMatch) {
+      return lowerMatch;
+    }
+  }
+
+  const normalizedKey = assetPath.replace(/^\.\/+/, "./");
+  if (normalizedKey !== assetPath) {
+    const normalizedMatch = manifest[normalizedKey];
+    if (typeof normalizedMatch === "string" && normalizedMatch) {
+      return normalizedMatch;
+    }
+  }
+
+  const normalizedLowerKey = normalizedKey.toLowerCase();
+  if (normalizedLowerKey !== normalizedKey) {
+    const normalizedLowerMatch = manifest[normalizedLowerKey];
+    if (typeof normalizedLowerMatch === "string" && normalizedLowerMatch) {
+      return normalizedLowerMatch;
+    }
+  }
+
+  return undefined;
+}
+
 function normalizePublicRelativePath(relativePath) {
   if (typeof relativePath !== "string") {
     return "";
@@ -530,6 +623,12 @@ try {
   assetManifest = null;
 }
 
+if (!assetManifest) {
+  assetManifest = createAssetManifestFromPublicManifest({
+    extensions: [".png", ".PNG", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".avif"]
+  });
+}
+
 let audioManifest = null;
 try {
   if (typeof import.meta === "object" && import.meta && typeof import.meta.glob === "function") {
@@ -549,6 +648,12 @@ try {
     );
   }
   audioManifest = null;
+}
+
+if (!audioManifest) {
+  audioManifest = createAssetManifestFromPublicManifest({
+    extensions: [".wav", ".mp3", ".ogg"]
+  });
 }
 
 const baseCanvasWidth = 960;
@@ -1246,7 +1351,7 @@ function createSpriteState(assetPath) {
 
 function createOptionalSprite(assetPath) {
   if (assetManifest) {
-    const source = assetManifest[assetPath];
+    const source = readFromAssetManifest(assetManifest, assetPath);
     if (!source) {
       return createOptionalSpriteWithoutManifest(assetPath);
     }
@@ -1300,7 +1405,10 @@ function createSilentAudioHandle() {
 
 function resolveAudioSource(assetPath) {
   if (audioManifest) {
-    return audioManifest[assetPath] ?? null;
+    const resolvedFromManifest = readFromAssetManifest(audioManifest, assetPath);
+    if (resolvedFromManifest) {
+      return resolvedFromManifest;
+    }
   }
 
   const normalizedPath = typeof assetPath === "string" ? assetPath.replace(/^\.\//, "") : "";
@@ -1609,8 +1717,11 @@ function resolveStarterImageSource(assetPaths, fallbackPalette) {
   const candidatePaths = Array.isArray(assetPaths) ? assetPaths : [assetPaths];
 
   for (const candidate of candidatePaths) {
-    if (assetManifest && assetManifest[candidate]) {
-      return assetManifest[candidate];
+    if (assetManifest) {
+      const resolvedFromManifest = readFromAssetManifest(assetManifest, candidate);
+      if (resolvedFromManifest) {
+        return resolvedFromManifest;
+      }
     }
 
     try {
@@ -1635,9 +1746,12 @@ function resolveStarterSpriteSource(assetPaths, fallbackPalette) {
       continue;
     }
 
-    if (assetManifest && assetManifest[candidate]) {
-      resolvedSources.push(assetManifest[candidate]);
-      continue;
+    if (assetManifest) {
+      const resolvedFromManifest = readFromAssetManifest(assetManifest, candidate);
+      if (resolvedFromManifest) {
+        resolvedSources.push(resolvedFromManifest);
+        continue;
+      }
     }
 
     try {
@@ -3259,7 +3373,7 @@ function resolvePanelSpriteAsset(relativePath) {
   const assetPath = `./assets/${relativePath}`;
 
   if (assetManifest && typeof assetManifest === "object") {
-    const resolved = assetManifest[assetPath];
+    const resolved = readFromAssetManifest(assetManifest, assetPath);
     if (typeof resolved === "string" && resolved) {
       return resolved;
     }
