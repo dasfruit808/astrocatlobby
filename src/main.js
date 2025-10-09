@@ -3370,20 +3370,70 @@ function resolveMiniGameLoadoutSlotMeta(slotId, fallbackIndex = 0) {
 const miniGameMaxLoadoutNameLength = 32;
 
 function resolvePanelSpriteAsset(relativePath) {
-  const assetPath = `./assets/${relativePath}`;
+  const inputs = Array.isArray(relativePath) ? relativePath : [relativePath];
+  const candidates = [];
+  const seen = new Set();
 
-  if (assetManifest && typeof assetManifest === "object") {
-    const resolved = readFromAssetManifest(assetManifest, assetPath);
-    if (typeof resolved === "string" && resolved) {
-      return resolved;
+  const enqueue = (candidate) => {
+    const trimmed = `${candidate ?? ""}`.trim();
+    if (!trimmed) {
+      return;
     }
+
+    const normalised = trimmed.replace(/^(?:\.\/)+/, "./");
+    if (seen.has(normalised)) {
+      return;
+    }
+
+    seen.add(normalised);
+    candidates.push(normalised);
+  };
+
+  for (const input of inputs) {
+    const trimmed = `${input ?? ""}`.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    if (/^(?:\.{0,2}\/|AstroCats3\/|public\/)/.test(trimmed)) {
+      enqueue(trimmed);
+      continue;
+    }
+
+    enqueue(`./assets/${trimmed}`);
+    enqueue(`AstroCats3/assets/${trimmed}`);
   }
 
-  try {
-    return new URL(assetPath, import.meta.url).href;
-  } catch (error) {
-    if (typeof console !== "undefined" && error) {
-      console.warn(`Failed to resolve loadout art at ${assetPath}`, error);
+  const tryResolveCandidate = (candidate) => {
+    if (assetManifest && typeof assetManifest === "object") {
+      const resolved = readFromAssetManifest(assetManifest, candidate);
+      if (typeof resolved === "string" && resolved) {
+        return resolved;
+      }
+    }
+
+    const resolvedFromPublic = resolvePublicAssetUrl(candidate);
+    if (typeof resolvedFromPublic === "string" && resolvedFromPublic) {
+      return resolvedFromPublic;
+    }
+
+    if (candidate.startsWith("./") || candidate.startsWith("../")) {
+      try {
+        return new URL(candidate, import.meta.url).href;
+      } catch (error) {
+        if (typeof console !== "undefined" && error) {
+          console.warn(`Failed to resolve loadout art at ${candidate}`, error);
+        }
+      }
+    }
+
+    return "";
+  };
+
+  for (const candidate of candidates) {
+    const resolved = tryResolveCandidate(candidate);
+    if (resolved) {
+      return resolved;
     }
   }
 
@@ -3452,7 +3502,7 @@ const miniGameSpacecraftOptions = [
     ],
     negatives: ["Light hull plating struggles against sustained impacts"],
     requiredLevel: 1,
-    image: resolvePanelSpriteAsset("playersprite1.png")
+    image: resolvePanelSpriteAsset(["playersprite1.png", "player.png"])
   },
   {
     id: "aurora",
@@ -3469,7 +3519,7 @@ const miniGameSpacecraftOptions = [
       "Unlocks after proving yourself in the field"
     ],
     requiredLevel: 5,
-    image: resolvePanelSpriteAsset("playersprite2.png")
+    image: resolvePanelSpriteAsset(["playersprite2.png", "player2.png"])
   },
   {
     id: "ember",
@@ -3486,7 +3536,7 @@ const miniGameSpacecraftOptions = [
       "Requires elite clearance to command"
     ],
     requiredLevel: 8,
-    image: resolvePanelSpriteAsset("playersprite3.png")
+    image: resolvePanelSpriteAsset(["playersprite3.png", "player3.png"])
   }
 ];
 
