@@ -856,7 +856,14 @@ function resolveMiniGameEntryPoint() {
     "Falling back to a relative AstroCats3 mini game entry point. Ensure public/AstroCats3/index.html is reachable from the current path."
   );
   try {
-    return new URL("../AstroCats3/index.html", import.meta.url).toString();
+    const UrlConstructor = runtimeGlobal?.URL;
+    if (typeof UrlConstructor === "function") {
+      const fallbackEntry = new UrlConstructor(
+        "../AstroCats3/index.html",
+        import.meta.url
+      ).toString();
+      return fallbackEntry;
+    }
   } catch (error) {
     if (typeof console !== "undefined" && error) {
       console.warn("Failed to resolve AstroCats3 mini game relative to the current module.", error);
