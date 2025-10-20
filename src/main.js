@@ -96,6 +96,131 @@ const parallaxLayerSources = [
   }
 ];
 
+const backgroundVideoSourceCandidates = resolvePublicAssetCandidatesByBasename(
+  "lobby-background-video",
+  [
+    "AstroCats3/lobby-background.mp4",
+    "AstroCats3/lobby-background.webm",
+    "lobby-background.mp4",
+    "lobby-background.webm"
+  ]
+);
+
+const backgroundVideoFallbackUrl =
+  backgroundVideoSourceCandidates.length > 0
+    ? null
+    : "https://cdn.coverr.co/videos/coverr-star-trails-1655739804764?download=1";
+
+const backgroundVideoSources = (
+  backgroundVideoFallbackUrl
+    ? [...backgroundVideoSourceCandidates, backgroundVideoFallbackUrl]
+    : backgroundVideoSourceCandidates
+).filter((candidate, index, all) => {
+  if (typeof candidate !== "string" || !candidate) {
+    return false;
+  }
+  return all.indexOf(candidate) === index;
+});
+
+function initializeCanvasBackgroundVideo(videoElement, container, sources = []) {
+  if (!videoElement || !container) {
+    return;
+  }
+
+  const sourceList = Array.isArray(sources) ? sources : [];
+  const uniqueSources = [];
+  for (const candidate of sourceList) {
+    const normalized = typeof candidate === "string" ? candidate.trim() : "";
+    if (!normalized || uniqueSources.indexOf(normalized) >= 0) {
+      continue;
+    }
+    uniqueSources.push(normalized);
+  }
+
+  videoElement.innerHTML = "";
+  videoElement.removeAttribute("src");
+
+  if (uniqueSources.length === 0) {
+    container.dataset.state = "disabled";
+    container.classList.remove("is-active");
+    container.hidden = true;
+    return;
+  }
+
+  container.hidden = false;
+  container.dataset.state = "loading";
+  container.classList.remove("is-active");
+
+  if (typeof videoElement.setAttribute === "function") {
+    videoElement.setAttribute("playsinline", "");
+    videoElement.setAttribute("muted", "");
+    videoElement.setAttribute("loop", "");
+    videoElement.setAttribute("preload", "auto");
+  }
+
+  try {
+    videoElement.playsInline = true;
+    videoElement.muted = true;
+    videoElement.loop = true;
+    videoElement.preload = "auto";
+    if (typeof videoElement.disablePictureInPicture === "boolean") {
+      videoElement.disablePictureInPicture = true;
+    }
+  } catch (error) {
+    // Ignore property assignment errors from older browsers.
+  }
+
+  for (const source of uniqueSources) {
+    const sourceElement = document.createElement("source");
+    sourceElement.src = source;
+    const mimeType = guessVideoMimeType(source);
+    if (mimeType) {
+      sourceElement.type = mimeType;
+    }
+    videoElement.append(sourceElement);
+  }
+
+  const markActive = () => {
+    container.dataset.state = "active";
+    container.classList.add("is-active");
+    container.hidden = false;
+  };
+
+  const markError = () => {
+    container.dataset.state = "error";
+    container.classList.remove("is-active");
+    container.hidden = true;
+  };
+
+  videoElement.addEventListener("loadeddata", markActive, { once: true });
+  videoElement.addEventListener("error", markError);
+
+  const attemptPlayback = () => {
+    try {
+      const playPromise = videoElement.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch(() => {
+          // Autoplay can be blocked until the user interacts. We'll retry on interaction.
+        });
+      }
+    } catch (error) {
+      // Ignore playback errors triggered by autoplay policies.
+    }
+  };
+
+  const handleFirstInteraction = () => {
+    attemptPlayback();
+  };
+
+  if (typeof window !== "undefined") {
+    window.addEventListener("pointerdown", handleFirstInteraction, { once: true });
+    window.addEventListener("keydown", handleFirstInteraction, { once: true });
+  }
+
+  videoElement.load();
+  attemptPlayback();
+}
+
 function createAssetManifestFromPublicManifest({ extensions = [] } = {}) {
   const manifest = getPublicManifest();
   if (!manifest) {
@@ -385,6 +510,36 @@ function resolvePublicAssetCandidatesByBasename(
   }
 
   return resolved;
+}
+
+function guessVideoMimeType(url) {
+  if (typeof url !== "string") {
+    return "";
+  }
+
+  const trimmed = url.split(/[?#]/)[0] ?? "";
+  const extensionMatch = trimmed.match(/\.([^.]+)$/);
+  if (!extensionMatch) {
+    return "";
+  }
+
+  const extension = extensionMatch[1].toLowerCase();
+  if (!extension) {
+    return "";
+  }
+
+  switch (extension) {
+    case "mp4":
+    case "m4v":
+      return "video/mp4";
+    case "webm":
+      return "video/webm";
+    case "ogg":
+    case "ogv":
+      return "video/ogg";
+    default:
+      return "";
+  }
 }
 
 function isResolvableBaseHref(baseHref) {
@@ -4858,6 +5013,14 @@ canvas.height = viewport.height;
 canvas.className = "game-canvas";
 ui.canvasSurface.append(canvas);
 
+if (ui?.backgroundVideo && ui?.canvasBackground) {
+  initializeCanvasBackgroundVideo(
+    ui.backgroundVideo,
+    ui.canvasBackground,
+    backgroundVideoSources
+  );
+}
+
 const ctx = canvas.getContext("2d");
 if (!ctx) {
   throw new Error("Unable to acquire 2D context");
@@ -6404,6 +6567,10 @@ const renderState = {
   getParallaxScroll: () => parallaxScroll,
   groundY,
   getFallbackBackgroundGradient,
+  getBackgroundVideoState: () =>
+    typeof ui?.getBackgroundVideoState === "function"
+      ? ui.getBackgroundVideoState()
+      : "disabled",
   platformSprite,
   platforms,
   isWorldInstanceVisible,
@@ -8929,6 +9096,38 @@ function createInterface(stats, options = {}) {
 
   const canvasSurface = document.createElement("div");
   canvasSurface.className = "canvas-surface";
+
+  const canvasBackground = document.createElement("div");
+  canvasBackground.className = "canvas-background";
+  canvasBackground.dataset.state = "disabled";
+  canvasBackground.hidden = true;
+
+  const backgroundVideo = document.createElement("video");
+  backgroundVideo.className = "canvas-background__video";
+  backgroundVideo.setAttribute("aria-hidden", "true");
+  backgroundVideo.tabIndex = -1;
+  backgroundVideo.poster = backgroundImageUrl;
+  try {
+    backgroundVideo.playsInline = true;
+    backgroundVideo.muted = true;
+    backgroundVideo.loop = true;
+    backgroundVideo.preload = "auto";
+    backgroundVideo.defaultMuted = true;
+    if (typeof backgroundVideo.disablePictureInPicture === "boolean") {
+      backgroundVideo.disablePictureInPicture = true;
+    }
+  } catch (error) {
+    // Older browsers may not support these properties; ignore failures silently.
+  }
+  if (typeof backgroundVideo.setAttribute === "function") {
+    backgroundVideo.setAttribute("playsinline", "");
+    backgroundVideo.setAttribute("muted", "");
+    backgroundVideo.setAttribute("loop", "");
+    backgroundVideo.setAttribute("preload", "auto");
+  }
+
+  canvasBackground.append(backgroundVideo);
+  canvasSurface.append(canvasBackground);
   canvasWrapper.append(canvasSurface);
 
   const chatBoard = createChatBoardSection();
@@ -10229,6 +10428,8 @@ function createInterface(stats, options = {}) {
     root: interfaceRoot,
     canvasWrapper,
     canvasSurface,
+    canvasBackground,
+    backgroundVideo,
     layoutCustomizeButton,
     layoutResetButton,
     getChecklistContainer() {
@@ -10238,6 +10439,12 @@ function createInterface(stats, options = {}) {
     promptEntity: null,
     setLayoutEditingActive,
     setLayoutResetAvailable,
+    getBackgroundVideo() {
+      return backgroundVideo;
+    },
+    getBackgroundVideoState() {
+      return canvasBackground.dataset.state || "disabled";
+    },
     refresh(updatedStats) {
       const subtitleParts = [];
       if (updatedStats.handle) {
