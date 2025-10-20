@@ -396,6 +396,36 @@ body.is-scroll-locked {
   align-items: center;
 }
 
+.canvas-background {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 360ms ease;
+}
+
+.canvas-background.is-active {
+  opacity: 1;
+}
+
+.canvas-background[data-state="loading"] {
+  opacity: 0.4;
+}
+
+.canvas-background[data-state="error"] {
+  opacity: 0;
+}
+
+.canvas-background__video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
 .canvas-surface.is-editing {
   cursor: grab;
   touch-action: none;
@@ -410,7 +440,9 @@ body.is-scroll-locked {
   height: auto;
   display: block;
   border-radius: 12px;
-  background: #0c0f18;
+  background: transparent;
+  position: relative;
+  z-index: 1;
 }
 
 .chat-board {

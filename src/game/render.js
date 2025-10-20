@@ -213,6 +213,23 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
   ctx.fill();
 }
 
+function drawBackdropHaze(ctx, state, intensity = 1) {
+  const clamped = Math.max(0, Math.min(1, Number.isFinite(intensity) ? intensity : 1));
+  if (clamped <= 0) {
+    return;
+  }
+
+  const haze = ctx.createLinearGradient(0, 0, 0, state.viewport.height);
+  const topAlpha = 0 * clamped;
+  const middleAlpha = 0.18 * clamped;
+  const bottomAlpha = 0.55 * clamped;
+  haze.addColorStop(0, `rgba(9, 15, 32, ${topAlpha})`);
+  haze.addColorStop(0.55, `rgba(9, 15, 32, ${middleAlpha})`);
+  haze.addColorStop(1, `rgba(9, 15, 32, ${bottomAlpha})`);
+  ctx.fillStyle = haze;
+  ctx.fillRect(0, 0, state.viewport.width, state.viewport.height);
+}
+
 function drawParallaxBackgroundImage(ctx, state) {
   let drewLayer = false;
 
@@ -276,15 +293,11 @@ function drawParallaxBackgroundImage(ctx, state) {
   }
 
   if (!drewLayer) {
-    return;
+    return false;
   }
 
-  const haze = ctx.createLinearGradient(0, 0, 0, state.viewport.height);
-  haze.addColorStop(0, "rgba(9, 15, 32, 0)");
-  haze.addColorStop(0.55, "rgba(9, 15, 32, 0.18)");
-  haze.addColorStop(1, "rgba(9, 15, 32, 0.55)");
-  ctx.fillStyle = haze;
-  ctx.fillRect(0, 0, state.viewport.width, state.viewport.height);
+  drawBackdropHaze(ctx, state, 1);
+  return true;
 }
 
 function drawGroundPlane(ctx, state) {
@@ -315,10 +328,24 @@ function drawGroundPlane(ctx, state) {
 }
 
 function renderParallaxBackdrop(ctx, state) {
-  ctx.fillStyle = state.getFallbackBackgroundGradient();
-  ctx.fillRect(0, 0, state.viewport.width, state.viewport.height);
+  const backgroundVideoState =
+    typeof state.getBackgroundVideoState === "function"
+      ? state.getBackgroundVideoState()
+      : "disabled";
+  const videoActive = backgroundVideoState === "active";
 
-  drawParallaxBackgroundImage(ctx, state);
+  if (videoActive) {
+    ctx.clearRect(0, 0, state.viewport.width, state.viewport.height);
+    drawBackdropHaze(ctx, state, 0.85);
+  } else {
+    ctx.fillStyle = state.getFallbackBackgroundGradient();
+    ctx.fillRect(0, 0, state.viewport.width, state.viewport.height);
+    const drewBackground = drawParallaxBackgroundImage(ctx, state);
+    if (!drewBackground) {
+      drawBackdropHaze(ctx, state, 1);
+    }
+  }
+
   drawGroundPlane(ctx, state);
 }
 
