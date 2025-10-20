@@ -604,12 +604,16 @@ function warnImportMetaGlobUnavailable(scope) {
 
 let assetManifest = null;
 try {
-  if (typeof import.meta === "object" && import.meta && typeof import.meta.glob === "function") {
-    assetManifest = import.meta.glob("./assets/*.{png,PNG}", {
-      eager: true,
-      import: "default"
-    });
-  } else {
+  if (typeof import.meta !== "object" || !import.meta) {
+    throw new TypeError("import.meta is unavailable");
+  }
+
+  assetManifest = import.meta.glob("./assets/*.{png,PNG}", {
+    eager: true,
+    import: "default"
+  });
+
+  if (!assetManifest || typeof assetManifest !== "object") {
     warnImportMetaGlobUnavailable("sprite assets");
   }
 } catch (error) {
@@ -631,12 +635,16 @@ if (!assetManifest) {
 
 let audioManifest = null;
 try {
-  if (typeof import.meta === "object" && import.meta && typeof import.meta.glob === "function") {
-    audioManifest = import.meta.glob("./assets/audio/*.{wav,mp3,ogg}", {
-      eager: true,
-      import: "default"
-    });
-  } else {
+  if (typeof import.meta !== "object" || !import.meta) {
+    throw new TypeError("import.meta is unavailable");
+  }
+
+  audioManifest = import.meta.glob("./assets/audio/*.{wav,mp3,ogg}", {
+    eager: true,
+    import: "default"
+  });
+
+  if (!audioManifest || typeof audioManifest !== "object") {
     warnImportMetaGlobUnavailable("audio assets");
   }
 } catch (error) {
