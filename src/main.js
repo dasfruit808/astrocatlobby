@@ -2053,294 +2053,9 @@ const callSignRegistryKey = "astrocat-call-signs";
 const messageBoardStorageKey = "astrocat-message-boards";
 const lobbyLayoutStorageKey = "astrocat-lobby-layout-v1";
 const callSignLength = 5;
-const passwordMinLength = 8;
-
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function sanitizeEmailAddress(value) {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const normalized = value.trim().toLowerCase();
-  if (!normalized) {
-    return null;
-  }
-
-  return emailPattern.test(normalized) ? normalized : null;
-}
 
 function isValidStarterId(value) {
   return typeof value === "string" && starterCharactersById.has(value);
-}
-
-function bufferToBase64(buffer) {
-  if (!buffer) {
-    return "";
-  }
-
-  const bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer;
-  if (!bytes || typeof bytes.length !== "number") {
-    return "";
-  }
-
-  let binary = "";
-  for (let index = 0; index < bytes.length; index += 1) {
-    binary += String.fromCharCode(bytes[index]);
-  }
-
-  if (typeof runtimeGlobal.btoa === "function") {
-    return runtimeGlobal.btoa(binary);
-  }
-
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-const sha256InitialStateValues = [
-  0x6a09e667,
-  0xbb67ae85,
-  0x3c6ef372,
-  0xa54ff53a,
-  0x510e527f,
-  0x9b05688c,
-  0x1f83d9ab,
-  0x5be0cd19
-];
-
-const sha256RoundConstants = [
-  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
-  0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe,
-  0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f,
-  0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
-  0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc,
-  0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
-  0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116,
-  0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7,
-  0xc67178f2
-];
-
-function rightRotate32(value, amount) {
-  return ((value >>> amount) | (value << (32 - amount))) >>> 0;
-}
-
-function add32(...values) {
-  let result = 0;
-  for (const value of values) {
-    result = (result + (value >>> 0)) >>> 0;
-  }
-  return result >>> 0;
-}
-
-function encodeTextAsUtf8(text) {
-  if (typeof TextEncoder === "function") {
-    try {
-      return new TextEncoder().encode(text);
-    } catch (error) {
-      // Fall through to manual encoding.
-    }
-  }
-
-  const bytes = [];
-  for (let index = 0; index < text.length; index += 1) {
-    let codePoint = text.charCodeAt(index);
-
-    if (codePoint >= 0xd800 && codePoint <= 0xdbff && index + 1 < text.length) {
-      const next = text.charCodeAt(index + 1);
-      if (next >= 0xdc00 && next <= 0xdfff) {
-        codePoint = ((codePoint - 0xd800) << 10) + (next - 0xdc00) + 0x10000;
-        index += 1;
-      }
-    }
-
-    if (codePoint <= 0x7f) {
-      bytes.push(codePoint);
-    } else if (codePoint <= 0x7ff) {
-      bytes.push(0xc0 | ((codePoint >>> 6) & 0x1f));
-      bytes.push(0x80 | (codePoint & 0x3f));
-    } else if (codePoint <= 0xffff) {
-      bytes.push(0xe0 | ((codePoint >>> 12) & 0x0f));
-      bytes.push(0x80 | ((codePoint >>> 6) & 0x3f));
-      bytes.push(0x80 | (codePoint & 0x3f));
-    } else {
-      bytes.push(0xf0 | ((codePoint >>> 18) & 0x07));
-      bytes.push(0x80 | ((codePoint >>> 12) & 0x3f));
-      bytes.push(0x80 | ((codePoint >>> 6) & 0x3f));
-      bytes.push(0x80 | (codePoint & 0x3f));
-    }
-  }
-
-  return typeof Uint8Array === "function" ? new Uint8Array(bytes) : bytes;
-}
-
-function computeSha256Digest(bytes) {
-  const inputLength = bytes.length >>> 0;
-  const totalLength = ((inputLength + 9 + 63) >>> 6) << 6;
-  const buffer = typeof Uint8Array === "function" ? new Uint8Array(totalLength) : new Array(totalLength).fill(0);
-  for (let i = 0; i < inputLength; i += 1) {
-    buffer[i] = bytes[i];
-  }
-  buffer[inputLength] = 0x80;
-
-  const bitLength = inputLength * 8;
-  const high = Math.floor(bitLength / 0x100000000);
-  const low = bitLength >>> 0;
-  const last = totalLength - 8;
-  buffer[last] = (high >>> 24) & 0xff;
-  buffer[last + 1] = (high >>> 16) & 0xff;
-  buffer[last + 2] = (high >>> 8) & 0xff;
-  buffer[last + 3] = high & 0xff;
-  buffer[last + 4] = (low >>> 24) & 0xff;
-  buffer[last + 5] = (low >>> 16) & 0xff;
-  buffer[last + 6] = (low >>> 8) & 0xff;
-  buffer[last + 7] = low & 0xff;
-
-  const words = new Array(64).fill(0);
-  const hash = sha256InitialStateValues.slice();
-
-  for (let offset = 0; offset < totalLength; offset += 64) {
-    for (let i = 0; i < 16; i += 1) {
-      const index = offset + i * 4;
-      words[i] =
-        ((buffer[index] << 24) | (buffer[index + 1] << 16) | (buffer[index + 2] << 8) | buffer[index + 3]) >>> 0;
-    }
-
-    for (let i = 16; i < 64; i += 1) {
-      const s0 =
-        rightRotate32(words[i - 15], 7) ^ rightRotate32(words[i - 15], 18) ^ ((words[i - 15] >>> 3) >>> 0);
-      const s1 =
-        rightRotate32(words[i - 2], 17) ^ rightRotate32(words[i - 2], 19) ^ ((words[i - 2] >>> 10) >>> 0);
-      words[i] = add32(words[i - 16], s0, words[i - 7], s1);
-    }
-
-    let a = hash[0];
-    let b = hash[1];
-    let c = hash[2];
-    let d = hash[3];
-    let e = hash[4];
-    let f = hash[5];
-    let g = hash[6];
-    let h = hash[7];
-
-    for (let i = 0; i < 64; i += 1) {
-      const S1 = rightRotate32(e, 6) ^ rightRotate32(e, 11) ^ rightRotate32(e, 25);
-      const ch = (e & f) ^ (~e & g);
-      const temp1 = add32(h, S1, ch, sha256RoundConstants[i], words[i]);
-      const S0 = rightRotate32(a, 2) ^ rightRotate32(a, 13) ^ rightRotate32(a, 22);
-      const maj = (a & b) ^ (a & c) ^ (b & c);
-      const temp2 = add32(S0, maj);
-
-      h = g;
-      g = f;
-      f = e;
-      e = add32(d, temp1);
-      d = c;
-      c = b;
-      b = a;
-      a = add32(temp1, temp2);
-    }
-
-    hash[0] = add32(hash[0], a);
-    hash[1] = add32(hash[1], b);
-    hash[2] = add32(hash[2], c);
-    hash[3] = add32(hash[3], d);
-    hash[4] = add32(hash[4], e);
-    hash[5] = add32(hash[5], f);
-    hash[6] = add32(hash[6], g);
-    hash[7] = add32(hash[7], h);
-  }
-
-  const digest = typeof Uint8Array === "function" ? new Uint8Array(32) : new Array(32).fill(0);
-  for (let i = 0; i < 8; i += 1) {
-    const value = hash[i];
-    digest[i * 4] = (value >>> 24) & 0xff;
-    digest[i * 4 + 1] = (value >>> 16) & 0xff;
-    digest[i * 4 + 2] = (value >>> 8) & 0xff;
-    digest[i * 4 + 3] = value & 0xff;
-  }
-
-  return digest;
-}
-
-async function fallbackSimpleHash(text) {
-  if (typeof text !== "string") {
-    throw new TypeError("Password hashing input must be a string");
-  }
-
-  const bytes = encodeTextAsUtf8(text);
-  if (!bytes || typeof bytes.length !== "number") {
-    throw new TypeError("Unable to encode password hash payload");
-  }
-
-  const digest = computeSha256Digest(bytes);
-  return bufferToBase64(digest);
-}
-
-function legacyFallbackSimpleHash(text) {
-  if (typeof text !== "string") {
-    return "";
-  }
-
-  let hash = 2166136261;
-  for (let index = 0; index < text.length; index += 1) {
-    hash ^= text.charCodeAt(index);
-    hash = (hash * 16777619) >>> 0;
-  }
-
-  return `legacy-${hash.toString(16).padStart(8, "0")}`;
-}
-
-async function derivePasswordHash(password, callSign) {
-  if (typeof password !== "string" || !password) {
-    return null;
-  }
-
-  const salt = isValidCallSign(callSign) ? callSign : "00000";
-  const payload = `astrocat|${salt}|${password}`;
-
-  if (
-    runtimeGlobal.crypto &&
-    runtimeGlobal.crypto.subtle &&
-    typeof runtimeGlobal.crypto.subtle.digest === "function" &&
-    typeof TextEncoder === "function"
-  ) {
-    try {
-      const encoder = new TextEncoder();
-      const bytes = encoder.encode(payload);
-      const digest = await runtimeGlobal.crypto.subtle.digest("SHA-256", bytes);
-      return bufferToBase64(digest);
-    } catch (error) {
-      console.warn("Unable to derive password hash using SubtleCrypto", error);
-    }
-  }
-
-  try {
-    return await fallbackSimpleHash(payload);
-  } catch (error) {
-    console.warn("Unable to derive password hash using fallback SHA-256", error);
-    return null;
-  }
-}
-
-function getAccountPasswordHash(account) {
-  if (!account || typeof account !== "object") {
-    return null;
-  }
-
-  if (typeof account.passwordHash === "string" && account.passwordHash) {
-    return account.passwordHash;
-  }
-
-  if (
-    account.auth &&
-    typeof account.auth === "object" &&
-    typeof account.auth.passwordHash === "string" &&
-    account.auth.passwordHash
-  ) {
-    return account.auth.passwordHash;
-  }
-
-  return null;
 }
 
 let savedLobbyLayout = null;
@@ -2880,12 +2595,6 @@ function sanitizeAccount(source = {}) {
     source.lobbyLayout ?? source.layout ?? source.lobbyLayoutSnapshot
   );
 
-  const email =
-    sanitizeEmailAddress(source.email) ??
-    sanitizeEmailAddress(source.contact) ??
-    sanitizeEmailAddress(source?.auth?.email);
-  const passwordHash = getAccountPasswordHash(source);
-
   const rawLevel = pickFiniteNumber(
     source.level,
     source?.stats?.level,
@@ -2907,14 +2616,6 @@ function sanitizeAccount(source = {}) {
     level: rawLevel === null ? defaultAccountLevel : normalizeAccountLevel(rawLevel),
     exp: rawExp === null ? defaultAccountExp : normalizeAccountExp(rawExp)
   };
-
-  if (email) {
-    account.email = email;
-  }
-
-  if (passwordHash) {
-    account.passwordHash = passwordHash;
-  }
 
   const walletAddressSource =
     typeof source.walletAddress === "string"
@@ -3058,14 +2759,6 @@ function buildAccountPayload(accounts, activeCallSign) {
       exp: normalizeAccountExp(entry.exp)
     };
 
-    if (typeof entry.email === "string" && entry.email) {
-      sortedAccounts[key].email = entry.email;
-    }
-
-    const passwordHash = getAccountPasswordHash(entry);
-    if (passwordHash) {
-      sortedAccounts[key].passwordHash = passwordHash;
-    }
     const layoutSnapshot = sanitizeLobbyLayoutSnapshot(entry.lobbyLayout);
     if (layoutSnapshot) {
       sortedAccounts[key].lobbyLayout = layoutSnapshot;
@@ -3229,20 +2922,6 @@ function rememberAccount(account, options = {}) {
 
   const existing = storedAccounts[sanitized.callSign];
   if (existing) {
-    if (!sanitizeEmailAddress(sanitized.email) && typeof existing.email === "string") {
-      const preservedEmail = sanitizeEmailAddress(existing.email);
-      if (preservedEmail) {
-        sanitized.email = preservedEmail;
-      }
-    }
-
-    if (!getAccountPasswordHash(sanitized)) {
-      const existingHash = getAccountPasswordHash(existing);
-      if (existingHash) {
-        sanitized.passwordHash = existingHash;
-      }
-    }
-
     if (!Number.isFinite(explicitLevel) && Number.isFinite(existing.level)) {
       sanitized.level = normalizeAccountLevel(existing.level);
     }
@@ -3344,33 +3023,6 @@ function ensureAccountForWalletAddress(address) {
   );
 
   return newAccount;
-}
-
-function findStoredCallSignsByEmail(email) {
-  const sanitizedEmail = sanitizeEmailAddress(email);
-  if (!sanitizedEmail) {
-    return [];
-  }
-
-  const matches = new Set();
-
-  for (const account of Object.values(storedAccounts)) {
-    if (!account || typeof account !== "object") {
-      continue;
-    }
-
-    const accountEmail = sanitizeEmailAddress(account.email);
-    if (!accountEmail || accountEmail !== sanitizedEmail) {
-      continue;
-    }
-
-    const callSign = extractStoredCallSign(account);
-    if (callSign) {
-      matches.add(callSign);
-    }
-  }
-
-  return Array.from(matches).sort((a, b) => a.localeCompare(b));
 }
 
 function getStoredAccountsSnapshot() {
@@ -4122,6 +3774,7 @@ function handlePhantomAccountChange(nextPublicKey) {
     return;
   }
 
+  const existingAccount = findStoredAccountByWalletAddress(address);
   activeWalletAddress = address;
   const account = ensureAccountForWalletAddress(address);
   if (!account) {
@@ -4137,6 +3790,11 @@ function handlePhantomAccountChange(nextPublicKey) {
     }
   });
   syncWalletUi({ connected: true, address });
+
+  if (!existingAccount) {
+    const savedAccounts = getStoredAccountsSnapshot();
+    openOnboarding(account, savedAccounts);
+  }
 }
 
 async function requestWalletLogin() {
@@ -4161,6 +3819,7 @@ async function requestWalletLogin() {
       throw new Error("Invalid wallet address returned by Phantom");
     }
     walletProviderInstance = provider;
+    const existingAccount = findStoredAccountByWalletAddress(address);
     activeWalletAddress = address;
     attachWalletAccountListener(provider);
     const account = ensureAccountForWalletAddress(address);
@@ -4175,6 +3834,11 @@ async function requestWalletLogin() {
       }
     });
     syncWalletUi({ connected: true, address });
+
+    if (!existingAccount) {
+      const savedAccounts = getStoredAccountsSnapshot();
+      openOnboarding(account, savedAccounts);
+    }
   } catch (error) {
     const message =
       error?.code === 4001
@@ -4582,80 +4246,15 @@ if (!activeAccount) {
   requestAccountLogin();
 }
 
-async function attemptAccountLogin(credentials = {}) {
-  const rawCallSign = typeof credentials.callSign === "string" ? credentials.callSign : "";
-  const normalizedCallSign = rawCallSign.replace(/\D+/g, "").slice(0, callSignLength);
-
-  if (!isValidCallSign(normalizedCallSign)) {
-    return { ok: false, error: `Enter your ${callSignLength}-digit call sign.` };
-  }
-
-  const password = typeof credentials.password === "string" ? credentials.password : "";
-  if (!password || password.length < passwordMinLength) {
-    return {
-      ok: false,
-      error: `Enter a password with at least ${passwordMinLength} characters.`
-    };
-  }
-
-  const account = storedAccounts[normalizedCallSign];
-  if (!account) {
-    return {
-      ok: false,
-      error: "No account matches that call sign. Double-check the digits and try again."
-    };
-  }
-
-  const storedHash = getAccountPasswordHash(account);
-  if (!storedHash) {
-    return {
-      ok: false,
-      error: "This profile was created before secure logins were available. Create a new account to continue."
-    };
-  }
-
-  const payload = `astrocat|${normalizedCallSign}|${password}`;
-  const derivedHash = await derivePasswordHash(password, normalizedCallSign);
-  if (!derivedHash) {
-    return { ok: false, error: "Unable to verify your credentials. Try again." };
-  }
-
-  if (storedHash !== derivedHash) {
-    if (storedHash.startsWith("legacy-")) {
-      const legacyHash = legacyFallbackSimpleHash(payload);
-      if (legacyHash === storedHash) {
-        account.passwordHash = derivedHash;
-        if (account.auth && typeof account.auth === "object") {
-          account.auth.passwordHash = derivedHash;
-        }
-        persistStoredAccounts();
-      } else {
-        return { ok: false, error: "Incorrect password. Try again." };
-      }
-    } else {
-      return { ok: false, error: "Incorrect password. Try again." };
-    }
-  }
-
-  const activated = activateStoredAccount(normalizedCallSign, {
-    message: {
-      text: `Welcome back, ${account.catName}. Mission systems synced.`,
-      author: "Mission Command",
-      channel: "mission"
-    }
-  });
-
-  if (!activated) {
-    return { ok: false, error: "Unable to activate the account. Try again." };
-  }
-
-  return { ok: true };
-}
-
 function requestAccountLogin() {
+  if (!activeWalletAddress) {
+    requestWalletLogin();
+    return;
+  }
+
   const initialAccount = activeAccount
     ? { ...activeAccount }
-    : { starterId: playerStats.starterId };
+    : { starterId: playerStats.starterId, walletAddress: activeWalletAddress };
   const savedAccounts = getStoredAccountsSnapshot();
   openOnboarding(initialAccount, savedAccounts);
 }
@@ -4751,30 +4350,14 @@ function openOnboarding(initialAccount = null, savedAccounts = []) {
   }
 
   previousBodyOverflow = document.body.style.overflow;
-  let experience = null;
-  const handleExistingSelection = (account) => {
-    if (account?.callSign && experience && typeof experience.prefillSignIn === "function") {
-      experience.prefillSignIn(account.callSign);
-    }
-  };
-
-  experience = createOnboardingExperience({
+  const experience = createOnboardingExperience({
     initialAccount,
     savedAccounts,
+    walletAddress: activeWalletAddress,
     onComplete(account) {
       if (completeAccountSetup(account)) {
         closeOnboarding();
       }
-    },
-    async onAuthenticate(credentials) {
-      const result = await attemptAccountLogin(credentials);
-      if (result?.ok) {
-        closeOnboarding();
-      }
-      return result;
-    },
-    onSelectExisting(account) {
-      handleExistingSelection(account);
     }
   });
 
@@ -7050,11 +6633,8 @@ function createOnboardingExperience(config = {}) {
     initialAccount = null,
     onComplete,
     savedAccounts = [],
-    onSelectExisting,
-    onAuthenticate
+    walletAddress = null
   } = config;
-
-  const initialEmail = sanitizeEmailAddress(initialAccount?.email);
 
   const idSuffix = Math.random().toString(36).slice(2, 8);
   const root = document.createElement("div");
@@ -7066,22 +6646,25 @@ function createOnboardingExperience(config = {}) {
 
   const heading = document.createElement("h2");
   heading.className = "onboarding-heading";
-  heading.textContent = "Create your Astrocat account";
+  heading.textContent = walletAddress
+    ? "Finalize your Astrocat profile"
+    : "Connect your wallet to begin";
   modal.append(heading);
 
   const intro = document.createElement("p");
   intro.className = "onboarding-intro";
-  intro.textContent =
-    "Mission Control assigns your secure call sign. Set your credentials to explore from anywhere.";
+  intro.textContent = walletAddress
+    ? "Your Solana wallet will be linked to this pilot profile. Choose your Astrocat and lock in your stats before launch."
+    : "Link a Solana wallet from the toolbar to generate your call sign and customize your Astrocat.";
   modal.append(intro);
 
   const stepsList = document.createElement("ol");
   stepsList.className = "onboarding-steps";
   const stepDetails = [
     {
-      title: "Secure your call sign",
+      title: "Link your wallet",
       description:
-        "Mission Control generates a unique ID. Copy or write it down so you can sign in later."
+        "A unique call sign is generated for the connected wallet. Copy it so you can reference it later."
     },
     {
       title: "Choose your Astrocat",
@@ -7089,9 +6672,9 @@ function createOnboardingExperience(config = {}) {
         "Preview each companion and spend your bonus stat points to lock in a launch-ready build."
     },
     {
-      title: "Set your credentials",
+      title: "Confirm your pilot",
       description:
-        "Name your Astrocat and create a password. Use these details with your call sign to sync progress."
+        "Name your Astrocat and save the profile to your wallet before heading to the launch bay."
     }
   ];
 
@@ -7119,350 +6702,23 @@ function createOnboardingExperience(config = {}) {
   const supportColumn = document.createElement("div");
   supportColumn.className = "onboarding-column onboarding-column--support";
   layout.append(supportColumn);
+  const walletHint = document.createElement("p");
+  walletHint.className = "onboarding-hint";
+  walletHint.textContent = walletAddress
+    ? `Linked wallet · ${formatWalletAddress(walletAddress)}`
+    : "Connect your Solana wallet from the toolbar to generate a call sign.";
+  supportColumn.append(walletHint);
+
 
   const primaryColumn = document.createElement("div");
   primaryColumn.className = "onboarding-column onboarding-column--primary";
   layout.append(primaryColumn);
 
-  const authenticate = typeof onAuthenticate === "function" ? onAuthenticate : null;
   const selectableAccounts = Array.isArray(savedAccounts)
     ? savedAccounts
         .filter((entry) => entry && typeof entry === "object")
         .map((entry) => ({ ...entry }))
     : [];
-  const handleExistingSelection =
-    typeof onSelectExisting === "function" ? onSelectExisting : null;
-
-  const signInSection = document.createElement("section");
-  signInSection.className = "onboarding-signin";
-
-  const signInTitle = document.createElement("h3");
-  signInTitle.className = "onboarding-signin__title";
-  signInTitle.textContent = "Sign in to your profile";
-
-  const signInHint = document.createElement("p");
-  signInHint.className = "onboarding-signin__hint";
-  signInHint.textContent =
-    "Use your call sign and password to resume progress on any device. Need a reminder? Recover it with the email you used to sign up.";
-
-  const signInForm = document.createElement("form");
-  signInForm.className = "onboarding-form onboarding-form--signin";
-
-  const signInCallSignField = document.createElement("div");
-  signInCallSignField.className = "onboarding-field";
-  const signInCallSignLabel = document.createElement("label");
-  signInCallSignLabel.className = "onboarding-label";
-  signInCallSignLabel.textContent = "Call sign";
-  const signInCallSignInput = document.createElement("input");
-  signInCallSignInput.id = `onboarding-signin-call-${idSuffix}`;
-  signInCallSignInput.type = "text";
-  signInCallSignInput.inputMode = "numeric";
-  signInCallSignInput.autocomplete = "username";
-  signInCallSignInput.maxLength = callSignLength + 2;
-  signInCallSignInput.placeholder = callSignExample;
-  signInCallSignInput.className = "onboarding-input";
-  signInCallSignLabel.setAttribute("for", signInCallSignInput.id);
-  signInCallSignField.append(signInCallSignLabel, signInCallSignInput);
-
-  const signInPasswordField = document.createElement("div");
-  signInPasswordField.className = "onboarding-field";
-  const signInPasswordLabel = document.createElement("label");
-  signInPasswordLabel.className = "onboarding-label";
-  signInPasswordLabel.textContent = "Password";
-  const signInPasswordInput = document.createElement("input");
-  signInPasswordInput.id = `onboarding-signin-password-${idSuffix}`;
-  signInPasswordInput.type = "password";
-  signInPasswordInput.autocomplete = "current-password";
-  signInPasswordInput.minLength = passwordMinLength;
-  signInPasswordInput.className = "onboarding-input";
-  signInPasswordLabel.setAttribute("for", signInPasswordInput.id);
-  const signInPasswordHint = document.createElement("p");
-  signInPasswordHint.className = "onboarding-hint";
-  signInPasswordHint.textContent = `Minimum ${passwordMinLength} characters.`;
-  signInPasswordField.append(signInPasswordLabel, signInPasswordInput, signInPasswordHint);
-
-  const signInFeedback = document.createElement("p");
-  signInFeedback.className = "onboarding-feedback";
-  signInFeedback.hidden = true;
-
-  const signInActions = document.createElement("div");
-  signInActions.className = "onboarding-actions onboarding-signin__actions";
-  const signInSubmit = document.createElement("button");
-  signInSubmit.type = "submit";
-  signInSubmit.className = "onboarding-submit onboarding-submit--secondary";
-  signInSubmit.textContent = "Sign in";
-  signInActions.append(signInSubmit);
-
-  const signInRecoveryToggle = document.createElement("button");
-  signInRecoveryToggle.type = "button";
-  signInRecoveryToggle.className = "onboarding-signin__recovery-toggle";
-  signInRecoveryToggle.textContent = "Forgot call sign?";
-  signInRecoveryToggle.setAttribute("aria-expanded", "false");
-
-  const signInRecovery = document.createElement("div");
-  signInRecovery.className = "onboarding-signin__recovery";
-  signInRecovery.id = `onboarding-signin-recovery-${idSuffix}`;
-  signInRecovery.hidden = true;
-  signInRecoveryToggle.setAttribute("aria-controls", signInRecovery.id);
-
-  const signInRecoveryIntro = document.createElement("p");
-  signInRecoveryIntro.className = "onboarding-hint onboarding-signin__recovery-hint";
-  signInRecoveryIntro.textContent =
-    "Enter the email tied to your profile and we'll list any matching call signs.";
-
-  const signInRecoveryForm = document.createElement("form");
-  signInRecoveryForm.className = "onboarding-form onboarding-form--recovery";
-  signInRecoveryForm.noValidate = true;
-
-  const signInRecoveryField = document.createElement("div");
-  signInRecoveryField.className = "onboarding-field onboarding-field--recovery";
-  const signInRecoveryLabel = document.createElement("label");
-  signInRecoveryLabel.className = "onboarding-label";
-  signInRecoveryLabel.textContent = "Email address";
-  const signInRecoveryInput = document.createElement("input");
-  signInRecoveryInput.id = `onboarding-recovery-email-${idSuffix}`;
-  signInRecoveryInput.type = "email";
-  signInRecoveryInput.autocomplete = "email";
-  signInRecoveryInput.className = "onboarding-input";
-  signInRecoveryInput.placeholder = "astrocat@example.com";
-  if (initialEmail) {
-    signInRecoveryInput.value = initialEmail;
-  }
-  signInRecoveryInput.defaultValue = initialEmail ?? "";
-  signInRecoveryLabel.setAttribute("for", signInRecoveryInput.id);
-  signInRecoveryField.append(signInRecoveryLabel, signInRecoveryInput);
-
-  const signInRecoveryActions = document.createElement("div");
-  signInRecoveryActions.className = "onboarding-actions onboarding-signin__recovery-actions";
-  const signInRecoverySubmit = document.createElement("button");
-  signInRecoverySubmit.type = "submit";
-  signInRecoverySubmit.className =
-    "onboarding-submit onboarding-submit--secondary onboarding-signin__recovery-submit";
-  signInRecoverySubmit.textContent = "Find call sign";
-  signInRecoveryActions.append(signInRecoverySubmit);
-
-  const signInRecoveryResults = document.createElement("div");
-  signInRecoveryResults.className = "onboarding-signin__recovery-results";
-  signInRecoveryResults.hidden = true;
-  signInRecoveryResults.setAttribute("aria-live", "polite");
-
-  signInRecoveryForm.append(signInRecoveryField, signInRecoveryActions);
-  signInRecovery.append(signInRecoveryIntro, signInRecoveryForm, signInRecoveryResults);
-
-  signInForm.append(signInCallSignField, signInPasswordField, signInFeedback, signInActions);
-  signInSection.append(
-    signInTitle,
-    signInHint,
-    signInForm,
-    signInRecoveryToggle,
-    signInRecovery
-  );
-  supportColumn.append(signInSection);
-
-  const defaultSignInText = signInSubmit.textContent;
-  const defaultRecoveryToggleText = signInRecoveryToggle.textContent;
-  const expandedRecoveryToggleText = "Hide call sign recovery";
-
-  const resetSignInRecovery = () => {
-    signInRecoveryResults.innerHTML = "";
-    signInRecoveryResults.hidden = true;
-    signInRecoveryInput.setCustomValidity("");
-  };
-
-  const setSignInRecoveryExpanded = (expanded) => {
-    signInRecovery.hidden = !expanded;
-    signInRecoveryToggle.setAttribute("aria-expanded", String(expanded));
-    signInRecoveryToggle.textContent = expanded
-      ? expandedRecoveryToggleText
-      : defaultRecoveryToggleText;
-
-    if (expanded) {
-      if (!signInRecoveryInput.value && initialEmail) {
-        signInRecoveryInput.value = initialEmail;
-      }
-      try {
-        signInRecoveryInput.focus({ preventScroll: true });
-      } catch (error) {
-        signInRecoveryInput.focus();
-      }
-    } else {
-      signInRecoveryForm.reset();
-      resetSignInRecovery();
-    }
-  };
-
-  const renderSignInRecoveryResults = (email, matches) => {
-    resetSignInRecovery();
-    signInRecoveryResults.hidden = false;
-
-    const status = document.createElement("p");
-    status.className = "onboarding-feedback onboarding-signin__recovery-status";
-
-    if (matches.length > 0) {
-      status.classList.add("is-success");
-      status.textContent =
-        matches.length === 1
-          ? `We found a call sign linked to ${email}.`
-          : `We found ${matches.length} call signs linked to ${email}.`;
-      signInRecoveryResults.append(status);
-
-      const list = document.createElement("ul");
-      list.className = "onboarding-signin__recovery-list";
-      for (const callSign of matches) {
-        const item = document.createElement("li");
-        item.className = "onboarding-signin__recovery-item";
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "onboarding-signin__recovery-option";
-        button.textContent = `@${callSign}`;
-        button.addEventListener("click", () => {
-          applySignInPrefill(callSign);
-          setSignInRecoveryExpanded(false);
-        });
-        item.append(button);
-        list.append(item);
-      }
-      signInRecoveryResults.append(list);
-    } else {
-      status.classList.add("is-error");
-      status.textContent =
-        `We couldn't find a call sign for ${email}. Double-check the address or finish creating a new profile.`;
-      signInRecoveryResults.append(status);
-    }
-  };
-
-  signInRecoveryInput.addEventListener("input", () => {
-    signInRecoveryInput.setCustomValidity("");
-  });
-
-  signInRecoveryToggle.addEventListener("click", () => {
-    setSignInRecoveryExpanded(signInRecovery.hidden);
-  });
-
-  signInRecoveryForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    signInRecoveryInput.setCustomValidity("");
-
-    const sanitizedEmail = sanitizeEmailAddress(signInRecoveryInput.value);
-    if (!sanitizedEmail) {
-      signInRecoveryInput.setCustomValidity("Enter the email you used to sign up.");
-      signInRecoveryInput.reportValidity();
-      return;
-    }
-
-    signInRecoveryInput.value = sanitizedEmail;
-    renderSignInRecoveryResults(sanitizedEmail, findStoredCallSignsByEmail(sanitizedEmail));
-  });
-
-  setSignInRecoveryExpanded(false);
-
-  if (!authenticate) {
-    signInSubmit.disabled = true;
-  }
-
-  const resetSignInFeedback = () => {
-    signInFeedback.hidden = true;
-    signInFeedback.textContent = "";
-    signInFeedback.classList.remove("is-error", "is-success");
-    signInCallSignInput.setCustomValidity("");
-    signInPasswordInput.setCustomValidity("");
-  };
-
-  const applySignInPrefill = (value) => {
-    if (typeof value !== "string") {
-      return;
-    }
-    const normalized = value.replace(/\D+/g, "").slice(0, callSignLength);
-    if (!normalized) {
-      return;
-    }
-    signInCallSignInput.disabled = false;
-    signInPasswordInput.disabled = false;
-    if (authenticate) {
-      signInSubmit.disabled = false;
-    }
-    signInSubmit.textContent = defaultSignInText;
-    signInCallSignInput.value = normalized;
-    signInPasswordInput.value = "";
-    resetSignInFeedback();
-    try {
-      signInPasswordInput.focus({ preventScroll: true });
-    } catch (error) {
-      signInPasswordInput.focus();
-    }
-  };
-
-  signInCallSignInput.addEventListener("input", () => {
-    const normalized = signInCallSignInput.value.replace(/\D+/g, "").slice(0, callSignLength);
-    if (signInCallSignInput.value !== normalized) {
-      signInCallSignInput.value = normalized;
-    }
-    resetSignInFeedback();
-  });
-
-  signInPasswordInput.addEventListener("input", () => {
-    signInPasswordInput.setCustomValidity("");
-    resetSignInFeedback();
-  });
-
-  signInForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    resetSignInFeedback();
-
-    if (!authenticate) {
-      signInFeedback.textContent = "Sign-in is unavailable right now.";
-      signInFeedback.classList.add("is-error");
-      signInFeedback.hidden = false;
-      return;
-    }
-
-    const normalizedCallSign = signInCallSignInput.value.replace(/\D+/g, "").slice(0, callSignLength);
-    if (!isValidCallSign(normalizedCallSign)) {
-      signInCallSignInput.setCustomValidity(`Enter your ${callSignLength}-digit call sign.`);
-      signInCallSignInput.reportValidity();
-      return;
-    }
-
-    const passwordValue = signInPasswordInput.value;
-    if (!passwordValue || passwordValue.length < passwordMinLength) {
-      signInPasswordInput.setCustomValidity(
-        `Enter a password with at least ${passwordMinLength} characters.`
-      );
-      signInPasswordInput.reportValidity();
-      return;
-    }
-
-    signInSubmit.disabled = true;
-    signInCallSignInput.disabled = true;
-    signInPasswordInput.disabled = true;
-    signInSubmit.textContent = "Signing in…";
-
-    let succeeded = false;
-    try {
-      const result = await authenticate({
-        callSign: normalizedCallSign,
-        password: passwordValue
-      });
-      if (result && result.ok) {
-        succeeded = true;
-        return;
-      }
-
-      const message = result?.error ?? "Unable to sign in. Try again.";
-      signInFeedback.textContent = message;
-      signInFeedback.classList.add("is-error");
-      signInFeedback.hidden = false;
-      signInPasswordInput.focus();
-    } finally {
-      if (!succeeded) {
-        signInSubmit.disabled = !authenticate;
-        signInCallSignInput.disabled = false;
-        signInPasswordInput.disabled = false;
-        signInSubmit.textContent = defaultSignInText;
-        signInPasswordInput.value = "";
-      }
-    }
-  });
 
   if (selectableAccounts.length > 0) {
     const savedSection = document.createElement("div");
@@ -7470,12 +6726,12 @@ function createOnboardingExperience(config = {}) {
 
     const savedTitle = document.createElement("h3");
     savedTitle.className = "onboarding-saved__title";
-    savedTitle.textContent = "Saved profiles";
+    savedTitle.textContent = "Saved profiles on this device";
 
     const savedHint = document.createElement("p");
     savedHint.className = "onboarding-saved__hint";
     savedHint.textContent =
-      "Profiles you create on this device appear here. Select one to fill your call sign instantly.";
+      "Reconnect with the wallet tied to a profile to resume progress instantly.";
 
     const savedList = document.createElement("ul");
     savedList.className = "onboarding-saved__list";
@@ -7486,6 +6742,8 @@ function createOnboardingExperience(config = {}) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "onboarding-saved__button";
+      button.disabled = true;
+      button.setAttribute("aria-disabled", "true");
       const handleLabel =
         profile && typeof profile.callSign === "string" && profile.callSign
           ? `@${profile.callSign}`
@@ -7495,14 +6753,6 @@ function createOnboardingExperience(config = {}) {
           ? profile.catName
           : "Unnamed";
       button.textContent = `${handleLabel} · ${nameLabel}`;
-      button.addEventListener("click", () => {
-        if (profile?.callSign) {
-          applySignInPrefill(profile.callSign);
-        }
-        if (handleExistingSelection) {
-          handleExistingSelection(profile);
-        }
-      });
       item.append(button);
       savedList.append(item);
     }
@@ -7537,7 +6787,7 @@ function createOnboardingExperience(config = {}) {
   const callSignNote = document.createElement("p");
   callSignNote.className = "onboarding-call-sign__note";
   callSignNote.textContent =
-    "You'll need this number with your password to sign in elsewhere. Copy it before you launch.";
+    "This call sign is linked to your wallet. Copy it for your records before you launch.";
   const callSignCopyFeedback = document.createElement("span");
   callSignCopyFeedback.className = "onboarding-call-sign__feedback";
   callSignCopyFeedback.setAttribute("role", "status");
@@ -7885,69 +7135,18 @@ function createOnboardingExperience(config = {}) {
   nameHint.textContent = "Give your cosmic companion a memorable title.";
   nameField.append(nameLabel, nameInput, nameHint);
 
-  const emailField = document.createElement("div");
-  emailField.className = "onboarding-field";
-  const emailLabel = document.createElement("label");
-  emailLabel.className = "onboarding-label";
-  emailLabel.textContent = "Email";
-  const emailInput = document.createElement("input");
-  emailInput.id = `onboarding-email-${idSuffix}`;
-  emailInput.name = "email";
-  emailInput.type = "email";
-  emailInput.required = true;
-  emailInput.maxLength = 120;
-  emailInput.placeholder = "pilot@astrocat.example";
-  emailInput.className = "onboarding-input";
-  emailInput.autocomplete = "email";
-  emailLabel.setAttribute("for", emailInput.id);
-  const emailHint = document.createElement("p");
-  emailHint.className = "onboarding-hint";
-  emailHint.textContent = "We'll use this to help recover your login.";
-  emailField.append(emailLabel, emailInput, emailHint);
-
-  const passwordField = document.createElement("div");
-  passwordField.className = "onboarding-field";
-  const passwordLabel = document.createElement("label");
-  passwordLabel.className = "onboarding-label";
-  passwordLabel.textContent = "Create password";
-  const passwordInput = document.createElement("input");
-  passwordInput.id = `onboarding-password-${idSuffix}`;
-  passwordInput.type = "password";
-  passwordInput.required = true;
-  passwordInput.minLength = passwordMinLength;
-  passwordInput.placeholder = "••••••••";
-  passwordInput.className = "onboarding-input";
-  passwordInput.autocomplete = "new-password";
-  passwordLabel.setAttribute("for", passwordInput.id);
-  const passwordHint = document.createElement("p");
-  passwordHint.className = "onboarding-hint";
-  passwordHint.textContent = `Use at least ${passwordMinLength} characters.`;
-  passwordField.append(passwordLabel, passwordInput, passwordHint);
-
-  const confirmField = document.createElement("div");
-  confirmField.className = "onboarding-field";
-  const confirmLabel = document.createElement("label");
-  confirmLabel.className = "onboarding-label";
-  confirmLabel.textContent = "Confirm password";
-  const confirmInput = document.createElement("input");
-  confirmInput.id = `onboarding-confirm-${idSuffix}`;
-  confirmInput.type = "password";
-  confirmInput.required = true;
-  confirmInput.placeholder = "Repeat password";
-  confirmInput.className = "onboarding-input";
-  confirmInput.autocomplete = "new-password";
-  confirmLabel.setAttribute("for", confirmInput.id);
-  const confirmHint = document.createElement("p");
-  confirmHint.className = "onboarding-hint";
-  confirmHint.textContent = "Re-enter your password to confirm.";
-  confirmField.append(confirmLabel, confirmInput, confirmHint);
+  const formFeedback = document.createElement("p");
+  formFeedback.className = "onboarding-feedback";
+  formFeedback.hidden = true;
+  formFeedback.setAttribute("aria-live", "polite");
 
   const actions = document.createElement("div");
   actions.className = "onboarding-actions";
   const submitButton = document.createElement("button");
   submitButton.type = "submit";
   submitButton.className = "onboarding-submit";
-  submitButton.textContent = "Create account";
+  submitButton.textContent = walletAddress ? "Link profile" : "Connect wallet to continue";
+  submitButton.disabled = !walletAddress;
   actions.append(submitButton);
 
   form.append(
@@ -7955,9 +7154,7 @@ function createOnboardingExperience(config = {}) {
     starterField,
     statsField,
     nameField,
-    emailField,
-    passwordField,
-    confirmField,
+    formFeedback,
     actions
   );
 
@@ -8116,57 +7313,32 @@ function createOnboardingExperience(config = {}) {
     nameInput.value = initialAccount.catName;
   }
 
-  if (initialEmail) {
-    emailInput.value = initialEmail;
-  }
-
   nameInput.addEventListener("input", () => {
     nameInput.setCustomValidity("");
-  });
-
-  emailInput.addEventListener("input", () => {
-    emailInput.setCustomValidity("");
-  });
-
-  passwordInput.addEventListener("input", () => {
-    passwordInput.setCustomValidity("");
-  });
-
-  confirmInput.addEventListener("input", () => {
-    confirmInput.setCustomValidity("");
+    formFeedback.hidden = true;
+    formFeedback.textContent = "";
+    formFeedback.classList.remove("is-error", "is-success");
   });
 
   const defaultSubmitText = submitButton.textContent;
 
-  form.addEventListener("submit", async (event) => {
+  form.addEventListener("submit", (event) => {
     event.preventDefault();
+    formFeedback.hidden = true;
+    formFeedback.textContent = "";
+    formFeedback.classList.remove("is-error", "is-success");
+
+    if (!walletAddress) {
+      formFeedback.textContent = "Connect your Solana wallet to create this profile.";
+      formFeedback.classList.add("is-error");
+      formFeedback.hidden = false;
+      return;
+    }
 
     const trimmedName = nameInput.value.trim().replace(/\s+/g, " ");
     if (!trimmedName) {
       nameInput.setCustomValidity("Name your astrocat to continue.");
       nameInput.reportValidity();
-      return;
-    }
-
-    const sanitizedEmail = sanitizeEmailAddress(emailInput.value);
-    if (!sanitizedEmail) {
-      emailInput.setCustomValidity("Enter a valid email address.");
-      emailInput.reportValidity();
-      return;
-    }
-
-    const passwordValue = passwordInput.value;
-    if (!passwordValue || passwordValue.length < passwordMinLength) {
-      passwordInput.setCustomValidity(
-        `Use at least ${passwordMinLength} characters for your password.`
-      );
-      passwordInput.reportValidity();
-      return;
-    }
-
-    if (passwordValue !== confirmInput.value) {
-      confirmInput.setCustomValidity("Passwords do not match.");
-      confirmInput.reportValidity();
       return;
     }
 
@@ -8185,16 +7357,9 @@ function createOnboardingExperience(config = {}) {
     }
 
     submitButton.disabled = true;
-    submitButton.textContent = "Creating…";
+    submitButton.textContent = "Linking…";
 
     try {
-      const passwordHash = await derivePasswordHash(passwordValue, pendingCallSign);
-      if (!passwordHash) {
-        passwordInput.setCustomValidity("Unable to secure your password. Try again.");
-        passwordInput.reportValidity();
-        return;
-      }
-
       const attributeSnapshot = createInitialAttributeState();
       for (const definition of attributeDefinitions) {
         const baseValue = attributeSnapshot[definition.key];
@@ -8206,14 +7371,15 @@ function createOnboardingExperience(config = {}) {
         callSign: pendingCallSign,
         catName: trimmedName,
         starterId: selectedStarterId,
-        email: sanitizedEmail,
-        passwordHash,
-        attributes: attributeSnapshot
+        attributes: attributeSnapshot,
+        walletAddress,
+        walletType: "solana"
       });
 
       if (!sanitized) {
-        nameInput.setCustomValidity("Please provide account details to continue.");
-        nameInput.reportValidity();
+        formFeedback.textContent = "Unable to prepare your profile. Try again.";
+        formFeedback.classList.add("is-error");
+        formFeedback.hidden = false;
         return;
       }
 
@@ -8229,36 +7395,31 @@ function createOnboardingExperience(config = {}) {
       updateAllocationUI();
       updateCallSignDisplay(pendingCallSign);
       nameInput.value = sanitized.catName;
-      emailInput.value = sanitized.email ?? sanitizedEmail;
-      passwordInput.value = "";
-      confirmInput.value = "";
 
+      let completionResult = true;
       if (typeof onComplete === "function") {
-        onComplete(sanitized);
+        completionResult = onComplete(sanitized);
       }
+
+      if (completionResult === false) {
+        formFeedback.textContent = "We couldn't save your profile. Check storage settings and try again.";
+        formFeedback.classList.add("is-error");
+        formFeedback.hidden = false;
+        return;
+      }
+
+      formFeedback.textContent = "Profile linked to your wallet.";
+      formFeedback.classList.add("is-success");
+      formFeedback.hidden = false;
     } finally {
       submitButton.disabled = false;
       submitButton.textContent = defaultSubmitText;
     }
   });
 
-  if (selectableAccounts.length > 0 && isValidCallSign(initialAccount?.callSign)) {
-    applySignInPrefill(initialAccount.callSign);
-  }
-
   return {
     root,
     focus() {
-      if (signInCallSignInput.value || selectableAccounts.length > 0) {
-        const target = signInCallSignInput.value ? signInPasswordInput : signInCallSignInput;
-        try {
-          target.focus({ preventScroll: true });
-        } catch (error) {
-          target.focus();
-        }
-        return;
-      }
-
       try {
         nameInput.focus({ preventScroll: true });
       } catch (error) {
@@ -8267,9 +7428,6 @@ function createOnboardingExperience(config = {}) {
     },
     close() {
       root.remove();
-    },
-    prefillSignIn(callSign) {
-      applySignInPrefill(callSign);
     }
   };
 }
