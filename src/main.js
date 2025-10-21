@@ -23,6 +23,7 @@ import {
   formatWalletAddress,
   getPhantomInstallUrl
 } from "./wallet/phantom.js";
+import { installFallbackAssetManifest } from "./asset-manifest.js";
 
 // Provide minimal runtime shims before the rest of the lobby bootstraps. These
 // ensure the game can execute on browsers that predate modern globals but still
@@ -57,6 +58,8 @@ const runtimeGlobal =
         : typeof global !== "undefined"
           ? global
           : {};
+
+installFallbackAssetManifest(runtimeGlobal);
 
 // Safari < 15 occasionally exposes URL but without the URLSearchParams helpers.
 // Fall back to the anchor element resolver to guarantee relative paths resolve.
@@ -794,7 +797,7 @@ try {
     throw new TypeError("import.meta is unavailable");
   }
 
-  audioManifest = import.meta.glob("./assets/audio/*.{wav,mp3,ogg}", {
+  audioManifest = import.meta.glob("./assets/audio/*.{mp3,ogg,m4a,webm}", {
     eager: true,
     import: "default"
   });
@@ -815,7 +818,7 @@ try {
 
 if (!audioManifest) {
   audioManifest = createAssetManifestFromPublicManifest({
-    extensions: [".wav", ".mp3", ".ogg"]
+    extensions: [".mp3", ".ogg", ".m4a", ".webm"]
   });
 }
 
@@ -1542,20 +1545,47 @@ function createOptionalSpriteWithoutManifest(assetPath) {
 
   const normalizedPath = typeof assetPath === "string" ? assetPath.replace(/^\.\//, "") : "";
   const resolvedFromPublic = resolvePublicAssetUrl(normalizedPath);
+  const candidates = [];
 
   if (typeof resolvedFromPublic === "string" && resolvedFromPublic) {
-    spriteState.setSource(resolvedFromPublic);
-  } else {
-    let resolvedUrl;
-    try {
-      resolvedUrl = new URL(assetPath, import.meta.url).href;
-    } catch (error) {
-      console.warn(`Failed to resolve sprite asset at ${assetPath}`, error);
-      return createEmptySprite();
+    if (
+      /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(resolvedFromPublic) ||
+      resolvedFromPublic.startsWith("//") ||
+      resolvedFromPublic.startsWith("/")
+    ) {
+      candidates.push(resolvedFromPublic);
+    } else {
+      try {
+        const absolutePublic = new URL(resolvedFromPublic, import.meta.url).href;
+        candidates.push(absolutePublic);
+      } catch (error) {
+        candidates.push(resolvedFromPublic);
+      }
     }
-
-    spriteState.setSource(resolvedUrl);
   }
+
+  let moduleRelative = null;
+  try {
+    moduleRelative = new URL(assetPath, import.meta.url).href;
+  } catch (error) {
+    if (candidates.length === 0) {
+      console.warn(`Failed to resolve sprite asset at ${assetPath}`, error);
+    }
+  }
+
+  if (moduleRelative && candidates.indexOf(moduleRelative) < 0) {
+    candidates.push(moduleRelative);
+  }
+
+  const uniqueCandidates = candidates.filter((candidate, index, list) => {
+    return typeof candidate === "string" && candidate && list.indexOf(candidate) === index;
+  });
+
+  if (uniqueCandidates.length === 0) {
+    return createEmptySprite();
+  }
+
+  spriteState.setSource(uniqueCandidates);
 
   return {
     image: spriteState.image,
@@ -1573,7 +1603,65 @@ function createSilentAudioHandle() {
   };
 }
 
+const AudioContextConstructor =
+  typeof window !== "undefined"
+    ? window.AudioContext || window.webkitAudioContext
+    : typeof globalThis !== "undefined"
+      ? globalThis.AudioContext || globalThis.webkitAudioContext
+      : undefined;
+
+let sharedAudioContext = null;
+
+function getSharedAudioContext() {
+  if (!AudioContextConstructor) {
+    return null;
+  }
+
+  if (!sharedAudioContext) {
+    try {
+      sharedAudioContext = new AudioContextConstructor();
+    } catch (error) {
+      console.warn("Unable to create AudioContext", error);
+      sharedAudioContext = null;
+    }
+  }
+
+  return sharedAudioContext;
+}
+
+function resumeSharedAudioContext() {
+  const context = getSharedAudioContext();
+  if (!context || typeof context.resume !== "function") {
+    return Promise.resolve();
+  }
+
+  if (context.state === "suspended") {
+    return context.resume().catch(() => {});
+  }
+
+  return Promise.resolve();
+}
+
+function normalizeAudioCandidates(assetCandidates) {
+  if (Array.isArray(assetCandidates)) {
+    return assetCandidates
+      .map((candidate) => (typeof candidate === "string" ? candidate.trim() : ""))
+      .filter((candidate) => candidate.length > 0);
+  }
+
+  if (typeof assetCandidates === "string") {
+    const trimmed = assetCandidates.trim();
+    return trimmed ? [trimmed] : [];
+  }
+
+  return [];
+}
+
 function resolveAudioSource(assetPath) {
+  if (typeof assetPath !== "string" || !assetPath) {
+    return null;
+  }
+
   if (audioManifest) {
     const resolvedFromManifest = readFromAssetManifest(audioManifest, assetPath);
     if (resolvedFromManifest) {
@@ -1581,10 +1669,22 @@ function resolveAudioSource(assetPath) {
     }
   }
 
-  const normalizedPath = typeof assetPath === "string" ? assetPath.replace(/^\.\//, "") : "";
+  const normalizedPath = assetPath.replace(/^\.\//, "");
   const resolvedFromPublic = resolvePublicAssetUrl(normalizedPath);
   if (typeof resolvedFromPublic === "string" && resolvedFromPublic) {
-    return resolvedFromPublic;
+    if (
+      /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(resolvedFromPublic) ||
+      resolvedFromPublic.startsWith("//") ||
+      resolvedFromPublic.startsWith("/")
+    ) {
+      return resolvedFromPublic;
+    }
+
+    try {
+      return new URL(resolvedFromPublic, import.meta.url).href;
+    } catch (error) {
+      // Fall through to attempt resolving from the module path directly.
+    }
   }
 
   try {
@@ -1595,30 +1695,275 @@ function resolveAudioSource(assetPath) {
   }
 }
 
-function createOptionalAudio(assetPath, options = {}) {
+function resolveAudioFromCandidates(candidateList) {
+  for (const candidate of candidateList) {
+    const resolved = resolveAudioSource(candidate);
+    if (resolved) {
+      return { resolved, original: candidate };
+    }
+  }
+  return null;
+}
+
+function createSynthEffectHandle(config = {}) {
   const settings = {
-    loop: false,
-    volume: 1,
-    playbackRate: 1,
-    ...options
+    attack: 0.015,
+    decay: 0.12,
+    sustain: 0.35,
+    release: 0.3,
+    duration: 0.45,
+    frequency: 440,
+    endFrequency: null,
+    type: "sine",
+    volume: 0.6,
+    partials: null,
+    ...config
+  };
+
+  let baseVolume = Math.min(Math.max(settings.volume, 0), 1);
+
+  return {
+    play() {
+      const context = getSharedAudioContext();
+      if (!context) {
+        return;
+      }
+
+      resumeSharedAudioContext();
+
+      const now = context.currentTime;
+      const gain = context.createGain();
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(baseVolume, now + settings.attack);
+      gain.gain.linearRampToValueAtTime(baseVolume * settings.sustain, now + settings.attack + settings.decay);
+      const releaseTime = Math.max(settings.duration, settings.attack + settings.decay + settings.release);
+      gain.gain.linearRampToValueAtTime(0, now + releaseTime);
+
+      gain.connect(context.destination);
+
+      const stopTime = now + releaseTime + 0.05;
+      const partials = Array.isArray(settings.partials) && settings.partials.length > 0
+        ? settings.partials
+        : [
+            {
+              frequency: settings.frequency,
+              endFrequency: settings.endFrequency,
+              type: settings.type,
+              detune: settings.detune,
+              gain: 1
+            }
+          ];
+
+      for (const partial of partials) {
+        const oscillator = context.createOscillator();
+        oscillator.type = partial.type ?? settings.type;
+        const startFrequency = Math.max(partial.frequency ?? settings.frequency, 1);
+        oscillator.frequency.setValueAtTime(startFrequency, now);
+        if (typeof partial.endFrequency === "number" && partial.endFrequency > 0) {
+          oscillator.frequency.linearRampToValueAtTime(Math.max(partial.endFrequency, 1), now + settings.duration);
+        }
+        if (typeof partial.detune === "number") {
+          oscillator.detune.setValueAtTime(partial.detune, now);
+        }
+
+        const partialGain = context.createGain();
+        const partialVolume = Math.min(Math.max(partial.gain ?? 1, 0), 1);
+        partialGain.gain.setValueAtTime(partialVolume, now);
+
+        oscillator.connect(partialGain);
+        partialGain.connect(gain);
+
+        oscillator.start(now);
+        oscillator.stop(stopTime);
+        oscillator.addEventListener("ended", () => {
+          try {
+            oscillator.disconnect();
+          } catch (error) {
+            /* Ignore disconnect issues on older browsers. */
+          }
+          try {
+            partialGain.disconnect();
+          } catch (error) {
+            /* Ignore disconnect issues on older browsers. */
+          }
+        });
+      }
+
+      setTimeout(() => {
+        try {
+          gain.disconnect();
+        } catch (error) {
+          /* Ignore disconnect issues on older browsers. */
+        }
+      }, Math.max((stopTime - now) * 1000 + 50, 0));
+    },
+    stop() {},
+    setVolume(value) {
+      baseVolume = Math.min(Math.max(value, 0), 1);
+    },
+    isReady: () => Boolean(getSharedAudioContext()),
+    element: null
+  };
+}
+
+function createAmbientLoopHandle(config = {}) {
+  const settings = {
+    volume: 0.35,
+    layers: [
+      { frequency: 110, type: "sine", detune: -4, gain: 0.3 },
+      { frequency: 220, type: "triangle", detune: 6, gain: 0.22 },
+      { frequency: 330, type: "sine", detune: -11, gain: 0.18 }
+    ],
+    ...config
+  };
+
+  let masterGain = null;
+  let oscillators = [];
+  let active = false;
+  let baseVolume = Math.min(Math.max(settings.volume, 0), 1);
+
+  const ensureNodes = () => {
+    const context = getSharedAudioContext();
+    if (!context) {
+      return null;
+    }
+
+    if (!masterGain) {
+      masterGain = context.createGain();
+      masterGain.gain.setValueAtTime(baseVolume, context.currentTime);
+      masterGain.connect(context.destination);
+    }
+
+    return context;
+  };
+
+  const tearDown = (stopTime) => {
+    for (const { oscillator, gain } of oscillators) {
+      try {
+        gain.gain.cancelScheduledValues(stopTime);
+        gain.gain.setValueAtTime(gain.gain.value, stopTime);
+        gain.gain.linearRampToValueAtTime(0, stopTime + 0.3);
+      } catch (error) {
+        /* Ignore gain scheduling issues. */
+      }
+      try {
+        oscillator.stop(stopTime + 0.35);
+      } catch (error) {
+        /* Ignore stop errors for already-ended oscillators. */
+      }
+      try {
+        oscillator.disconnect();
+      } catch (error) {
+        /* Ignore disconnect issues. */
+      }
+      try {
+        gain.disconnect();
+      } catch (error) {
+        /* Ignore disconnect issues. */
+      }
+    }
+    oscillators = [];
+    active = false;
+  };
+
+  return {
+    play({ restart = true } = {}) {
+      const context = ensureNodes();
+      if (!context) {
+        return;
+      }
+
+      resumeSharedAudioContext();
+
+      if (active && !restart) {
+        return;
+      }
+
+      const now = context.currentTime;
+      tearDown(now);
+
+      oscillators = settings.layers.map((layer, index) => {
+        const oscillator = context.createOscillator();
+        oscillator.type = layer.type;
+        oscillator.frequency.setValueAtTime(Math.max(layer.frequency, 1), now);
+        if (typeof layer.detune === "number") {
+          oscillator.detune.setValueAtTime(layer.detune, now);
+        }
+
+        const layerGain = context.createGain();
+        const layerVolume = Math.min(Math.max(layer.gain, 0), 1);
+        layerGain.gain.setValueAtTime(0, now);
+        const attackTime = 2 + index * 0.5;
+        layerGain.gain.linearRampToValueAtTime(layerVolume, now + attackTime);
+        oscillator.connect(layerGain);
+        layerGain.connect(masterGain);
+
+        oscillator.start(now);
+        return { oscillator, gain: layerGain };
+      });
+
+      active = true;
+    },
+    stop() {
+      const context = masterGain ? masterGain.context : null;
+      const stopTime = context ? context.currentTime : 0;
+      tearDown(stopTime);
+    },
+    setVolume(value) {
+      const context = masterGain ? masterGain.context : getSharedAudioContext();
+      baseVolume = Math.min(Math.max(value, 0), 1);
+      if (masterGain && context) {
+        try {
+          masterGain.gain.cancelScheduledValues(context.currentTime);
+          masterGain.gain.setValueAtTime(baseVolume, context.currentTime);
+        } catch (error) {
+          masterGain.gain.value = baseVolume;
+        }
+      }
+    },
+    isReady: () => Boolean(getSharedAudioContext()),
+    element: null
+  };
+}
+
+function createOptionalAudio(assetCandidates, options = {}) {
+  const { onMissing, ...rawSettings } = options;
+  const candidateList = normalizeAudioCandidates(assetCandidates);
+  const settings = {
+    loop: Boolean(rawSettings.loop),
+    volume: rawSettings.volume ?? 1,
+    playbackRate: rawSettings.playbackRate ?? 1
   };
 
   if (typeof Audio === "undefined") {
+    if (typeof onMissing === "function") {
+      const fallback = onMissing({ candidates: candidateList, settings });
+      if (fallback) {
+        return fallback;
+      }
+    }
+    return createSilentAudioHandle();
+  }
+
+  const resolved = resolveAudioFromCandidates(candidateList);
+  if (!resolved) {
+    if (typeof onMissing === "function") {
+      const fallback = onMissing({ candidates: candidateList, settings });
+      if (fallback) {
+        return fallback;
+      }
+    }
+
+    const reference = candidateList[0] ?? "sound";
+    console.info(
+      `Audio asset missing for ${reference}. Add an .mp3, .ogg, or .m4a file with the same name in src/assets/audio to enable this sound.`
+    );
     return createSilentAudioHandle();
   }
 
   const element = new Audio();
   let warned = false;
   let ready = false;
-
-  const source = resolveAudioSource(assetPath);
-  if (!source) {
-    console.info(
-      `Audio asset missing for ${assetPath}. Place the file in src/assets/audio or update the sound mapping if you want this sound.`
-    );
-    warned = true;
-    return createSilentAudioHandle();
-  }
 
   element.loop = Boolean(settings.loop);
   element.volume = Math.min(Math.max(settings.volume ?? 1, 0), 1);
@@ -1631,7 +1976,7 @@ function createOptionalAudio(assetPath, options = {}) {
     ready = false;
     if (!warned) {
       console.warn(
-        `Failed to load audio asset at ${assetPath}. Add the matching file in src/assets/audio to enable this sound.`
+        `Failed to load audio asset at ${resolved.original}. Add the matching .mp3 or .ogg file in src/assets/audio to enable this sound.`
       );
       warned = true;
     }
@@ -1640,7 +1985,7 @@ function createOptionalAudio(assetPath, options = {}) {
   element.addEventListener("canplaythrough", markReady, { once: true });
   element.addEventListener("error", handleError);
 
-  element.src = source;
+  element.src = resolved.resolved;
   if (element.readyState >= 2) {
     markReady();
   }
@@ -1687,19 +2032,177 @@ function createOptionalAudio(assetPath, options = {}) {
 }
 
 function createAudioManager() {
+  const audioExtensions = [".mp3", ".ogg", ".m4a", ".webm"];
+  const buildAudioSources = (basename) =>
+    audioExtensions.map((extension) => `./assets/audio/${basename}${extension}`);
+
   const soundMap = {
-    // Drop .wav (or .mp3/.ogg) files into src/assets/audio using these paths
+    // Drop .mp3, .ogg, or .m4a files into src/assets/audio using these paths
     // or update the mapping below to match your filenames.
-    background: { path: "./assets/audio/background.wav", loop: true, volume: 0.48 },
-    jump: { path: "./assets/audio/jump.wav", volume: 0.55 },
-    crystal: { path: "./assets/audio/crystal.wav", volume: 0.62 },
-    chestOpen: { path: "./assets/audio/chest.wav", volume: 0.6 },
-    fountain: { path: "./assets/audio/fountain.wav", volume: 0.6 },
-    dialogue: { path: "./assets/audio/dialogue.wav", volume: 0.45 },
-    portalCharge: { path: "./assets/audio/portal-charge.wav", volume: 0.65 },
-    portalActivate: { path: "./assets/audio/portal-activate.wav", volume: 0.7 },
-    portalComplete: { path: "./assets/audio/portal-complete.wav", volume: 0.7 },
-    levelUp: { path: "./assets/audio/level-up.wav", volume: 0.68 }
+    background: {
+      sources: buildAudioSources("background"),
+      loop: true,
+      volume: 0.38,
+      onMissing({ settings }) {
+        return createAmbientLoopHandle({ volume: settings.volume });
+      }
+    },
+    jump: {
+      sources: buildAudioSources("jump"),
+      volume: 0.55,
+      onMissing() {
+        return createSynthEffectHandle({
+          type: "square",
+          frequency: 880,
+          endFrequency: 660,
+          duration: 0.18,
+          sustain: 0.2,
+          volume: 0.45
+        });
+      }
+    },
+    crystal: {
+      sources: buildAudioSources("crystal"),
+      volume: 0.62,
+      onMissing() {
+        return createSynthEffectHandle({
+          type: "sine",
+          frequency: 1200,
+          endFrequency: 1800,
+          duration: 0.6,
+          sustain: 0.25,
+          release: 0.4,
+          volume: 0.5,
+          partials: [
+            { frequency: 1200, endFrequency: 1800, gain: 0.6 },
+            { frequency: 1800, endFrequency: 2200, gain: 0.4 }
+          ]
+        });
+      }
+    },
+    chestOpen: {
+      sources: buildAudioSources("chest"),
+      volume: 0.6,
+      onMissing() {
+        return createSynthEffectHandle({
+          type: "sawtooth",
+          frequency: 260,
+          endFrequency: 180,
+          duration: 0.5,
+          sustain: 0.18,
+          volume: 0.42,
+          partials: [
+            { frequency: 260, endFrequency: 180, gain: 0.8 },
+            { frequency: 390, endFrequency: 260, gain: 0.4 }
+          ]
+        });
+      }
+    },
+    fountain: {
+      sources: buildAudioSources("fountain"),
+      volume: 0.6,
+      onMissing() {
+        return createAmbientLoopHandle({
+          volume: 0.28,
+          layers: [
+            { frequency: 240, type: "sine", detune: -15, gain: 0.25 },
+            { frequency: 320, type: "sine", detune: 8, gain: 0.18 },
+            { frequency: 520, type: "triangle", detune: 4, gain: 0.14 }
+          ]
+        });
+      }
+    },
+    dialogue: {
+      sources: buildAudioSources("dialogue"),
+      volume: 0.45,
+      onMissing() {
+        return createSynthEffectHandle({
+          type: "triangle",
+          frequency: 640,
+          duration: 0.22,
+          sustain: 0.1,
+          release: 0.2,
+          volume: 0.4
+        });
+      }
+    },
+    portalCharge: {
+      sources: buildAudioSources("portal-charge"),
+      volume: 0.65,
+      onMissing() {
+        return createSynthEffectHandle({
+          type: "sine",
+          frequency: 200,
+          endFrequency: 960,
+          duration: 1.2,
+          sustain: 0.4,
+          release: 0.6,
+          volume: 0.48,
+          partials: [
+            { frequency: 200, endFrequency: 640, gain: 0.5 },
+            { frequency: 320, endFrequency: 960, gain: 0.35 },
+            { frequency: 480, endFrequency: 1280, gain: 0.2 }
+          ]
+        });
+      }
+    },
+    portalActivate: {
+      sources: buildAudioSources("portal-activate"),
+      volume: 0.7,
+      onMissing() {
+        return createSynthEffectHandle({
+          type: "square",
+          frequency: 520,
+          endFrequency: 1040,
+          duration: 0.35,
+          sustain: 0.2,
+          release: 0.25,
+          volume: 0.55,
+          partials: [
+            { frequency: 520, endFrequency: 1040, gain: 0.6 },
+            { frequency: 780, endFrequency: 1560, gain: 0.4 }
+          ]
+        });
+      }
+    },
+    portalComplete: {
+      sources: buildAudioSources("portal-complete"),
+      volume: 0.7,
+      onMissing() {
+        return createSynthEffectHandle({
+          type: "sine",
+          frequency: 720,
+          endFrequency: 540,
+          duration: 0.6,
+          sustain: 0.25,
+          release: 0.4,
+          volume: 0.5,
+          partials: [
+            { frequency: 720, endFrequency: 540, gain: 0.7 },
+            { frequency: 1080, endFrequency: 810, gain: 0.3 }
+          ]
+        });
+      }
+    },
+    levelUp: {
+      sources: buildAudioSources("level-up"),
+      volume: 0.68,
+      onMissing() {
+        return createSynthEffectHandle({
+          type: "triangle",
+          frequency: 660,
+          endFrequency: 1320,
+          duration: 0.75,
+          sustain: 0.3,
+          release: 0.5,
+          volume: 0.55,
+          partials: [
+            { frequency: 660, endFrequency: 1320, gain: 0.6 },
+            { frequency: 990, endFrequency: 1485, gain: 0.4 }
+          ]
+        });
+      }
+    }
   };
 
   const loadedSounds = new Map();
@@ -1716,7 +2219,7 @@ function createAudioManager() {
     if (!config) {
       return null;
     }
-    const handle = createOptionalAudio(config.path, config);
+    const handle = createOptionalAudio(config.sources ?? config.path, config);
     loadedSounds.set(key, handle);
     return handle;
   };
@@ -1751,6 +2254,7 @@ function createAudioManager() {
       return;
     }
     unlocked = true;
+    resumeSharedAudioContext();
     notifyUnlock();
     if (pendingBackground) {
       pendingBackground = false;
@@ -4066,6 +4570,54 @@ let messageTimerId = 0;
 const fallbackGuideName = "Nova Mason";
 let lobbyGuideName = fallbackGuideName;
 let defaultMissionAuthor = fallbackGuideName;
+
+function showMessage(message, duration = 5200) {
+  if (messageTimerId && typeof runtimeGlobal.clearTimeout === "function") {
+    runtimeGlobal.clearTimeout(messageTimerId);
+    messageTimerId = 0;
+  }
+
+  const meta = {};
+  let text = "";
+
+  if (typeof message === "string") {
+    text = message;
+  } else if (message && typeof message === "object") {
+    if (typeof message.text === "string") {
+      text = message.text;
+    }
+    for (const [key, value] of Object.entries(message)) {
+      if (key === "text") {
+        continue;
+      }
+      meta[key] = value;
+    }
+  }
+
+  const fallbackDuration = Number.isFinite(duration) ? Math.max(0, duration) : 0;
+  const providedDuration = Number.isFinite(meta.duration) ? Math.max(0, meta.duration) : null;
+  const resolvedDuration = providedDuration ?? fallbackDuration;
+  meta.duration = resolvedDuration;
+
+  if (typeof ui?.setMessage === "function") {
+    ui.setMessage(text, meta);
+  }
+
+  if (resolvedDuration > 0) {
+    const reset = () => {
+      messageTimerId = 0;
+      if (typeof ui?.setMessage === "function") {
+        ui.setMessage(defaultMessage, { silent: true, duration: 0 });
+      }
+    };
+
+    if (typeof runtimeGlobal.setTimeout === "function") {
+      messageTimerId = runtimeGlobal.setTimeout(reset, resolvedDuration);
+    } else if (typeof setTimeout === "function") {
+      messageTimerId = setTimeout(reset, resolvedDuration);
+    }
+  }
+}
 
 function updateRankFromLevel() {
   let resolvedTitle = rankThresholds[0].title;
