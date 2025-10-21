@@ -33,16 +33,21 @@ function createFallbackManifest() {
   };
 
   const spriteEntries = [
+    ["assets/ChestSprite.png", "./assets/ChestSprite.png"],
+    ["assets/CrystalSprite.png", "./assets/CrystalSprite.png"],
+    ["assets/FountainSprite.png", "./assets/FountainSprite.png"],
     ["assets/ArcadeSprite.png", "./assets/ArcadeSprite.png"],
     ["assets/GuideSprite.png", "./assets/GuideSprite.png"],
     ["assets/LobbyBackground.png", "./assets/LobbyBackground.png"],
     ["assets/MascotSprite.png", "./assets/MascotSprite.png"],
+    ["assets/PlatformSprite.png", "./assets/PlatformSprite.png"],
     ["assets/ParallaxNebula.svg", "./assets/ParallaxNebula.svg"],
     ["assets/ParallaxPlanets.svg", "./assets/ParallaxPlanets.svg"],
     ["assets/ParallaxStars.svg", "./assets/ParallaxStars.svg"],
     ["assets/character1.png", "./assets/character1.png"],
     ["assets/characrter2.png", "./assets/characrter2.png"],
     ["assets/character3.png", "./assets/character3.png"],
+    ["assets/PlayerSprite.png", "./assets/PlayerSprite.png"],
     ["assets/playersprite1.png", "./assets/playersprite1.png"],
     ["assets/playersprite2.png", "./assets/playersprite2.png"],
     ["assets/playersprite3.png", "./assets/playersprite3.png"]
