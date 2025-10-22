@@ -61,6 +61,9 @@ import {
   resolvePublicAssetUrl,
   shouldUseCustomPageBackground
 } from "./ui/background.js";
+import { createMiniGameOverlay } from "./ui/components/miniGameOverlay.js";
+import { createWalletToolbarSection } from "./ui/components/walletToolbarSection.js";
+import { createHudModal } from "./ui/components/hudModal.js";
 
 const runtimeGlobal = installRuntimeShims();
 
@@ -3706,82 +3709,30 @@ function openMiniGame() {
     return;
   }
 
-  const overlay = document.createElement("div");
-  overlay.className = "minigame-overlay";
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-label", "AstroCats mini game console");
-
-  const modal = document.createElement("div");
-  modal.className = "minigame-modal";
-
-  const header = document.createElement("div");
-  header.className = "minigame-header";
-
-  const title = document.createElement("h2");
-  title.className = "minigame-title";
-  title.textContent = "Starcade Console";
-
-  const closeButton = document.createElement("button");
-  closeButton.type = "button";
-  closeButton.className = "minigame-close";
-  closeButton.textContent = "Back to lobby";
-  header.append(title, closeButton);
-
-  const description = document.createElement("p");
-  description.className = "minigame-description";
-  description.textContent =
-    "The cabinet spins up the AstroCats3 mini game in an in-universe console.";
-
-  let supportLinkRef = null;
-
-  const frame = document.createElement("iframe");
-  frame.className = "minigame-frame";
-  frame.src = miniGameEntryPoint;
-  frame.title = "AstroCats mini game";
-  frame.loading = "lazy";
-  frame.setAttribute("allow", "fullscreen; gamepad *; xr-spatial-tracking");
-  frame.addEventListener("load", () => {
-    syncMiniGameProfile();
-  });
-  frame.addEventListener("error", () => {
-    const previousEntry = miniGameEntryPoint;
-    const nextEntry = advanceMiniGameEntryPoint();
-    if (!nextEntry || nextEntry === previousEntry) {
-      return;
-    }
-    frame.src = nextEntry;
-    if (supportLinkRef) {
-      supportLinkRef.href = nextEntry;
-    }
-    if (typeof console !== "undefined") {
-      console.warn(
-        "Retrying AstroCats3 mini game load with a fallback entry point.",
-        { previous: previousEntry, next: nextEntry }
-      );
-    }
-  });
-
-  const support = document.createElement("p");
-  support.className = "minigame-support";
-  support.textContent = "Trouble loading? ";
-  const supportLink = document.createElement("a");
-  supportLinkRef = supportLink;
-  supportLink.href = miniGameEntryPoint;
-  supportLink.target = "_blank";
-  supportLink.rel = "noopener noreferrer";
-  supportLink.textContent = "Open the mini game in a new tab";
-  support.append(supportLink, ".");
-
-  modal.append(header, description, frame, support);
-  overlay.append(modal);
-
-  const handleBackdropClick = (event) => {
-    if (event.target === overlay) {
+  const overlayComponent = createMiniGameOverlay({
+    entryPoint: miniGameEntryPoint,
+    onCloseRequest: () => {
       closeMiniGame();
+    },
+    onFrameLoad: () => {
+      syncMiniGameProfile();
+    },
+    onFrameError: () => {
+      const previousEntry = miniGameEntryPoint;
+      const nextEntry = advanceMiniGameEntryPoint();
+      if (!nextEntry || nextEntry === previousEntry) {
+        return;
+      }
+      if (typeof console !== "undefined") {
+        console.warn(
+          "Retrying AstroCats3 mini game load with a fallback entry point.",
+          { previous: previousEntry, next: nextEntry }
+        );
+      }
     }
-  };
-  overlay.addEventListener("click", handleBackdropClick);
+  });
+
+  const { root: overlay, closeButton, frame, supportLink } = overlayComponent;
 
   const handleEscape = (event) => {
     if (event.code === "Escape") {
@@ -3790,10 +3741,6 @@ function openMiniGame() {
     }
   };
   window.addEventListener("keydown", handleEscape);
-
-  closeButton.addEventListener("click", () => {
-    closeMiniGame();
-  });
 
   document.body.append(overlay);
   miniGameBodyOverflow = document.body.style.overflow;
@@ -3809,11 +3756,11 @@ function openMiniGame() {
     closeButton,
     frame,
     supportLink,
-    handleBackdropClick,
     handleEscape
   };
   miniGameActive = true;
 
+  updateMiniGameEntryPointTargets(miniGameEntryPoint);
   syncMiniGameProfile();
 
   try {
@@ -3831,11 +3778,7 @@ function closeMiniGame() {
   miniGameActive = false;
 
   if (miniGameOverlayState?.root) {
-    const { root, handleBackdropClick } = miniGameOverlayState;
-    if (handleBackdropClick) {
-      root.removeEventListener("click", handleBackdropClick);
-    }
-    root.remove();
+    miniGameOverlayState.root.remove();
   }
 
   if (miniGameOverlayState?.handleEscape) {
@@ -7403,9 +7346,22 @@ function createInterface(stats, options = {}) {
     callSign: isValidCallSign(stats?.callSign) ? stats.callSign : null
   };
 
+  const openWalletInstallPage = () => {
+    const url = getPhantomInstallUrl();
+    if (typeof window !== "undefined" && url) {
+      try {
+        window.open(url, "_blank", "noreferrer");
+      } catch (error) {
+        window.location.href = url;
+      }
+    }
+  };
+
   const walletControls = createWalletToolbarSection({
     onConnect: onRequestWalletLogin,
-    onDisconnect: onRequestWalletDisconnect
+    onDisconnect: onRequestWalletDisconnect,
+    onOpenInstall: openWalletInstallPage,
+    formatAddress: formatWalletAddress
   });
 
   const toolbar = createToolbar(walletControls);
@@ -7414,107 +7370,6 @@ function createInterface(stats, options = {}) {
   toolbarContent.append(root);
 
   interfaceRoot.append(toolbar, toolbarContent);
-
-  function createWalletToolbarSection(handlers = {}) {
-    const { onConnect, onDisconnect } = handlers;
-
-    const container = document.createElement("div");
-    container.className = "site-toolbar__wallet";
-    container.dataset.state = "missing";
-
-    const label = document.createElement("span");
-    label.className = "wallet-status__label";
-    label.textContent = "Solana Wallet";
-
-    const infoRow = document.createElement("div");
-    infoRow.className = "wallet-status__row";
-
-    const callSignBadge = document.createElement("span");
-    callSignBadge.className = "wallet-status__call-sign";
-    callSignBadge.hidden = true;
-
-    const addressText = document.createElement("span");
-    addressText.className = "wallet-status__address";
-    addressText.textContent = "Install Phantom to connect.";
-
-    infoRow.append(callSignBadge, addressText);
-
-    const actionButton = document.createElement("button");
-    actionButton.type = "button";
-    actionButton.className = "wallet-status__action";
-    actionButton.textContent = "Get Phantom";
-
-    container.append(label, infoRow, actionButton);
-
-    function openInstallPage() {
-      const url = getPhantomInstallUrl();
-      if (typeof window !== "undefined" && url) {
-        try {
-          window.open(url, "_blank", "noreferrer");
-        } catch (error) {
-          window.location.href = url;
-        }
-      }
-    }
-
-    function update(nextState = {}) {
-      const state = {
-        available: false,
-        connected: false,
-        callSign: null,
-        address: null,
-        ...nextState
-      };
-
-      container.dataset.state = state.available
-        ? state.connected
-          ? "connected"
-          : "ready"
-        : "missing";
-
-      if (state.connected && state.callSign) {
-        callSignBadge.hidden = false;
-        callSignBadge.textContent = `@${state.callSign}`;
-      } else {
-        callSignBadge.hidden = true;
-        callSignBadge.textContent = "";
-      }
-
-      if (!state.available) {
-        addressText.textContent = "Install Phantom to connect.";
-        actionButton.textContent = "Get Phantom";
-        actionButton.disabled = false;
-        actionButton.onclick = openInstallPage;
-      } else if (!state.connected) {
-        addressText.textContent = "Ready to connect";
-        actionButton.textContent = "Connect Wallet";
-        actionButton.disabled = typeof onConnect !== "function";
-        actionButton.onclick = () => {
-          if (typeof onConnect === "function") {
-            onConnect();
-          }
-        };
-      } else {
-        addressText.textContent = state.address
-          ? formatWalletAddress(state.address)
-          : "Connected";
-        actionButton.textContent = "Disconnect";
-        actionButton.disabled = typeof onDisconnect !== "function";
-        actionButton.onclick = () => {
-          if (typeof onDisconnect === "function") {
-            onDisconnect();
-          }
-        };
-      }
-    }
-
-    update();
-
-    return {
-      root: container,
-      setState: update
-    };
-  }
 
   const canvasWrapper = document.createElement("div");
   canvasWrapper.className = "canvas-wrapper";
@@ -7603,52 +7458,7 @@ function createInterface(stats, options = {}) {
     nodes,
     sections
   }) {
-    const overlay = document.createElement("div");
     const overlayId = id || `hud-popup-${++hudPopupSequence}`;
-    overlay.id = overlayId;
-    overlay.className = "hud-overlay";
-    overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-modal", "true");
-    overlay.setAttribute("aria-hidden", "true");
-
-    overlay.hidden = true;
-
-    const modal = document.createElement("div");
-    modal.className = "hud-modal";
-
-    const header = document.createElement("div");
-    header.className = "hud-modal__header";
-
-    const heading = document.createElement("h2");
-    heading.className = "hud-modal__title";
-    heading.textContent = popupTitle;
-    const headingId = `${overlayId}-title`;
-    heading.id = headingId;
-    overlay.setAttribute("aria-labelledby", headingId);
-
-    const closeButton = document.createElement("button");
-    closeButton.type = "button";
-    closeButton.className = "hud-modal__close";
-    closeButton.textContent = "Close";
-
-    header.append(heading, closeButton);
-
-    const content = document.createElement("div");
-    content.className = "hud-modal__content";
-
-    if (popupDescription) {
-      const description = document.createElement("p");
-      description.className = "hud-modal__description";
-      description.textContent = popupDescription;
-      content.append(description);
-    }
-
-    const layout = document.createElement("div");
-    layout.className = "hud-modal__layout";
-    content.append(layout);
-
-    const sectionsContainer = document.createElement("div");
-    sectionsContainer.className = "hud-modal__sections";
 
     function isNode(value) {
       if (typeof Node === "function") {
@@ -7704,121 +7514,17 @@ function createInterface(stats, options = {}) {
       }
     }
 
-    let navList = null;
-    let navEntries = [];
+    const { root: overlay, closeButton, sectionsContainer, navEntries, setActiveNav } =
+      createHudModal({
+        id: overlayId,
+        title: popupTitle,
+        description: popupDescription,
+        sections: resolvedSections,
+        navLabel: `${popupTitle} sections`
+      });
 
-    if (resolvedSections.length > 1) {
-      const nav = document.createElement("nav");
-      nav.className = "hud-modal__nav";
-      nav.setAttribute("aria-label", `${popupTitle} sections`);
-
-      const navTitle = document.createElement("p");
-      navTitle.className = "hud-modal__nav-title";
-      navTitle.textContent = "Quick sections";
-      nav.append(navTitle);
-
-      navList = document.createElement("ul");
-      navList.className = "hud-modal__nav-list";
-      nav.append(navList);
-
-      layout.append(nav);
-    }
-
-    layout.append(sectionsContainer);
-
-    navEntries = [];
-    let sectionIndex = 0;
-
-    for (const sectionDefinition of resolvedSections) {
-      sectionIndex += 1;
-      const section = document.createElement("section");
-      section.className = "hud-modal__section";
-      const sectionId = sectionDefinition.id || `${overlayId}-section-${sectionIndex}`;
-      section.id = sectionId;
-
-      if (sectionDefinition.heading || sectionDefinition.description) {
-        const sectionHeader = document.createElement("div");
-        sectionHeader.className = "hud-modal__section-header";
-        if (sectionDefinition.heading) {
-          const sectionTitle = document.createElement("h3");
-          sectionTitle.className = "hud-modal__section-title";
-          sectionTitle.textContent = sectionDefinition.heading;
-          sectionHeader.append(sectionTitle);
-        }
-        if (sectionDefinition.description) {
-          const sectionSummary = document.createElement("p");
-          sectionSummary.className = "hud-modal__section-description";
-          sectionSummary.textContent = sectionDefinition.description;
-          sectionHeader.append(sectionSummary);
-        }
-        section.append(sectionHeader);
-      }
-
-      const sectionContent = document.createElement("div");
-      sectionContent.className = "hud-modal__section-content";
-      for (const node of sectionDefinition.nodes) {
-        sectionContent.append(node);
-      }
-      section.append(sectionContent);
-      sectionsContainer.append(section);
-
-      if (navList) {
-        const navItem = document.createElement("li");
-        navItem.className = "hud-modal__nav-item";
-        const navButton = document.createElement("button");
-        navButton.type = "button";
-        navButton.className = "hud-modal__nav-button";
-        navButton.textContent =
-          sectionDefinition.navLabel || sectionDefinition.heading || `Section ${sectionIndex}`;
-        navButton.setAttribute("aria-controls", sectionId);
-        navButton.addEventListener("click", () => {
-          try {
-            section.scrollIntoView({ behavior: "smooth", block: "start" });
-          } catch (error) {
-            section.scrollIntoView();
-          }
-          setActiveNav(sectionId);
-        });
-        navItem.append(navButton);
-        navList.append(navItem);
-        navEntries.push({ id: sectionId, button: navButton, section });
-      }
-    }
-
-    function setActiveNav(activeId) {
-      for (const entry of navEntries) {
-        const isActive = entry.id === activeId;
-        entry.button.classList.toggle("is-active", isActive);
-        entry.button.setAttribute("aria-current", isActive ? "true" : "false");
-      }
-    }
-
-    let navObserver = null;
-    if (navEntries.length > 0 && typeof IntersectionObserver === "function") {
-      navObserver = new IntersectionObserver(
-        (entries) => {
-          let best = null;
-          for (const entry of entries) {
-            if (!entry.isIntersecting) {
-              continue;
-            }
-            if (!best || entry.intersectionRatio > best.intersectionRatio) {
-              best = entry;
-            }
-          }
-          if (best) {
-            setActiveNav(best.target.id);
-          }
-        },
-        { root: sectionsContainer, threshold: [0.25, 0.5, 0.75] }
-      );
-      for (const entry of navEntries) {
-        navObserver.observe(entry.section);
-      }
-    }
-
-    modal.append(header, content);
-    overlay.append(modal);
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
 
     const mountTarget =
       typeof document !== "undefined" && document.body
@@ -7835,6 +7541,7 @@ function createInterface(stats, options = {}) {
     let previousFocus = null;
     let previousBodyOverflow = "";
     let previousRootOverflow = "";
+    let navObserver = null;
 
     const handleBackdropClick = (event) => {
       if (event.target === overlay) {
@@ -7861,10 +7568,10 @@ function createInterface(stats, options = {}) {
           : null;
 
       if (typeof document !== "undefined") {
-        const root = document.documentElement;
-        if (root) {
-          previousRootOverflow = root.style.overflow;
-          root.style.overflow = "hidden";
+        const rootElement = document.documentElement;
+        if (rootElement) {
+          previousRootOverflow = rootElement.style.overflow;
+          rootElement.style.overflow = "hidden";
         }
         if (document.body) {
           previousBodyOverflow = document.body.style.overflow;
@@ -7874,8 +7581,7 @@ function createInterface(stats, options = {}) {
 
       sectionsContainer.scrollTop = 0;
       if (navEntries.length > 0) {
-        const first = navEntries[0];
-        setActiveNav(first.id);
+        setActiveNav(navEntries[0].id);
       }
 
       overlay.hidden = false;
@@ -7883,10 +7589,36 @@ function createInterface(stats, options = {}) {
       overlay.addEventListener("click", handleBackdropClick);
       window.addEventListener("keydown", handleEscape);
 
-      try {
-        closeButton.focus({ preventScroll: true });
-      } catch (error) {
-        closeButton.focus();
+      if (navEntries.length > 0 && typeof IntersectionObserver === "function") {
+        navObserver = new IntersectionObserver(
+          (entries) => {
+            let best = null;
+            for (const entry of entries) {
+              if (!entry.isIntersecting) {
+                continue;
+              }
+              if (!best || entry.intersectionRatio > best.intersectionRatio) {
+                best = entry;
+              }
+            }
+            if (best) {
+              setActiveNav(best.target.id);
+            }
+          },
+          { root: sectionsContainer, threshold: [0.25, 0.5, 0.75] }
+        );
+        for (const entry of navEntries) {
+          navObserver.observe(entry.section);
+        }
+      }
+
+      const focusTarget = closeButton instanceof HTMLElement ? closeButton : null;
+      if (focusTarget) {
+        try {
+          focusTarget.focus({ preventScroll: true });
+        } catch (error) {
+          focusTarget.focus();
+        }
       }
     }
 
@@ -7901,9 +7633,9 @@ function createInterface(stats, options = {}) {
       window.removeEventListener("keydown", handleEscape);
 
       if (typeof document !== "undefined") {
-        const root = document.documentElement;
-        if (root) {
-          root.style.overflow = previousRootOverflow;
+        const rootElement = document.documentElement;
+        if (rootElement) {
+          rootElement.style.overflow = previousRootOverflow;
         }
         if (document.body) {
           document.body.style.overflow = previousBodyOverflow;
@@ -7912,9 +7644,7 @@ function createInterface(stats, options = {}) {
 
       if (navObserver) {
         navObserver.disconnect();
-        for (const { section } of navEntries) {
-          navObserver.observe(section);
-        }
+        navObserver = null;
       }
 
       if (previousFocus) {
@@ -7926,9 +7656,11 @@ function createInterface(stats, options = {}) {
       }
     }
 
-    closeButton.addEventListener("click", () => {
-      close();
-    });
+    if (closeButton) {
+      closeButton.addEventListener("click", () => {
+        close();
+      });
+    }
 
     const trigger = document.createElement("button");
     trigger.type = "button";
