@@ -1860,10 +1860,6 @@ function getLocalStorage() {
   }
 }
 
-function isValidCallSign(value) {
-  return typeof value === "string" && new RegExp(`^\\d{${callSignLength}}$`).test(value);
-}
-
 function extractMentionedCallSign(message) {
   if (typeof message !== "string") {
     return null;
@@ -1871,97 +1867,6 @@ function extractMentionedCallSign(message) {
 
   const match = message.match(callSignMentionPattern);
   return match ? match[1] : null;
-}
-
-function sanitizeLobbyLayoutSnapshot(snapshot) {
-  if (!snapshot || typeof snapshot !== "object") {
-    return null;
-  }
-
-  const sanitizeCoordinate = (value) =>
-    typeof value === "number" && Number.isFinite(value) ? Math.round(value) : null;
-
-  const sanitized = {};
-
-  if (snapshot.interactables && typeof snapshot.interactables === "object") {
-    const entries = [];
-    for (const [id, value] of Object.entries(snapshot.interactables)) {
-      if (!value || typeof value !== "object") {
-        continue;
-      }
-      const x = sanitizeCoordinate(value.x);
-      const y = sanitizeCoordinate(value.y);
-      if (x === null && y === null) {
-        continue;
-      }
-      const normalizedId = typeof id === "string" ? id : String(id);
-      const entry = {};
-      if (x !== null) {
-        entry.x = x;
-      }
-      if (y !== null) {
-        entry.y = y;
-      }
-      entries.push([normalizedId, entry]);
-    }
-
-    if (entries.length > 0) {
-      entries.sort((a, b) => a[0].localeCompare(b[0]));
-      const interactables = {};
-      for (const [id, entry] of entries) {
-        interactables[id] = entry;
-      }
-      sanitized.interactables = interactables;
-    }
-  }
-
-  if (snapshot.platforms && typeof snapshot.platforms === "object") {
-    const entries = [];
-    for (const [id, value] of Object.entries(snapshot.platforms)) {
-      if (!value || typeof value !== "object") {
-        continue;
-      }
-      const x = sanitizeCoordinate(value.x);
-      const y = sanitizeCoordinate(value.y);
-      if (x === null && y === null) {
-        continue;
-      }
-      const normalizedId = typeof id === "string" ? id : String(id);
-      const entry = {};
-      if (x !== null) {
-        entry.x = x;
-      }
-      if (y !== null) {
-        entry.y = y;
-      }
-      entries.push([normalizedId, entry]);
-    }
-
-    if (entries.length > 0) {
-      entries.sort((a, b) => a[0].localeCompare(b[0]));
-      const platformEntries = {};
-      for (const [id, entry] of entries) {
-        platformEntries[id] = entry;
-      }
-      sanitized.platforms = platformEntries;
-    }
-  }
-
-  if (snapshot.portal && typeof snapshot.portal === "object") {
-    const portalX = sanitizeCoordinate(snapshot.portal.x);
-    const portalY = sanitizeCoordinate(snapshot.portal.y);
-    if (portalX !== null || portalY !== null) {
-      sanitized.portal = {};
-      if (portalX !== null) {
-        sanitized.portal.x = portalX;
-      }
-      if (portalY !== null) {
-        sanitized.portal.y = portalY;
-      }
-    }
-  }
-
-  return Object.keys(sanitized).length > 0 ? sanitized : null;
 }
 
 function sanitizeMessageContent(content) {
