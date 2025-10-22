@@ -1,5 +1,8 @@
 const activeEffects = [];
 
+const VIDEO_PARALLAX_FACTOR = 0.18;
+const VIDEO_PARALLAX_RANGE = 48;
+
 function getCurrentTime() {
   if (typeof performance !== "undefined" && typeof performance.now === "function") {
     return performance.now();
@@ -230,6 +233,21 @@ function drawBackdropHaze(ctx, state, intensity = 1) {
   ctx.fillRect(0, 0, state.viewport.width, state.viewport.height);
 }
 
+function normaliseVideoParallaxOffset(offset, range) {
+  if (!Number.isFinite(offset) || !(range > 0)) {
+    return 0;
+  }
+
+  const span = range * 2;
+  let normalised = offset % span;
+  if (normalised > range) {
+    normalised -= span;
+  } else if (normalised < -range) {
+    normalised += span;
+  }
+  return normalised;
+}
+
 function drawParallaxBackgroundImage(ctx, state) {
   let drewLayer = false;
 
@@ -333,6 +351,17 @@ function renderParallaxBackdrop(ctx, state) {
       ? state.getBackgroundVideoState()
       : "disabled";
   const videoActive = backgroundVideoState === "active";
+
+  const parallaxScroll =
+    typeof state.getParallaxScroll === "function" ? state.getParallaxScroll() : 0;
+  const rawVideoOffset = parallaxScroll * VIDEO_PARALLAX_FACTOR;
+  const videoOffset = normaliseVideoParallaxOffset(rawVideoOffset, VIDEO_PARALLAX_RANGE);
+
+  if (state.ui && typeof state.ui.setBackgroundParallaxOffset === "function") {
+    const appliedOffset = videoActive ? -videoOffset : 0;
+    const rounded = Math.round(appliedOffset * 1000) / 1000;
+    state.ui.setBackgroundParallaxOffset(rounded);
+  }
 
   if (videoActive) {
     ctx.clearRect(0, 0, state.viewport.width, state.viewport.height);

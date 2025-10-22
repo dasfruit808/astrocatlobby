@@ -342,6 +342,7 @@ export function initializeCanvasBackgroundVideo(videoElement, container, sources
     videoElement.setAttribute("muted", "");
     videoElement.setAttribute("loop", "");
     videoElement.setAttribute("preload", "auto");
+    videoElement.setAttribute("autoplay", "");
   }
 
   try {
@@ -349,6 +350,7 @@ export function initializeCanvasBackgroundVideo(videoElement, container, sources
     videoElement.muted = true;
     videoElement.loop = true;
     videoElement.preload = "auto";
+    videoElement.autoplay = true;
     if (typeof videoElement.disablePictureInPicture === "boolean") {
       videoElement.disablePictureInPicture = true;
     }
@@ -614,12 +616,35 @@ export function resolvePublicAssetUrl(relativePath) {
 }
 
 const backgroundImageUrl = new URL("../assets/LobbyBackground.png", import.meta.url).href;
+const parallaxStarsUrl = new URL("../assets/ParallaxStars.svg", import.meta.url).href;
+const parallaxNebulaUrl = new URL("../assets/ParallaxNebula.svg", import.meta.url).href;
+const parallaxPlanetsUrl = new URL("../assets/ParallaxPlanets.svg", import.meta.url).href;
 const toolbarBackgroundFallbackUrl = new URL("../assets/ParallaxNebula.svg", import.meta.url).href;
 
 export const parallaxLayerSources = [
   {
+    source: parallaxStarsUrl,
+    speed: 0.12,
+    opacity: 0.85,
+    align: "center"
+  },
+  {
+    source: parallaxNebulaUrl,
+    speed: 0.2,
+    opacity: 0.7,
+    align: "center",
+    offsetY: -80
+  },
+  {
+    source: parallaxPlanetsUrl,
+    speed: 0.32,
+    opacity: 0.9,
+    align: "center",
+    offsetY: -36
+  },
+  {
     source: backgroundImageUrl,
-    speed: 0.4,
+    speed: 0.46,
     opacity: 1,
     align: "center"
   }
