@@ -33,7 +33,6 @@ import {
   persistStoredAccounts as servicePersistStoredAccounts,
   rememberAccount as serviceRememberAccount,
   sanitizeAccount as serviceSanitizeAccount,
-  sanitizeLobbyLayoutSnapshot,
   saveAccount as serviceSaveAccount,
   updateActiveAccountLobbyLayout as serviceUpdateActiveAccountLobbyLayout
 } from "./services/accounts.js";
@@ -58,6 +57,7 @@ import {
   normalisePathnameForDirectory,
   parallaxLayerSources,
   readFromAssetManifest,
+  resolvePublicAssetCandidatesByBasename,
   resolvePublicAssetUrl,
   shouldUseCustomPageBackground
 } from "./ui/background.js";
@@ -66,6 +66,8 @@ import { createWalletToolbarSection } from "./ui/components/walletToolbarSection
 import { createHudModal } from "./ui/components/hudModal.js";
 
 const runtimeGlobal = installRuntimeShims();
+
+const baseCanvasDimensions = Object.freeze({ width: 960, height: 540 });
 
 // The mini game entry point that loads inside the arcade cabinet overlay.
 function clamp(value, min, max) {
@@ -84,83 +86,94 @@ function clamp(value, min, max) {
   return value;
 }
 
-function warnImportMetaGlobUnavailable(scope) {
-  if (typeof console === "undefined") {
-    return;
-  }
-
-  const scopeSuffix = scope ? ` for ${scope}` : "";
-  console.warn(`import.meta.glob is unavailable${scopeSuffix}. Falling back to dynamic loading.`);
-}
-
 let assetManifest = null;
-try {
-  if (
-    typeof import.meta !== "object" ||
-    !import.meta ||
-    typeof import.meta.glob !== "function"
-  ) {
-    throw new TypeError("import.meta.glob is unavailable");
-  }
-
-  assetManifest = import.meta.glob("./assets/*.{png,PNG}", {
+if (
+  typeof import.meta === "object" &&
+  import.meta &&
+  typeof import.meta.glob === "function"
+) {
+  const eagerManifest = import.meta.glob("./assets/*.{png,PNG}", {
     eager: true,
     import: "default"
   });
 
-  if (!assetManifest || typeof assetManifest !== "object") {
-    warnImportMetaGlobUnavailable("sprite assets");
+  if (eagerManifest && typeof eagerManifest === "object") {
+    const manifestEntries = Object.entries(eagerManifest).filter(([, value]) => {
+      return typeof value === "string" && value;
+    });
+    if (manifestEntries.length > 0) {
+      assetManifest = Object.fromEntries(manifestEntries);
+    }
   }
-} catch (error) {
-  warnImportMetaGlobUnavailable("sprite assets");
-  if (typeof console !== "undefined" && error) {
-    console.warn(
-      "import.meta.glob failed while loading sprite assets. Falling back to dynamic loading.",
-      error
-    );
-  }
-  assetManifest = null;
 }
 
 if (!assetManifest) {
-  assetManifest = createAssetManifestFromPublicManifest({
-    extensions: [".png", ".PNG", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".avif"]
-  });
+  assetManifest =
+    createAssetManifestFromPublicManifest({
+      extensions: [".png", ".PNG", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".avif"]
+    }) ?? null;
 }
 
 let audioManifest = null;
-try {
-  if (
-    typeof import.meta !== "object" ||
-    !import.meta ||
-    typeof import.meta.glob !== "function"
-  ) {
-    throw new TypeError("import.meta.glob is unavailable");
-  }
-
-  audioManifest = import.meta.glob("./assets/audio/*.{mp3,ogg,m4a,webm}", {
+if (
+  typeof import.meta === "object" &&
+  import.meta &&
+  typeof import.meta.glob === "function"
+) {
+  const eagerAudioManifest = import.meta.glob("./assets/audio/*.{mp3,ogg,m4a,webm}", {
     eager: true,
     import: "default"
   });
 
-  if (!audioManifest || typeof audioManifest !== "object") {
-    warnImportMetaGlobUnavailable("audio assets");
+  if (eagerAudioManifest && typeof eagerAudioManifest === "object") {
+    const manifestEntries = Object.entries(eagerAudioManifest).filter(([, value]) => {
+      return typeof value === "string" && value;
+    });
+    if (manifestEntries.length > 0) {
+      audioManifest = Object.fromEntries(manifestEntries);
+    }
   }
-} catch (error) {
-  warnImportMetaGlobUnavailable("audio assets");
-  if (typeof console !== "undefined" && error) {
-    console.warn(
-      "import.meta.glob failed while loading audio assets. Falling back to dynamic loading.",
-      error
-    );
-  }
-  audioManifest = null;
 }
 
 if (!audioManifest) {
-  audioManifest = createAssetManifestFromPublicManifest({
-    extensions: [".mp3", ".ogg", ".m4a", ".webm"]
-  });
+  audioManifest =
+    createAssetManifestFromPublicManifest({
+      extensions: [".mp3", ".ogg", ".m4a", ".webm"]
+    }) ?? null;
+}
+
+const optionalSpritePlaceholders = new Map(
+  [
+    [
+      "./assets/FountainSprite.png",
+      "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2064%2064%27%3E%3Crect%20width%3D%2764%27%20height%3D%2764%27%20rx%3D%2712%27%20fill%3D%27%231a1a28%27/%3E%3Cellipse%20cx%3D%2732%27%20cy%3D%2748%27%20rx%3D%2720%27%20ry%3D%276%27%20fill%3D%27%233a86ff%27%20opacity%3D%27.35%27/%3E%3Cpath%20d%3D%27M32%2048c0-10%2010-14%2010-24a10%2010%200%200%200-20%200c0%2010%2010%2014%2010%2024Z%27%20fill%3D%27%234cc9f0%27/%3E%3Cpath%20d%3D%27M32%2032c-6-4-6-12%200-16%27%20stroke%3D%27%2390e0ef%27%20stroke-width%3D%274%27%20stroke-linecap%3D%27round%27%20fill%3D%27none%27/%3E%3C/svg%3E"
+    ],
+    [
+      "./assets/CrystalSprite.png",
+      "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2064%2064%27%3E%3Crect%20width%3D%2764%27%20height%3D%2764%27%20rx%3D%2712%27%20fill%3D%27%231a1a28%27/%3E%3Cpath%20d%3D%27M32%208%2018%2026l6%2022h16l6-22Z%27%20fill%3D%27%2300f5d4%27/%3E%3Cpath%20d%3D%27M32%208v40%27%20stroke%3D%27%2380ffdb%27%20stroke-width%3D%273%27%20stroke-linecap%3D%27round%27%20opacity%3D%27.8%27/%3E%3C/svg%3E"
+    ]
+  ].flatMap(([key, value]) => {
+    const lowerKey = key.toLowerCase();
+    return key === lowerKey ? [[key, value]] : [[key, value], [lowerKey, value]];
+  })
+);
+
+if (assetManifest && typeof assetManifest === "object") {
+  for (const [placeholderKey, placeholderValue] of optionalSpritePlaceholders.entries()) {
+    const manifestKey = placeholderKey.startsWith("./")
+      ? placeholderKey
+      : `./${placeholderKey.replace(/^\/+/, "")}`;
+    const currentValue = assetManifest[manifestKey];
+    if (typeof currentValue === "string" && currentValue) {
+      const sanitized = currentValue.split(/[?#]/)[0] ?? "";
+      if (/-[A-Za-z0-9]{6,}\.[^.]+$/.test(sanitized)) {
+        continue;
+      }
+    }
+    if (typeof placeholderValue === "string" && placeholderValue) {
+      assetManifest[manifestKey] = placeholderValue;
+    }
+  }
 }
 
 function normaliseMiniGameEntryPoint(entry) {
@@ -752,50 +765,42 @@ function createOptionalSprite(assetPath) {
 
 function createOptionalSpriteWithoutManifest(assetPath) {
   const spriteState = createSpriteState(assetPath);
+  const trimmedPath = typeof assetPath === "string" ? assetPath.trim() : "";
+  const normalizedPath =
+    trimmedPath && (trimmedPath.startsWith("./") || trimmedPath.startsWith("../"))
+      ? trimmedPath
+      : trimmedPath
+        ? `./${trimmedPath.replace(/^\/+/, "")}`
+        : "";
+  const baseNameMatch = normalizedPath.match(/[^/]+$/);
+  const baseName = baseNameMatch ? baseNameMatch[0] : normalizedPath;
 
-  const normalizedPath = typeof assetPath === "string" ? assetPath.replace(/^\.\//, "") : "";
-  const resolvedFromPublic = resolvePublicAssetUrl(normalizedPath);
-  const candidates = [];
+  const manifestCandidates = resolvePublicAssetCandidatesByBasename(baseName.replace(/\.[^.]+$/, ""), []);
+  const resolvedCandidates = manifestCandidates
+    .map((candidate) => resolvePublicAssetUrl(candidate) ?? candidate)
+    .filter((candidate) => typeof candidate === "string" && candidate);
 
-  if (typeof resolvedFromPublic === "string" && resolvedFromPublic) {
-    if (
-      /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(resolvedFromPublic) ||
-      resolvedFromPublic.startsWith("//") ||
-      resolvedFromPublic.startsWith("/")
-    ) {
-      candidates.push(resolvedFromPublic);
-    } else {
-      try {
-        const absolutePublic = new URL(resolvedFromPublic, import.meta.url).href;
-        candidates.push(absolutePublic);
-      } catch (error) {
-        candidates.push(resolvedFromPublic);
-      }
-    }
+  if (resolvedCandidates.length > 0) {
+    const uniqueCandidates = resolvedCandidates.filter((candidate, index, list) => {
+      return list.indexOf(candidate) === index;
+    });
+    spriteState.setSource(uniqueCandidates);
+    return {
+      image: spriteState.image,
+      isReady: spriteState.isReady
+    };
   }
 
-  let moduleRelative = null;
-  try {
-    moduleRelative = new URL(assetPath, import.meta.url).href;
-  } catch (error) {
-    if (candidates.length === 0) {
-      console.warn(`Failed to resolve sprite asset at ${assetPath}`, error);
-    }
-  }
+  const placeholderKey = normalizedPath.toLowerCase();
+  const placeholderSource =
+    optionalSpritePlaceholders.get(placeholderKey) ??
+    optionalSpritePlaceholders.get(`./assets/${baseName}`.toLowerCase());
 
-  if (moduleRelative && candidates.indexOf(moduleRelative) < 0) {
-    candidates.push(moduleRelative);
-  }
-
-  const uniqueCandidates = candidates.filter((candidate, index, list) => {
-    return typeof candidate === "string" && candidate && list.indexOf(candidate) === index;
-  });
-
-  if (uniqueCandidates.length === 0) {
+  if (!placeholderSource) {
     return createEmptySprite();
   }
 
-  spriteState.setSource(uniqueCandidates);
+  spriteState.setSource(placeholderSource);
 
   return {
     image: spriteState.image,
@@ -872,37 +877,36 @@ function resolveAudioSource(assetPath) {
     return null;
   }
 
-  if (audioManifest) {
-    const resolvedFromManifest = readFromAssetManifest(audioManifest, assetPath);
-    if (resolvedFromManifest) {
-      return resolvedFromManifest;
-    }
-  }
-
-  const normalizedPath = assetPath.replace(/^\.\//, "");
-  const resolvedFromPublic = resolvePublicAssetUrl(normalizedPath);
-  if (typeof resolvedFromPublic === "string" && resolvedFromPublic) {
-    if (
-      /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(resolvedFromPublic) ||
-      resolvedFromPublic.startsWith("//") ||
-      resolvedFromPublic.startsWith("/")
-    ) {
-      return resolvedFromPublic;
-    }
-
-    try {
-      return new URL(resolvedFromPublic, import.meta.url).href;
-    } catch (error) {
-      // Fall through to attempt resolving from the module path directly.
-    }
-  }
-
-  try {
-    return new URL(assetPath, import.meta.url).href;
-  } catch (error) {
-    console.warn(`Failed to resolve audio asset at ${assetPath}`, error);
+  if (!audioManifest) {
     return null;
   }
+
+  let manifestEntry = readFromAssetManifest(audioManifest, assetPath);
+  if (!manifestEntry) {
+    const separatorIndex = assetPath.lastIndexOf("/");
+    const baseName = separatorIndex >= 0 ? assetPath.slice(separatorIndex + 1) : assetPath;
+    if (baseName) {
+      manifestEntry = readFromAssetManifest(audioManifest, `./assets/${baseName}`);
+    }
+  }
+  if (typeof manifestEntry !== "string" || !manifestEntry) {
+    return null;
+  }
+
+  const resolvedEntry = resolvePublicAssetUrl(manifestEntry);
+  if (typeof resolvedEntry === "string" && resolvedEntry) {
+    return resolvedEntry;
+  }
+
+  if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(manifestEntry) || manifestEntry.startsWith("//")) {
+    return manifestEntry;
+  }
+
+  if (manifestEntry.startsWith("/") || manifestEntry.startsWith("./") || manifestEntry.startsWith("../")) {
+    return manifestEntry;
+  }
+
+  return `./${manifestEntry}`;
 }
 
 function resolveAudioFromCandidates(candidateList) {
@@ -1243,8 +1247,38 @@ function createOptionalAudio(assetCandidates, options = {}) {
 
 function createAudioManager() {
   const audioExtensions = [".mp3", ".ogg", ".m4a", ".webm"];
-  const buildAudioSources = (basename) =>
-    audioExtensions.map((extension) => `./assets/audio/${basename}${extension}`);
+  const buildAudioSources = (basename) => {
+    const fallbackRelativePaths = audioExtensions.map(
+      (extension) => `assets/audio/${basename}${extension}`
+    );
+    const manifestCandidates = resolvePublicAssetCandidatesByBasename(
+      basename,
+      fallbackRelativePaths
+    );
+
+    return manifestCandidates
+      .map((candidate) => {
+        if (typeof candidate !== "string") {
+          return "";
+        }
+
+        const trimmed = candidate.trim();
+        if (!trimmed) {
+          return "";
+        }
+
+        if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(trimmed) || trimmed.startsWith("//")) {
+          return trimmed;
+        }
+
+        if (trimmed.startsWith("/") || trimmed.startsWith("./") || trimmed.startsWith("../")) {
+          return trimmed;
+        }
+
+        return `./${trimmed}`;
+      })
+      .filter((candidate, index, all) => candidate && all.indexOf(candidate) === index);
+  };
 
   const soundMap = {
     // Drop .mp3, .ogg, or .m4a files into src/assets/audio using these paths
@@ -1545,8 +1579,8 @@ const parallaxLayers = parallaxLayerSources.map((layer) => {
   const markReady = () => {
     layerState.ready = true;
     layerState.dimensions = {
-      width: image.naturalWidth || baseCanvasWidth,
-      height: image.naturalHeight || baseCanvasHeight
+      width: image.naturalWidth || baseCanvasDimensions.width,
+      height: image.naturalHeight || baseCanvasDimensions.height
     };
   };
   const markError = () => {
@@ -1765,8 +1799,9 @@ function isValidStarterId(value) {
   return typeof value === "string" && starterCharactersById.has(value);
 }
 
-let savedLobbyLayout = null;
-let hasCustomLobbyLayout = false;
+var savedLobbyLayout = null;
+var hasCustomLobbyLayout = false;
+var defaultLobbyLayout = null;
 
 let storedAccounts = {};
 let activeAccountCallSign = null;
@@ -3327,15 +3362,20 @@ function applyActiveAccount(account) {
 
   const layoutSnapshot = sanitizeLobbyLayoutSnapshot(account.lobbyLayout);
   if (layoutSnapshot) {
-    applyLobbyLayoutSnapshot(defaultLobbyLayout);
-    if (areLayoutsEqual(layoutSnapshot, defaultLobbyLayout)) {
+    const baselineLayout = defaultLobbyLayout ?? null;
+    if (baselineLayout) {
+      applyLobbyLayoutSnapshot(baselineLayout);
+    }
+    if (baselineLayout && areLayoutsEqual(layoutSnapshot, baselineLayout)) {
       clearLobbyLayoutSnapshot();
     } else {
       applyLobbyLayoutSnapshot(layoutSnapshot);
       saveLobbyLayoutSnapshot(layoutSnapshot);
     }
   } else {
-    applyLobbyLayoutSnapshot(defaultLobbyLayout);
+    if (defaultLobbyLayout) {
+      applyLobbyLayoutSnapshot(defaultLobbyLayout);
+    }
     clearLobbyLayoutSnapshot();
   }
 
@@ -3416,6 +3456,7 @@ let previousBodyOverflow = "";
 let miniGameOverlayState = null;
 let miniGameBodyOverflow = "";
 let miniGameActive = false;
+var firstSessionChecklistManager = null;
 
 if (!activeAccount) {
   requestAccountLogin();
@@ -3701,8 +3742,8 @@ function closeMiniGame() {
 }
 
 const viewport = {
-  width: baseCanvasWidth,
-  height: baseCanvasHeight
+  width: baseCanvasDimensions.width,
+  height: baseCanvasDimensions.height
 };
 
 const canvas = document.createElement("canvas");
@@ -4376,16 +4417,24 @@ function areLayoutsEqual(candidate, reference) {
   return referencePortalX === candidatePortalX && referencePortalY === candidatePortalY;
 }
 
-const defaultLobbyLayout = captureLobbyLayoutSnapshot();
+if (!defaultLobbyLayout) {
+  defaultLobbyLayout = captureLobbyLayoutSnapshot();
+}
+
 savedLobbyLayout = loadLobbyLayoutSnapshot();
 hasCustomLobbyLayout = Boolean(
-  savedLobbyLayout && !areLayoutsEqual(savedLobbyLayout, defaultLobbyLayout)
+  defaultLobbyLayout &&
+  savedLobbyLayout &&
+  !areLayoutsEqual(savedLobbyLayout, defaultLobbyLayout)
 );
 
 const activeAccountLobbyLayout = sanitizeLobbyLayoutSnapshot(activeAccount?.lobbyLayout);
 if (activeAccountLobbyLayout) {
-  applyLobbyLayoutSnapshot(defaultLobbyLayout);
-  if (areLayoutsEqual(activeAccountLobbyLayout, defaultLobbyLayout)) {
+  const baselineLayout = defaultLobbyLayout ?? captureLobbyLayoutSnapshot();
+  if (baselineLayout) {
+    applyLobbyLayoutSnapshot(baselineLayout);
+  }
+  if (baselineLayout && areLayoutsEqual(activeAccountLobbyLayout, baselineLayout)) {
     clearLobbyLayoutSnapshot();
   } else {
     applyLobbyLayoutSnapshot(activeAccountLobbyLayout);
@@ -4393,6 +4442,8 @@ if (activeAccountLobbyLayout) {
   }
 } else if (hasCustomLobbyLayout) {
   applyLobbyLayoutSnapshot(savedLobbyLayout);
+} else if (defaultLobbyLayout) {
+  applyLobbyLayoutSnapshot(defaultLobbyLayout);
 }
 
 let worldWrapWidth = computeWorldWrapWidth();
@@ -4750,8 +4801,6 @@ class ChecklistManager {
     this.dock = null;
   }
 }
-
-let firstSessionChecklistManager = null;
 
 function clearFirstSessionChecklist() {
   if (firstSessionChecklistManager) {

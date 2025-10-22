@@ -798,7 +798,9 @@ export function applyPageBackgroundFromUrl(body, imageUrl) {
 const toolbarBackgroundImageSources = [
   ...resolvePublicAssetCandidatesByBasename("toolbar-background", [
     "toolbar-background.png",
-    "AstroCats3/toolbar-background.png"
+    "toolbar-background.svg",
+    "AstroCats3/toolbar-background.png",
+    "AstroCats3/toolbar-background.svg"
   ]),
   toolbarBackgroundFallbackUrl
 ].filter((candidate, index, all) => {
@@ -809,10 +811,24 @@ const toolbarBackgroundImageSources = [
   return all.indexOf(candidate) === index;
 });
 
-const toolbarBrandImageSources = resolvePublicAssetCandidatesByBasename("toolbar-brand", [
-  "toolbar-brand.png",
-  "AstroCats3/toolbar-brand.png"
-]);
+const toolbarBrandFallbackSvg =
+  "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20120%2032%27%3E%3Crect%20width%3D%27120%27%20height%3D%2732%27%20rx%3D%276%27%20fill%3D%27%231a1a28%27/%3E%3Crect%20x%3D%274%27%20y%3D%276%27%20width%3D%2720%27%20height%3D%2720%27%20rx%3D%274%27%20fill%3D%27%237f5af0%27/%3E%3Cpath%20fill%3D%27%23f5deb3%27%20d%3D%27M12%2011h4l2%205-2%205h-4l-2-5z%27/%3E%3Ctext%20x%3D%2744%27%20y%3D%2721%27%20font-family%3D%22%27Segoe%20UI%27%2Csans-serif%22%20font-size%3D%2716%27%20fill%3D%27%23f5deb3%27%3EAstrocat%3C/text%3E%3C/svg%3E";
+
+const toolbarBrandImageSources = [
+  ...resolvePublicAssetCandidatesByBasename("toolbar-brand", [
+    "toolbar-brand.svg",
+    "toolbar-brand.png",
+    "AstroCats3/toolbar-brand.svg",
+    "AstroCats3/toolbar-brand.png"
+  ]),
+  toolbarBrandFallbackSvg
+].filter((candidate, index, all) => {
+  if (typeof candidate !== "string" || !candidate) {
+    return false;
+  }
+
+  return all.indexOf(candidate) === index;
+});
 
 export function applyToolbarBackground(header) {
   if (!header || toolbarBackgroundImageSources.length === 0) {
