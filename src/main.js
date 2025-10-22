@@ -33,7 +33,7 @@ import {
   persistStoredAccounts as servicePersistStoredAccounts,
   rememberAccount as serviceRememberAccount,
   sanitizeAccount as serviceSanitizeAccount,
-  sanitizeLobbyLayoutSnapshot,
+  sanitizeLobbyLayoutSnapshot as serviceSanitizeLobbyLayoutSnapshot,
   saveAccount as serviceSaveAccount,
   updateActiveAccountLobbyLayout as serviceUpdateActiveAccountLobbyLayout
 } from "./services/accounts.js";
@@ -2040,7 +2040,7 @@ function loadLobbyLayoutSnapshot() {
     }
 
     const parsed = JSON.parse(raw);
-    return sanitizeLobbyLayoutSnapshot(parsed);
+    return serviceSanitizeLobbyLayoutSnapshot(parsed);
   } catch (error) {
     console.warn("Failed to read saved lobby layout", error);
     return null;
@@ -2054,7 +2054,7 @@ function saveLobbyLayoutSnapshot(layout) {
   }
 
   try {
-    const sanitized = sanitizeLobbyLayoutSnapshot(layout);
+    const sanitized = serviceSanitizeLobbyLayoutSnapshot(layout);
     if (!sanitized) {
       return clearLobbyLayoutSnapshot();
     }
@@ -3398,7 +3398,7 @@ function applyActiveAccount(account) {
   activeAccount = account;
   activeAccountCallSign = account.callSign ?? null;
 
-  const layoutSnapshot = sanitizeLobbyLayoutSnapshot(account.lobbyLayout);
+  const layoutSnapshot = serviceSanitizeLobbyLayoutSnapshot(account.lobbyLayout);
   if (layoutSnapshot) {
     const baselineLayout = defaultLobbyLayout ?? null;
     if (baselineLayout) {
@@ -4466,7 +4466,7 @@ hasCustomLobbyLayout = Boolean(
   !areLayoutsEqual(savedLobbyLayout, defaultLobbyLayout)
 );
 
-const activeAccountLobbyLayout = sanitizeLobbyLayoutSnapshot(activeAccount?.lobbyLayout);
+const activeAccountLobbyLayout = serviceSanitizeLobbyLayoutSnapshot(activeAccount?.lobbyLayout);
 if (activeAccountLobbyLayout) {
   const baselineLayout = defaultLobbyLayout ?? captureLobbyLayoutSnapshot();
   if (baselineLayout) {
