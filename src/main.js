@@ -278,13 +278,18 @@ function isBundledFileProtocolRuntime() {
 }
 
 function createMiniGameRelativeEntryPaths() {
-  const defaultPaths = ["public/AstroCats3/index.html", "AstroCats3/index.html"];
+  const isFileProtocol =
+    typeof window !== "undefined" && window.location?.protocol === "file:";
 
   if (isBundledFileProtocolRuntime()) {
     return ["AstroCats3/index.html", "public/AstroCats3/index.html"];
   }
 
-  return defaultPaths;
+  if (isFileProtocol) {
+    return ["public/AstroCats3/index.html", "AstroCats3/index.html"];
+  }
+
+  return ["AstroCats3/index.html"];
 }
 
 const miniGameRelativeEntryPaths = Object.freeze(createMiniGameRelativeEntryPaths());
