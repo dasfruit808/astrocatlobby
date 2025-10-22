@@ -59,13 +59,17 @@ function createFallbackManifest() {
 
   const toolbarFallback = moduleAsset("./assets/ParallaxNebula.svg");
   add("toolbar-background.png", toolbarFallback);
+  add("toolbar-background.svg", toolbarFallback);
   add("AstroCats3/toolbar-background.png", toolbarFallback);
+  add("AstroCats3/toolbar-background.svg", toolbarFallback);
 
-  const toolbarBrand = absoluteAsset("/AstroCats3/toolbar-brand.png");
+  const toolbarBrand = absoluteAsset("./AstroCats3/toolbar-brand.png");
   add("toolbar-brand.png", toolbarBrand);
+  add("toolbar-brand.svg", toolbarBrand);
   add("AstroCats3/toolbar-brand.png", toolbarBrand);
+  add("AstroCats3/toolbar-brand.svg", toolbarBrand);
 
-  const pageBackground = absoluteAsset("/webpagebackground.png");
+  const pageBackground = absoluteAsset("./webpagebackground.png");
   add("webpagebackground.png", pageBackground);
   add("webpagebackground.jpg", pageBackground);
   add("webpagebackground.jpeg", pageBackground);
@@ -73,7 +77,11 @@ function createFallbackManifest() {
   add("webpagebackground.avif", pageBackground);
   add("webpagebackground.gif", pageBackground);
 
-  add("lobby-background.mp4", absoluteAsset("/lobby-background.mp4"));
+  const lobbyBackground = absoluteAsset("./lobby-background.mp4");
+  add("lobby-background.mp4", lobbyBackground);
+  add("lobby-background.webm", lobbyBackground);
+  add("AstroCats3/lobby-background.mp4", lobbyBackground);
+  add("AstroCats3/lobby-background.webm", lobbyBackground);
 
   return Object.freeze(manifest);
 }
