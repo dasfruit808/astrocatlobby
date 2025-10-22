@@ -281,15 +281,42 @@ function createMiniGameRelativeEntryPaths() {
   const isFileProtocol =
     typeof window !== "undefined" && window.location?.protocol === "file:";
 
+  const paths = [];
+  const addPath = (candidate) => {
+    if (typeof candidate !== "string") {
+      return;
+    }
+
+    const trimmed = candidate.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    if (paths.indexOf(trimmed) >= 0) {
+      return;
+    }
+
+    paths.push(trimmed);
+  };
+
   if (isBundledFileProtocolRuntime()) {
-    return ["AstroCats3/index.html", "public/AstroCats3/index.html"];
+    addPath("AstroCats3/index.html");
+    addPath("public/AstroCats3/index.html");
+  } else {
+    addPath("public/AstroCats3/index.html");
+    addPath("AstroCats3/index.html");
   }
 
   if (isFileProtocol) {
-    return ["public/AstroCats3/index.html", "AstroCats3/index.html"];
+    addPath("./public/AstroCats3/index.html");
+    addPath("./AstroCats3/index.html");
   }
 
-  return ["AstroCats3/index.html"];
+  if (paths.length === 0) {
+    paths.push("AstroCats3/index.html");
+  }
+
+  return paths;
 }
 
 const miniGameRelativeEntryPaths = Object.freeze(createMiniGameRelativeEntryPaths());
@@ -390,6 +417,7 @@ function createMiniGameEntryCandidates() {
     addCandidate(relativePath);
   }
   addCandidate("./AstroCats3/index.html");
+  addCandidate("./public/AstroCats3/index.html");
 
   return candidates;
 }
