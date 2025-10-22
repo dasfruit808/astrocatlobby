@@ -69,6 +69,63 @@ const runtimeGlobal = installRuntimeShims();
 
 const baseCanvasDimensions = Object.freeze({ width: 960, height: 540 });
 
+const importMetaGlobWarningKeys = new Set();
+
+function warnImportMetaGlobUnavailable(assetType) {
+  const warningKey = `unavailable:${assetType}`;
+  if (importMetaGlobWarningKeys.has(warningKey)) {
+    return;
+  }
+  importMetaGlobWarningKeys.add(warningKey);
+  if (typeof console !== "undefined") {
+    console.warn(
+      `import.meta.glob is unavailable for ${assetType}. Falling back to dynamic loading.`
+    );
+  }
+}
+
+function warnImportMetaGlobFailure(assetType, error) {
+  const warningKey = `failure:${assetType}`;
+  if (importMetaGlobWarningKeys.has(warningKey)) {
+    return;
+  }
+  importMetaGlobWarningKeys.add(warningKey);
+  if (typeof console !== "undefined") {
+    console.warn(
+      `import.meta.glob failed while loading ${assetType}. Falling back to dynamic loading.`,
+      error
+    );
+  }
+}
+
+function attemptImportMetaGlob(pattern, options, assetType) {
+  try {
+    if (
+      typeof import.meta !== "object" ||
+      !import.meta ||
+      typeof import.meta.glob !== "function"
+    ) {
+      warnImportMetaGlobUnavailable(assetType);
+      return null;
+    }
+
+    const eagerManifest = import.meta.glob(pattern, options);
+
+    if (eagerManifest && typeof eagerManifest === "object") {
+      const manifestEntries = Object.entries(eagerManifest).filter(([, value]) => {
+        return typeof value === "string" && value;
+      });
+      if (manifestEntries.length > 0) {
+        return Object.fromEntries(manifestEntries);
+      }
+    }
+  } catch (error) {
+    warnImportMetaGlobFailure(assetType, error);
+  }
+
+  return null;
+}
+
 // The mini game entry point that loads inside the arcade cabinet overlay.
 function clamp(value, min, max) {
   if (!Number.isFinite(value)) {
@@ -86,26 +143,14 @@ function clamp(value, min, max) {
   return value;
 }
 
-let assetManifest = null;
-if (
-  typeof import.meta === "object" &&
-  import.meta &&
-  typeof import.meta.glob === "function"
-) {
-  const eagerManifest = import.meta.glob("./assets/*.{png,PNG}", {
+let assetManifest = attemptImportMetaGlob(
+  "./assets/*.{png,PNG}",
+  {
     eager: true,
     import: "default"
-  });
-
-  if (eagerManifest && typeof eagerManifest === "object") {
-    const manifestEntries = Object.entries(eagerManifest).filter(([, value]) => {
-      return typeof value === "string" && value;
-    });
-    if (manifestEntries.length > 0) {
-      assetManifest = Object.fromEntries(manifestEntries);
-    }
-  }
-}
+  },
+  "sprite assets"
+);
 
 if (!assetManifest) {
   assetManifest =
@@ -114,26 +159,14 @@ if (!assetManifest) {
     }) ?? null;
 }
 
-let audioManifest = null;
-if (
-  typeof import.meta === "object" &&
-  import.meta &&
-  typeof import.meta.glob === "function"
-) {
-  const eagerAudioManifest = import.meta.glob("./assets/audio/*.{mp3,ogg,m4a,webm}", {
+let audioManifest = attemptImportMetaGlob(
+  "./assets/audio/*.{mp3,ogg,m4a,webm}",
+  {
     eager: true,
     import: "default"
-  });
-
-  if (eagerAudioManifest && typeof eagerAudioManifest === "object") {
-    const manifestEntries = Object.entries(eagerAudioManifest).filter(([, value]) => {
-      return typeof value === "string" && value;
-    });
-    if (manifestEntries.length > 0) {
-      audioManifest = Object.fromEntries(manifestEntries);
-    }
-  }
-}
+  },
+  "audio assets"
+);
 
 if (!audioManifest) {
   audioManifest =
