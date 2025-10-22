@@ -260,58 +260,83 @@ function normaliseMiniGameEntryPoint(entry) {
   return `./${trimmed}`;
 }
 
-function resolveMiniGameEntryPoint() {
-  const resolvedEntry = resolvePublicAssetUrl("AstroCats3/index.html");
-  const normalisedEntry = normaliseMiniGameEntryPoint(resolvedEntry);
+const miniGameRelativeEntryPaths = Object.freeze([
+  "public/AstroCats3/index.html",
+  "AstroCats3/index.html"
+]);
 
-  if (normalisedEntry && normalisedEntry !== "/") {
-    if (typeof window !== "undefined" && window.location) {
-      try {
-        const entryUrl = new URL(normalisedEntry, window.location.href);
-        const directoryPath = normalisePathnameForDirectory(window.location.pathname ?? "/");
+function adjustMiniGameEntryPoint(entry) {
+  const normalisedEntry = normaliseMiniGameEntryPoint(entry);
 
-        if (
-          directoryPath !== "/" &&
-          entryUrl.origin === window.location.origin &&
-          !entryUrl.pathname.startsWith(directoryPath)
-        ) {
-          const baseHref = normaliseHrefForDirectory(window.location.href);
-          if (baseHref) {
-            const correctedUrl = new URL(normalisedEntry, baseHref);
-            return correctedUrl.toString();
-          }
-        }
-      } catch (error) {
-        if (typeof console !== "undefined" && error) {
-          console.warn(
-            "Failed to normalise mini game entry point against current location.",
-            error
-          );
+  if (!normalisedEntry || normalisedEntry === "/") {
+    return null;
+  }
+
+  if (typeof window !== "undefined" && window.location) {
+    try {
+      const entryUrl = new URL(normalisedEntry, window.location.href);
+      const directoryPath = normalisePathnameForDirectory(window.location.pathname ?? "/");
+
+      if (
+        directoryPath !== "/" &&
+        entryUrl.origin === window.location.origin &&
+        !entryUrl.pathname.startsWith(directoryPath)
+      ) {
+        const baseHref = normaliseHrefForDirectory(window.location.href);
+        if (baseHref) {
+          const correctedUrl = new URL(normalisedEntry, baseHref);
+          return correctedUrl.toString();
         }
       }
+    } catch (error) {
+      if (typeof console !== "undefined" && error) {
+        console.warn(
+          "Failed to normalise mini game entry point against current location.",
+          error
+        );
+      }
     }
+  }
 
-    return normalisedEntry;
+  return normalisedEntry;
+}
+
+function resolveMiniGameEntryPoint() {
+  for (const relativePath of miniGameRelativeEntryPaths) {
+    const resolvedEntry = resolvePublicAssetUrl(relativePath);
+    const adjustedEntry = adjustMiniGameEntryPoint(resolvedEntry);
+    if (adjustedEntry) {
+      return adjustedEntry;
+    }
   }
 
   console.warn(
-    "Falling back to a relative AstroCats3 mini game entry point. Ensure public/AstroCats3/index.html is reachable from the current path."
+    "Falling back to a relative AstroCats3 mini game entry point. Ensure either public/AstroCats3/index.html or AstroCats3/index.html are reachable from the current path."
   );
-  try {
-    const UrlConstructor = runtimeGlobal?.URL;
-    if (typeof UrlConstructor === "function") {
-      const fallbackEntry = new UrlConstructor(
-        "../AstroCats3/index.html",
-        import.meta.url
-      ).toString();
-      return fallbackEntry;
-    }
-  } catch (error) {
-    if (typeof console !== "undefined" && error) {
-      console.warn("Failed to resolve AstroCats3 mini game relative to the current module.", error);
+  const fallbackCandidates = [
+    "../public/AstroCats3/index.html",
+    "../AstroCats3/index.html"
+  ];
+  for (const fallback of fallbackCandidates) {
+    try {
+      const UrlConstructor = runtimeGlobal?.URL;
+      if (typeof UrlConstructor === "function") {
+        const fallbackEntry = new UrlConstructor(fallback, import.meta.url).toString();
+        if (fallbackEntry) {
+          return fallbackEntry;
+        }
+      }
+    } catch (error) {
+      if (typeof console !== "undefined" && error) {
+        console.warn(
+          "Failed to resolve AstroCats3 mini game relative to the current module.",
+          error
+        );
+      }
     }
   }
-  return "./AstroCats3/index.html";
+
+  return "./public/AstroCats3/index.html";
 }
 
 function createMiniGameEntryCandidates() {
@@ -329,7 +354,10 @@ function createMiniGameEntryCandidates() {
 
   const resolvedEntry = resolveMiniGameEntryPoint();
   addCandidate(resolvedEntry);
-  addCandidate(resolvePublicAssetUrl("AstroCats3/index.html"));
+  for (const relativePath of miniGameRelativeEntryPaths) {
+    addCandidate(resolvePublicAssetUrl(relativePath));
+    addCandidate(relativePath);
+  }
   addCandidate("./AstroCats3/index.html");
 
   return candidates;
