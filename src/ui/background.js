@@ -518,15 +518,45 @@ function resolveUsingDocumentBase(candidate) {
   return null;
 }
 
+function getLocationProtocol() {
+  if (typeof window !== "undefined" && window.location) {
+    const { protocol } = window.location;
+    if (typeof protocol === "string" && protocol) {
+      return protocol;
+    }
+  }
+
+  if (typeof globalThis !== "undefined" && globalThis.location) {
+    const { protocol } = globalThis.location;
+    if (typeof protocol === "string" && protocol) {
+      return protocol;
+    }
+  }
+
+  return "";
+}
+
 export function resolvePublicAssetUrl(relativePath) {
   const normalized = normalizePublicRelativePath(relativePath);
   if (!normalized) {
     return null;
   }
 
+  const publicPrefix = "public/";
+  const hasPublicPrefix = normalized.startsWith(publicPrefix);
+  const normalizedWithoutPublic = hasPublicPrefix
+    ? normalizePublicRelativePath(normalized.slice(publicPrefix.length))
+    : normalized;
+
   let manifestEntry = readPublicManifestEntry(normalized);
   if (!manifestEntry) {
     manifestEntry = tryFindPublicManifestEntryByBasename(normalized);
+  }
+  if (!manifestEntry && hasPublicPrefix) {
+    manifestEntry = readPublicManifestEntry(normalizedWithoutPublic);
+    if (!manifestEntry) {
+      manifestEntry = tryFindPublicManifestEntryByBasename(normalizedWithoutPublic);
+    }
   }
   if (manifestEntry) {
     if (
@@ -547,7 +577,14 @@ export function resolvePublicAssetUrl(relativePath) {
     return manifestEntry;
   }
 
-  const candidate = normalized;
+  let candidate = normalized;
+
+  if (hasPublicPrefix && normalizedWithoutPublic) {
+    const protocol = getLocationProtocol();
+    if (protocol.toLowerCase() !== "file:") {
+      candidate = normalizedWithoutPublic;
+    }
+  }
 
   if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(candidate) || candidate.startsWith("//")) {
     return candidate;
