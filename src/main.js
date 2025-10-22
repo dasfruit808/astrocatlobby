@@ -1539,10 +1539,8 @@ const parallaxLayers = parallaxLayerSources.map((layer) => {
   }
   return layerState;
 });
-// The lobby previously applied a subtle idle scroll to the parallax background to
-// keep the scene feeling lively. Disable that behaviour so the background stays
-// perfectly still unless future updates explicitly change parallaxScroll.
-const PARALLAX_IDLE_SCROLL_SPEED = 0;
+// Apply a gentle idle scroll to keep the parallax layers and background video alive.
+const PARALLAX_IDLE_SCROLL_SPEED = 0.24;
 let parallaxScroll = 0;
 let cameraScrollX = 0;
 
@@ -8060,6 +8058,7 @@ function createInterface(stats, options = {}) {
   backgroundVideo.setAttribute("aria-hidden", "true");
   backgroundVideo.tabIndex = -1;
   backgroundVideo.poster = backgroundImageUrl;
+  backgroundVideo.autoplay = true;
   try {
     backgroundVideo.playsInline = true;
     backgroundVideo.muted = true;
@@ -8077,6 +8076,7 @@ function createInterface(stats, options = {}) {
     backgroundVideo.setAttribute("muted", "");
     backgroundVideo.setAttribute("loop", "");
     backgroundVideo.setAttribute("preload", "auto");
+    backgroundVideo.setAttribute("autoplay", "");
   }
 
   canvasBackground.append(backgroundVideo);
@@ -9397,6 +9397,10 @@ function createInterface(stats, options = {}) {
     },
     getBackgroundVideoState() {
       return canvasBackground.dataset.state || "disabled";
+    },
+    setBackgroundParallaxOffset(offsetPx) {
+      const value = Number.isFinite(offsetPx) ? `${offsetPx}px` : "0px";
+      canvasBackground.style.setProperty("--parallax-offset", value);
     },
     refresh(updatedStats) {
       const subtitleParts = [];

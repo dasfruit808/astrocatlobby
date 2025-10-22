@@ -405,6 +405,7 @@ body.is-scroll-locked {
   z-index: 0;
   opacity: 0;
   transition: opacity 360ms ease;
+  --parallax-offset: 0px;
 }
 
 .canvas-background.is-active {
@@ -424,6 +425,8 @@ body.is-scroll-locked {
   height: 100%;
   display: block;
   object-fit: cover;
+  transform: translate3d(var(--parallax-offset, 0px), 0, 0);
+  will-change: transform;
 }
 
 .canvas-surface.is-editing {
