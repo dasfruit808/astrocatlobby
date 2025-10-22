@@ -762,8 +762,12 @@ function warnImportMetaGlobUnavailable(scope) {
 
 let assetManifest = null;
 try {
-  if (typeof import.meta !== "object" || !import.meta) {
-    throw new TypeError("import.meta is unavailable");
+  if (
+    typeof import.meta !== "object" ||
+    !import.meta ||
+    typeof import.meta.glob !== "function"
+  ) {
+    throw new TypeError("import.meta.glob is unavailable");
   }
 
   assetManifest = import.meta.glob("./assets/*.{png,PNG}", {
@@ -793,8 +797,12 @@ if (!assetManifest) {
 
 let audioManifest = null;
 try {
-  if (typeof import.meta !== "object" || !import.meta) {
-    throw new TypeError("import.meta is unavailable");
+  if (
+    typeof import.meta !== "object" ||
+    !import.meta ||
+    typeof import.meta.glob !== "function"
+  ) {
+    throw new TypeError("import.meta.glob is unavailable");
   }
 
   audioManifest = import.meta.glob("./assets/audio/*.{mp3,ogg,m4a,webm}", {
@@ -4632,6 +4640,62 @@ function updateRankFromLevel() {
 }
 
 updateRankFromLevel();
+
+function gainExperience(amount) {
+  const normalizedAmount = Number.isFinite(amount) ? Math.floor(amount) : 0;
+  if (normalizedAmount <= 0) {
+    return false;
+  }
+
+  const maxLevelCap = maxAccountLevel ?? Number.POSITIVE_INFINITY;
+  let currentLevel = Math.max(1, Math.floor(playerStats.level ?? 1));
+  let currentExp = Math.max(0, Math.floor(playerStats.exp ?? 0)) + normalizedAmount;
+  let currentMaxExp = Math.max(
+    1,
+    Math.floor(playerStats.maxExp ?? getExpForNextLevel(currentLevel))
+  );
+  let availableStatPoints = Math.max(0, Math.floor(playerStats.statPoints ?? 0));
+  let leveledUp = false;
+
+  while (currentExp >= currentMaxExp && currentLevel < maxLevelCap) {
+    currentExp -= currentMaxExp;
+    currentLevel += 1;
+    availableStatPoints += getStatPointsForLevel(currentLevel);
+    currentMaxExp = getExpForNextLevel(currentLevel);
+    leveledUp = true;
+  }
+
+  if (currentLevel >= maxLevelCap) {
+    currentLevel = maxLevelCap;
+    currentMaxExp = getExpForNextLevel(currentLevel);
+    currentExp = Math.min(currentExp, currentMaxExp);
+  }
+
+  playerStats.level = currentLevel;
+  playerStats.exp = currentExp;
+  playerStats.maxExp = currentMaxExp;
+  playerStats.statPoints = availableStatPoints;
+
+  updateRankFromLevel();
+
+  if (leveledUp) {
+    applyAttributeScaling(playerStats, { preservePercent: false });
+    playerStats.hp = playerStats.maxHp;
+    playerStats.mp = playerStats.maxMp;
+  }
+
+  if (ui && typeof ui.refresh === "function") {
+    ui.refresh(playerStats);
+  }
+
+  if (leveledUp) {
+    refreshMissionDisplay();
+  }
+
+  syncActiveAccountProgress();
+
+  return leveledUp;
+}
 
 function createLegendBadge(channel, label) {
   const badge = document.createElement("span");
