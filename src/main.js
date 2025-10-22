@@ -33,6 +33,7 @@ import {
   persistStoredAccounts as servicePersistStoredAccounts,
   rememberAccount as serviceRememberAccount,
   sanitizeAccount as serviceSanitizeAccount,
+  sanitizeLobbyLayoutSnapshot,
   saveAccount as serviceSaveAccount,
   updateActiveAccountLobbyLayout as serviceUpdateActiveAccountLobbyLayout
 } from "./services/accounts.js";
@@ -100,11 +101,15 @@ function warnImportMetaGlobFailure(assetType, error) {
 
 function attemptImportMetaGlob(pattern, options, assetType) {
   try {
-    if (
-      typeof import.meta !== "object" ||
-      !import.meta ||
-      typeof import.meta.glob !== "function"
-    ) {
+    if (typeof import.meta !== "object" || !import.meta) {
+      return null;
+    }
+
+    if (!("glob" in import.meta)) {
+      return null;
+    }
+
+    if (typeof import.meta.glob !== "function") {
       warnImportMetaGlobUnavailable(assetType);
       return null;
     }
