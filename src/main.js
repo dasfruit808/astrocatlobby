@@ -7349,6 +7349,7 @@ function createInterface(stats, options = {}) {
 
   const interfaceRoot = document.createElement("div");
   interfaceRoot.className = "lobby-shell";
+  interfaceRoot.dataset.walletConnected = "false";
 
   let accountLoggedIn = Boolean(stats?.callSign);
   let walletUiState = {
@@ -7381,7 +7382,40 @@ function createInterface(stats, options = {}) {
   toolbarContent.className = "lobby-shell__content";
   toolbarContent.append(root);
 
-  interfaceRoot.append(toolbar, toolbarContent);
+  const walletGateWrapper = document.createElement("div");
+  walletGateWrapper.className = "lobby-shell__gate";
+
+  const walletGate = document.createElement("div");
+  walletGate.className = "wallet-gate";
+
+  const walletGateTitle = document.createElement("h2");
+  walletGateTitle.className = "wallet-gate__title";
+  walletGateTitle.textContent = "Astrocat Lobby";
+
+  const walletGateDescription = document.createElement("p");
+  walletGateDescription.className = "wallet-gate__description";
+
+  const walletGateAction = document.createElement("button");
+  walletGateAction.type = "button";
+  walletGateAction.className = "wallet-gate__action";
+  walletGateAction.addEventListener("click", () => {
+    if (walletUiState.connected) {
+      return;
+    }
+
+    if (walletUiState.available) {
+      if (typeof onRequestWalletLogin === "function") {
+        onRequestWalletLogin();
+      }
+    } else {
+      openWalletInstallPage();
+    }
+  });
+
+  walletGate.append(walletGateTitle, walletGateDescription, walletGateAction);
+  walletGateWrapper.append(walletGate);
+
+  interfaceRoot.append(toolbar, walletGateWrapper, toolbarContent);
 
   const canvasWrapper = document.createElement("div");
   canvasWrapper.className = "canvas-wrapper";
@@ -8723,6 +8757,7 @@ function createInterface(stats, options = {}) {
       if (walletControls && typeof walletControls.setState === "function") {
         walletControls.setState(walletUiState);
       }
+      applyWalletGateState();
       updateAccountActions(accountLoggedIn);
     },
     setAccount(account, starter) {
@@ -8818,6 +8853,23 @@ function createInterface(stats, options = {}) {
 
     return header;
   }
+
+  function applyWalletGateState() {
+    const connected = Boolean(walletUiState.connected);
+    interfaceRoot.dataset.walletConnected = connected ? "true" : "false";
+    toolbarContent.hidden = !connected;
+    walletGateWrapper.hidden = connected;
+
+    if (!connected) {
+      const available = Boolean(walletUiState.available);
+      walletGateDescription.textContent = available
+        ? "Connect your Solana wallet to enter the Astrocat Lobby."
+        : "Install the Phantom wallet extension to link your mission data.";
+      walletGateAction.textContent = available ? "Connect wallet" : "Get Phantom Wallet";
+    }
+  }
+
+  applyWalletGateState();
 
   function createChatBoardSection() {
     const section = document.createElement("section");
