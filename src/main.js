@@ -660,10 +660,26 @@ function resolvePublicAssetUrl(relativePath) {
     return null;
   }
 
-  let manifestEntry = readPublicManifestEntry(normalized);
-  if (!manifestEntry) {
-    manifestEntry = tryFindPublicManifestEntryByBasename(normalized);
+  const lookupKeys = [normalized];
+  if (normalized.startsWith("public/")) {
+    const trimmed = normalized.slice("public/".length).trim();
+    if (trimmed) {
+      lookupKeys.push(trimmed);
+    }
   }
+
+  let manifestEntry = null;
+
+  for (const key of lookupKeys) {
+    manifestEntry = readPublicManifestEntry(key);
+    if (!manifestEntry) {
+      manifestEntry = tryFindPublicManifestEntryByBasename(key);
+    }
+    if (manifestEntry) {
+      break;
+    }
+  }
+
   if (manifestEntry) {
     if (
       /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(manifestEntry) ||
@@ -683,7 +699,10 @@ function resolvePublicAssetUrl(relativePath) {
     return manifestEntry;
   }
 
-  const candidate = normalized;
+  const candidate =
+    lookupKeys.find((key) => typeof key === "string" && !key.startsWith("public/")) ??
+    lookupKeys[lookupKeys.length - 1] ??
+    normalized;
 
   if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(candidate) || candidate.startsWith("//")) {
     return candidate;
