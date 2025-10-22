@@ -631,25 +631,44 @@ export function resolvePublicAssetUrl(relativePath) {
     return resolvedFromDocument;
   }
 
+  const ensureDocumentRelative = (value) => {
+    if (
+      value.startsWith("/") ||
+      value.startsWith("./") ||
+      value.startsWith("../")
+    ) {
+      return value;
+    }
+
+    return `./${value}`;
+  };
+
   if (typeof window !== "undefined" && window.location) {
     const { location } = window;
 
     if (location.protocol === "file:") {
-      return candidate.startsWith("./") || candidate.startsWith("../")
-        ? candidate
-        : `./${candidate}`;
+      const resolvedFromDocument = resolveUsingDocumentBase(candidate);
+      if (resolvedFromDocument) {
+        return resolvedFromDocument;
+      }
+
+      return ensureDocumentRelative(candidate);
     }
 
     if (typeof location.pathname === "string") {
       const directoryPath = normalisePathnameForDirectory(location.pathname);
       if (directoryPath && directoryPath !== "/") {
         const trimmedCandidate = candidate.replace(/^\/+/, "");
+        if (!trimmedCandidate) {
+          return ensureDocumentRelative(candidate);
+        }
+
         return `${directoryPath}${trimmedCandidate}`;
       }
     }
   }
 
-  return candidate.startsWith("/") ? candidate : `/${candidate}`;
+  return ensureDocumentRelative(candidate);
 }
 
 const backgroundImageUrl = new URL("../assets/LobbyBackground.png", import.meta.url).href;
