@@ -260,10 +260,34 @@ function normaliseMiniGameEntryPoint(entry) {
   return `./${trimmed}`;
 }
 
-const miniGameRelativeEntryPaths = Object.freeze([
-  "public/AstroCats3/index.html",
-  "AstroCats3/index.html"
-]);
+function isBundledFileProtocolRuntime() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  if (window.location?.protocol !== "file:") {
+    return false;
+  }
+
+  const moduleUrl = typeof import.meta?.url === "string" ? import.meta.url : "";
+  if (!moduleUrl) {
+    return false;
+  }
+
+  return !moduleUrl.includes("/src/");
+}
+
+function createMiniGameRelativeEntryPaths() {
+  const defaultPaths = ["public/AstroCats3/index.html", "AstroCats3/index.html"];
+
+  if (isBundledFileProtocolRuntime()) {
+    return ["AstroCats3/index.html", "public/AstroCats3/index.html"];
+  }
+
+  return defaultPaths;
+}
+
+const miniGameRelativeEntryPaths = Object.freeze(createMiniGameRelativeEntryPaths());
 
 function adjustMiniGameEntryPoint(entry) {
   const normalisedEntry = normaliseMiniGameEntryPoint(entry);
@@ -336,7 +360,9 @@ function resolveMiniGameEntryPoint() {
     }
   }
 
-  return "./public/AstroCats3/index.html";
+  return isBundledFileProtocolRuntime()
+    ? "./AstroCats3/index.html"
+    : "./public/AstroCats3/index.html";
 }
 
 function createMiniGameEntryCandidates() {
