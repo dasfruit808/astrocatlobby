@@ -14,15 +14,35 @@ import {
   createPortalActivationEffect,
   createScreenShakeEffect
 } from "./game/render.js";
+import { formatWalletAddress, getPhantomInstallUrl } from "./wallet/phantom.js";
 import {
-  getPhantomProvider,
-  isPhantomInstalled,
-  connectPhantomWallet,
-  disconnectPhantomWallet,
-  attachAccountChangeListener,
-  formatWalletAddress,
-  getPhantomInstallUrl
-} from "./wallet/phantom.js";
+  callSignLength,
+  clearStoredAccount as serviceClearStoredAccount,
+  createWalletDisplayName as serviceCreateWalletDisplayName,
+  ensureAccountForWalletAddress as serviceEnsureAccountForWalletAddress,
+  findStoredAccountByWalletAddress as serviceFindStoredAccountByWalletAddress,
+  generateCallSignCandidate,
+  getStoredAccountsSnapshot as serviceGetStoredAccountsSnapshot,
+  isValidCallSign,
+  loadStoredAccounts as serviceLoadStoredAccounts,
+  lobbyLayoutStorageKey,
+  maxAccountLevel,
+  normalizeAccountExp,
+  normalizeAccountLevel,
+  normalizeWalletAddress as serviceNormalizeWalletAddress,
+  persistStoredAccounts as servicePersistStoredAccounts,
+  rememberAccount as serviceRememberAccount,
+  sanitizeAccount as serviceSanitizeAccount,
+  sanitizeLobbyLayoutSnapshot,
+  saveAccount as serviceSaveAccount,
+  updateActiveAccountLobbyLayout as serviceUpdateActiveAccountLobbyLayout
+} from "./services/accounts.js";
+import {
+  attachWalletAccountListener as serviceAttachWalletAccountListener,
+  getWalletAvailability,
+  requestWalletDisconnect as serviceRequestWalletDisconnect,
+  requestWalletLogin as serviceRequestWalletLogin
+} from "./services/wallet.js";
 import { installRuntimeShims } from "./runtime/shims.js";
 
 import {
@@ -1738,12 +1758,7 @@ for (const character of starterCharacters) {
 const defaultStarterCharacter =
   starterCharactersById.get(defaultStarterDefinition.id) ?? starterCharacters[0];
 
-const legacyAccountStorageKey = "astrocat-account";
-const accountStorageKey = "astrocat-accounts";
-const callSignRegistryKey = "astrocat-call-signs";
 const messageBoardStorageKey = "astrocat-message-boards";
-const lobbyLayoutStorageKey = "astrocat-lobby-layout-v1";
-const callSignLength = 5;
 
 function isValidStarterId(value) {
   return typeof value === "string" && starterCharactersById.has(value);
@@ -1757,10 +1772,7 @@ let activeAccountCallSign = null;
 let layoutEditor = null;
 let ui = null;
 
-let walletProviderInstance = null;
-let walletAccountChangeUnsubscribe = null;
 let activeWalletAddress = null;
-let suppressWalletAccountChange = false;
 
 const MOVEMENT_HINT_STORAGE_KEY = "astrocatlobby.movementHintAcknowledged";
 const MOVEMENT_HINT_IDLE_THRESHOLD = 5200;
@@ -1951,77 +1963,6 @@ function sanitizeLobbyLayoutSnapshot(snapshot) {
   return Object.keys(sanitized).length > 0 ? sanitized : null;
 }
 
-function loadCallSignRegistry() {
-  const storage = getLocalStorage();
-  if (!storage) {
-    return new Set();
-  }
-
-  try {
-    const raw = storage.getItem(callSignRegistryKey);
-    if (!raw) {
-      return new Set();
-    }
-
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return new Set();
-    }
-
-    return new Set(parsed.filter(isValidCallSign));
-  } catch (error) {
-    console.warn("Failed to read call sign registry", error);
-    return new Set();
-  }
-}
-
-function saveCallSignRegistry(registry) {
-  const storage = getLocalStorage();
-  if (!storage) {
-    return false;
-  }
-
-  try {
-    storage.setItem(callSignRegistryKey, JSON.stringify([...registry]));
-    return true;
-  } catch (error) {
-    console.warn("Failed to persist call sign registry", error);
-    return false;
-  }
-}
-
-function generateCallSignCandidate(preferred) {
-  const registry = loadCallSignRegistry();
-  if (isValidCallSign(preferred)) {
-    return preferred;
-  }
-
-  const maxAttempts = 1000;
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const candidate = String(Math.floor(Math.random() * 90000) + 10000);
-    if (!registry.has(candidate)) {
-      return candidate;
-    }
-  }
-
-  // Fall back to a random call sign even if a collision might occur.
-  return String(Math.floor(Math.random() * 90000) + 10000);
-}
-
-function registerCallSign(callSign) {
-  if (!isValidCallSign(callSign)) {
-    return;
-  }
-
-  const registry = loadCallSignRegistry();
-  if (registry.has(callSign)) {
-    return;
-  }
-
-  registry.add(callSign);
-  saveCallSignRegistry(registry);
-}
-
 function sanitizeMessageContent(content) {
   if (typeof content !== "string") {
     return "";
@@ -2207,299 +2148,22 @@ function appendMessageToBoard(callSign, message) {
   return sanitizedEntry;
 }
 
-const defaultAccountLevel = 1;
-const maxAccountLevel = 999;
-const defaultAccountExp = 0;
-const maxAccountExp = Number.MAX_SAFE_INTEGER;
-
-function normalizeAccountLevel(value) {
-  if (!Number.isFinite(value)) {
-    return defaultAccountLevel;
-  }
-
-  const floored = Math.floor(value);
-  if (!Number.isFinite(floored)) {
-    return defaultAccountLevel;
-  }
-
-  return Math.max(defaultAccountLevel, Math.min(maxAccountLevel, floored));
-}
-
-function normalizeAccountExp(value) {
-  if (!Number.isFinite(value)) {
-    return defaultAccountExp;
-  }
-
-  const floored = Math.floor(value);
-  if (!Number.isFinite(floored)) {
-    return defaultAccountExp;
-  }
-
-  return Math.max(defaultAccountExp, Math.min(maxAccountExp, floored));
-}
-
-function pickFiniteNumber(...candidates) {
-  for (const candidate of candidates) {
-    if (Number.isFinite(candidate)) {
-      return candidate;
-    }
-  }
-
-  return null;
-}
 
 function sanitizeAccount(source = {}) {
-  if (!source || typeof source !== "object") {
-    return null;
-  }
-
-  const rawName = typeof source.catName === "string" ? source.catName.trim() : "";
-  const name = rawName.replace(/\s+/g, " ").slice(0, 28);
-  const requestedStarterId =
-    typeof source.starterId === "string" && source.starterId
-      ? source.starterId
-      : typeof source.starter === "string"
-        ? source.starter
-        : null;
-  const starterId = isValidStarterId(requestedStarterId)
-    ? requestedStarterId
-    : defaultStarterCharacter.id;
-
-  if (!name) {
-    return null;
-  }
-
-  let preferredCallSign = null;
-  if (isValidCallSign(source.callSign)) {
-    preferredCallSign = source.callSign;
-  } else if (typeof source.handle === "string") {
-    const digits = source.handle.replace(/^@+/, "");
-    if (isValidCallSign(digits)) {
-      preferredCallSign = digits;
-    }
-  }
-
-  const callSign = generateCallSignCandidate(preferredCallSign);
-  const handle = `@${callSign}`;
-
-  const lobbyLayoutSnapshot = sanitizeLobbyLayoutSnapshot(
-    source.lobbyLayout ?? source.layout ?? source.lobbyLayoutSnapshot
-  );
-
-  const rawLevel = pickFiniteNumber(
-    source.level,
-    source?.stats?.level,
-    source?.profile?.level
-  );
-  const rawExp = pickFiniteNumber(
-    source.exp,
-    source?.xp,
-    source?.experience,
-    source?.stats?.exp,
-    source?.stats?.experience
-  );
-
-  const account = {
-    handle,
-    callSign,
-    catName: name,
-    starterId,
-    level: rawLevel === null ? defaultAccountLevel : normalizeAccountLevel(rawLevel),
-    exp: rawExp === null ? defaultAccountExp : normalizeAccountExp(rawExp)
-  };
-
-  const walletAddressSource =
-    typeof source.walletAddress === "string"
-      ? source.walletAddress
-      : typeof source.wallet?.address === "string"
-        ? source.wallet.address
-        : "";
-  const normalizedWalletAddress = walletAddressSource.trim();
-  if (normalizedWalletAddress) {
-    account.walletAddress = normalizedWalletAddress.slice(0, 128);
-    const walletTypeSource =
-      typeof source.walletType === "string"
-        ? source.walletType
-        : typeof source.wallet?.type === "string"
-          ? source.wallet.type
-          : "";
-    const normalizedType = walletTypeSource.trim().slice(0, 24).toLowerCase();
-    if (normalizedType) {
-      account.walletType = normalizedType;
-    } else {
-      account.walletType = "solana";
-    }
-  }
-
-  if (lobbyLayoutSnapshot) {
-    account.lobbyLayout = lobbyLayoutSnapshot;
-  }
-
-  const attributeSource =
-    typeof source.attributes === "object"
-      ? source.attributes
-      : typeof source.attributeOverrides === "object"
-        ? source.attributeOverrides
-        : null;
-  if (attributeSource) {
-    const sanitizedAttributes = sanitizeAttributeValues(attributeSource);
-    if (hasCustomAttributes(sanitizedAttributes)) {
-      account.attributes = sanitizedAttributes;
-    }
-  }
-
-  if (Number.isFinite(source.statPoints)) {
-    account.statPoints = Math.max(0, Math.floor(source.statPoints));
-  }
-
-  return account;
-}
-
-function extractStoredCallSign(source) {
-  if (!source || typeof source !== "object") {
-    return null;
-  }
-
-  if (isValidCallSign(source.callSign)) {
-    return source.callSign;
-  }
-
-  if (typeof source.handle === "string") {
-    const digits = source.handle.replace(/^@+/, "");
-    if (isValidCallSign(digits)) {
-      return digits;
-    }
-  }
-
-  return null;
-}
-
-function normalizeStoredAccountPayload(payload) {
-  const accounts = {};
-  const originalToSanitized = new Map();
-  let fallbackActive = null;
-
-  const candidates = [];
-  if (Array.isArray(payload)) {
-    candidates.push(...payload);
-  } else if (payload && typeof payload === "object") {
-    if (Array.isArray(payload.accounts)) {
-      candidates.push(...payload.accounts);
-    } else if (payload.accounts && typeof payload.accounts === "object") {
-      candidates.push(...Object.values(payload.accounts));
-    } else {
-      candidates.push(payload);
-    }
-  } else if (payload) {
-    candidates.push(payload);
-  }
-
-  for (const candidate of candidates) {
-    const sanitized = sanitizeAccount(candidate);
-    if (!sanitized) {
-      continue;
-    }
-    const original = extractStoredCallSign(candidate);
-    if (original && original !== sanitized.callSign) {
-      originalToSanitized.set(original, sanitized.callSign);
-    }
-    accounts[sanitized.callSign] = sanitized;
-    if (!fallbackActive) {
-      fallbackActive = sanitized.callSign;
-    }
-  }
-
-  let activeCallSign = null;
-  const hasExplicitNullActive =
-    payload &&
-    typeof payload === "object" &&
-    Object.prototype.hasOwnProperty.call(payload, "activeCallSign") &&
-    payload.activeCallSign === null;
-  const requestedActive =
-    payload && typeof payload === "object" && typeof payload.activeCallSign === "string"
-      ? payload.activeCallSign
-      : null;
-  if (requestedActive) {
-    const mapped = originalToSanitized.get(requestedActive) ?? requestedActive;
-    if (mapped && accounts[mapped]) {
-      activeCallSign = mapped;
-    }
-  }
-
-  if (!activeCallSign && !hasExplicitNullActive && fallbackActive && accounts[fallbackActive]) {
-    activeCallSign = fallbackActive;
-  }
-
-  return { accounts, activeCallSign };
-}
-
-function buildAccountPayload(accounts, activeCallSign) {
-  const sortedAccounts = {};
-  const keys = Object.keys(accounts).sort((a, b) => a.localeCompare(b));
-  for (const key of keys) {
-    const entry = accounts[key];
-    if (!entry) {
-      continue;
-    }
-    sortedAccounts[key] = {
-      handle: entry.handle,
-      callSign: entry.callSign,
-      catName: entry.catName,
-      starterId: entry.starterId,
-      level: normalizeAccountLevel(entry.level),
-      exp: normalizeAccountExp(entry.exp)
-    };
-
-    const layoutSnapshot = sanitizeLobbyLayoutSnapshot(entry.lobbyLayout);
-    if (layoutSnapshot) {
-      sortedAccounts[key].lobbyLayout = layoutSnapshot;
-    }
-    if (hasCustomAttributes(entry.attributes)) {
-      sortedAccounts[key].attributes = sanitizeAttributeValues(entry.attributes);
-    }
-    if (Number.isFinite(entry.statPoints)) {
-      sortedAccounts[key].statPoints = Math.max(0, Math.floor(entry.statPoints));
-    }
-
-    if (typeof entry.walletAddress === "string" && entry.walletAddress) {
-      sortedAccounts[key].walletAddress = entry.walletAddress;
-      if (typeof entry.walletType === "string" && entry.walletType) {
-        sortedAccounts[key].walletType = entry.walletType;
-      }
-    }
-  }
-
-  return {
-    version: 1,
-    activeCallSign: activeCallSign ?? null,
-    accounts: sortedAccounts
-  };
+  return serviceSanitizeAccount(source, {}, {
+    defaultStarterCharacter,
+    isValidStarterId,
+    sanitizeAttributeValues,
+    hasCustomAttributes,
+    getLocalStorage
+  });
 }
 
 function persistStoredAccounts() {
-  const storage = getLocalStorage();
-  if (!storage) {
-    return false;
-  }
-
-  try {
-    const accountKeys = Object.keys(storedAccounts);
-    if (accountKeys.length === 0) {
-      storage.removeItem(accountStorageKey);
-    } else {
-      const payload = buildAccountPayload(storedAccounts, activeAccountCallSign);
-      storage.setItem(accountStorageKey, JSON.stringify(payload));
-    }
-    try {
-      storage.removeItem(legacyAccountStorageKey);
-    } catch (error) {
-      console.warn("Failed to clear legacy account storage", error);
-    }
-    return true;
-  } catch (error) {
-    console.warn("Failed to persist account details", error);
-    return false;
-  }
+  return servicePersistStoredAccounts(
+    { storedAccounts, activeAccountCallSign },
+    { getLocalStorage }
+  );
 }
 
 function syncActiveAccountProgress() {
@@ -2547,35 +2211,20 @@ function syncActiveAccountProgress() {
 }
 
 function updateActiveAccountLobbyLayout(snapshot) {
-  const callSign = activeAccountCallSign;
-  if (!callSign || !storedAccounts[callSign]) {
+  const result = serviceUpdateActiveAccountLobbyLayout(snapshot, {
+    storedAccounts,
+    activeAccountCallSign
+  });
+
+  if (!result.changed) {
     return false;
   }
 
-  const sanitized = sanitizeLobbyLayoutSnapshot(snapshot);
-  const existingLayout = storedAccounts[callSign]?.lobbyLayout ?? null;
-  const existingSerialized = existingLayout ? JSON.stringify(existingLayout) : null;
-  const nextSerialized = sanitized ? JSON.stringify(sanitized) : null;
+  storedAccounts = result.storedAccounts;
 
-  if (existingSerialized === nextSerialized) {
-    return false;
-  }
-
-  const currentAccount = storedAccounts[callSign];
-  if (!currentAccount) {
-    return false;
-  }
-
-  if (sanitized) {
-    storedAccounts[callSign] = { ...currentAccount, lobbyLayout: sanitized };
-  } else {
-    const { lobbyLayout: _omit, ...rest } = currentAccount;
-    storedAccounts[callSign] = { ...rest };
-  }
-
-  if (activeAccount && activeAccount.callSign === callSign) {
-    if (sanitized) {
-      activeAccount = { ...activeAccount, lobbyLayout: sanitized };
+  if (activeAccount && activeAccount.callSign === activeAccountCallSign) {
+    if (result.layout) {
+      activeAccount = { ...activeAccount, lobbyLayout: result.layout };
     } else {
       const { lobbyLayout: _remove, ...restActive } = activeAccount;
       activeAccount = { ...restActive };
@@ -2588,265 +2237,116 @@ function updateActiveAccountLobbyLayout(snapshot) {
 }
 
 function rememberAccount(account, options = {}) {
-  const explicitLevel = pickFiniteNumber(
-    account?.level,
-    account?.stats?.level,
-    account?.profile?.level
-  );
-  const explicitExp = pickFiniteNumber(
-    account?.exp,
-    account?.xp,
-    account?.experience,
-    account?.stats?.exp,
-    account?.stats?.experience
+  const result = serviceRememberAccount(
+    account,
+    { storedAccounts, activeAccountCallSign },
+    {
+      defaultStarterCharacter,
+      isValidStarterId,
+      sanitizeAttributeValues,
+      hasCustomAttributes,
+      getLocalStorage,
+      setActive: options.setActive
+    }
   );
 
-  const sanitized = sanitizeAccount(account);
-  if (!sanitized) {
+  if (!result) {
     return null;
   }
 
-  const originalCallSign = extractStoredCallSign(account);
-  if (originalCallSign && originalCallSign !== sanitized.callSign) {
-    delete storedAccounts[originalCallSign];
-  }
-
-  const existing = storedAccounts[sanitized.callSign];
-  if (existing) {
-    if (!Number.isFinite(explicitLevel) && Number.isFinite(existing.level)) {
-      sanitized.level = normalizeAccountLevel(existing.level);
-    }
-
-    if (!Number.isFinite(explicitExp) && Number.isFinite(existing.exp)) {
-      sanitized.exp = normalizeAccountExp(existing.exp);
-    }
-
-    if (!sanitized.walletAddress && typeof existing.walletAddress === "string") {
-      sanitized.walletAddress = existing.walletAddress;
-      if (typeof existing.walletType === "string" && existing.walletType) {
-        sanitized.walletType = existing.walletType;
-      }
-    }
-  }
-
-  if (sanitized.walletAddress && !sanitized.walletType) {
-    sanitized.walletType = "solana";
-  }
-
-  storedAccounts[sanitized.callSign] = sanitized;
-
-  if (options.setActive !== false) {
-    activeAccountCallSign = sanitized.callSign;
-  }
-
-  registerCallSign(sanitized.callSign);
-  return sanitized;
+  storedAccounts = result.storedAccounts;
+  activeAccountCallSign = result.activeAccountCallSign;
+  return result.account;
 }
 
 function normalizeWalletAddress(address) {
-  if (typeof address !== "string") {
-    return "";
-  }
-  const trimmed = address.trim();
-  return trimmed ? trimmed.slice(0, 128) : "";
+  return serviceNormalizeWalletAddress(address);
 }
 
 function findStoredAccountByWalletAddress(address) {
-  const normalized = normalizeWalletAddress(address);
-  if (!normalized) {
-    return null;
-  }
-
-  for (const account of Object.values(storedAccounts)) {
-    if (!account || typeof account !== "object") {
-      continue;
-    }
-    const candidate = normalizeWalletAddress(account.walletAddress);
-    if (candidate && candidate === normalized) {
-      return account;
-    }
-  }
-
-  return null;
+  return serviceFindStoredAccountByWalletAddress(address, {
+    storedAccounts
+  });
 }
 
 function createWalletDisplayName(address) {
-  const normalized = normalizeWalletAddress(address);
-  if (!normalized) {
-    return "Starbound Pilot";
-  }
-  const previewLength = 4;
-  const start = normalized.slice(0, previewLength);
-  const end = normalized.slice(-previewLength);
-  return `Pilot ${start}-${end}`;
+  return serviceCreateWalletDisplayName(address);
 }
 
 function ensureAccountForWalletAddress(address) {
-  const normalized = normalizeWalletAddress(address);
-  if (!normalized) {
+  const result = serviceEnsureAccountForWalletAddress(
+    address,
+    { storedAccounts, activeAccountCallSign },
+    {
+      defaultStarterCharacter,
+      getStatPointsForLevel,
+      getLocalStorage
+    }
+  );
+
+  if (!result) {
     return null;
   }
 
-  const existing = findStoredAccountByWalletAddress(normalized);
-  if (existing) {
-    const hydrated = {
-      ...existing,
-      walletAddress: normalized,
-      walletType: existing.walletType || "solana"
-    };
-    storedAccounts[hydrated.callSign] = hydrated;
-    return hydrated;
+  if (result.storedAccounts) {
+    storedAccounts = result.storedAccounts;
   }
-
-  const generatedCallSign = generateCallSignCandidate();
-  const newAccount = rememberAccount(
-    {
-      catName: createWalletDisplayName(normalized),
-      callSign: generatedCallSign,
-      starterId: defaultStarterCharacter.id,
-      level: 1,
-      exp: 0,
-      statPoints: getStatPointsForLevel(1),
-      walletAddress: normalized,
-      walletType: "solana"
-    },
-    { setActive: false }
-  );
-
-  return newAccount;
+  if (Object.prototype.hasOwnProperty.call(result, "activeAccountCallSign")) {
+    activeAccountCallSign = result.activeAccountCallSign;
+  }
+  return result.account ?? null;
 }
 
 function getStoredAccountsSnapshot() {
-  return Object.values(storedAccounts)
-    .map((entry) => ({ ...entry }))
-    .sort((a, b) => {
-      const nameCompare = a.catName.localeCompare(b.catName, undefined, { sensitivity: "base" });
-      if (nameCompare !== 0) {
-        return nameCompare;
-      }
-      return a.callSign.localeCompare(b.callSign);
-    });
+  return serviceGetStoredAccountsSnapshot({ storedAccounts });
 }
 
 function loadStoredAccount() {
-  storedAccounts = {};
-  activeAccountCallSign = null;
+  const result = serviceLoadStoredAccounts({
+    getLocalStorage,
+    defaultStarterCharacter,
+    isValidStarterId,
+    sanitizeAttributeValues,
+    hasCustomAttributes
+  });
 
-  const storage = getLocalStorage();
-  if (!storage) {
-    return null;
-  }
-
-  let rawPayload = null;
-  let usedLegacyKey = false;
-
-  try {
-    rawPayload = storage.getItem(accountStorageKey);
-    if (!rawPayload) {
-      rawPayload = storage.getItem(legacyAccountStorageKey);
-      usedLegacyKey = Boolean(rawPayload);
-    }
-  } catch (error) {
-    console.warn("Failed to read stored account information", error);
-    rawPayload = null;
-  }
-
-  if (!rawPayload) {
-    if (usedLegacyKey) {
-      try {
-        storage.removeItem(legacyAccountStorageKey);
-      } catch (error) {
-        console.warn("Failed to remove legacy account record", error);
-      }
-    }
-    return null;
-  }
-
-  let parsedPayload = null;
-  try {
-    parsedPayload = JSON.parse(rawPayload);
-  } catch (error) {
-    console.warn("Failed to parse stored account information", error);
-    parsedPayload = null;
-  }
-
-  const normalized = normalizeStoredAccountPayload(parsedPayload);
-  storedAccounts = normalized.accounts;
-  activeAccountCallSign = normalized.activeCallSign;
-
-  const accountKeys = Object.keys(storedAccounts);
-  if (accountKeys.length === 0) {
-    persistStoredAccounts();
-    return null;
-  }
-
-  let activeAccount =
-    activeAccountCallSign && storedAccounts[activeAccountCallSign]
-      ? storedAccounts[activeAccountCallSign]
-      : null;
-
-  if (!activeAccount && activeAccountCallSign) {
-    const fallbackKey = accountKeys[0];
-    activeAccount = storedAccounts[fallbackKey];
-    activeAccountCallSign = activeAccount?.callSign ?? null;
-  }
-
-  if (!activeAccount) {
-    persistStoredAccounts();
-    return null;
-  }
-
-  const payload = buildAccountPayload(storedAccounts, activeAccountCallSign);
-  const serialized = JSON.stringify(payload);
-
-  if (usedLegacyKey || serialized !== rawPayload) {
-    try {
-      storage.setItem(accountStorageKey, serialized);
-    } catch (error) {
-      console.warn("Failed to persist migrated account records", error);
-    }
-    if (usedLegacyKey) {
-      try {
-        storage.removeItem(legacyAccountStorageKey);
-      } catch (error) {
-        console.warn("Failed to remove legacy account record", error);
-      }
-    }
-  }
-
-  for (const entry of Object.values(storedAccounts)) {
-    registerCallSign(entry.callSign);
-  }
-
-  return activeAccount ?? null;
+  storedAccounts = result.storedAccounts;
+  activeAccountCallSign = result.activeAccountCallSign;
+  return result.activeAccount;
 }
 
 function saveAccount(account, options = {}) {
-  const remembered = rememberAccount(account, options);
-  if (!remembered) {
+  const result = serviceSaveAccount(
+    account,
+    { storedAccounts, activeAccountCallSign },
+    {
+      defaultStarterCharacter,
+      isValidStarterId,
+      sanitizeAttributeValues,
+      hasCustomAttributes,
+      getLocalStorage,
+      setActive: options.setActive
+    }
+  );
+
+  if (!result) {
     return false;
   }
-  return persistStoredAccounts();
+
+  storedAccounts = result.storedAccounts;
+  activeAccountCallSign = result.activeAccountCallSign;
+  return true;
 }
 
 function clearStoredAccount(callSign = null) {
-  storedAccounts = { ...storedAccounts };
+  const result = serviceClearStoredAccount(
+    callSign,
+    { storedAccounts, activeAccountCallSign },
+    { getLocalStorage }
+  );
 
-  if (callSign) {
-    if (!storedAccounts[callSign]) {
-      return;
-    }
-    delete storedAccounts[callSign];
-    if (activeAccountCallSign === callSign) {
-      activeAccountCallSign = Object.keys(storedAccounts)[0] ?? null;
-    }
-    persistStoredAccounts();
-    return;
-  }
-
-  storedAccounts = {};
-  activeAccountCallSign = null;
-  persistStoredAccounts();
+  storedAccounts = result.storedAccounts;
+  activeAccountCallSign = result.activeAccountCallSign;
 }
 
 const miniGameLoadoutStorageKey = "nyanEscape.customLoadouts";
@@ -3403,34 +2903,13 @@ function applyAttributeScaling(stats, options = {}) {
 
 let activeAccount = loadStoredAccount();
 
-function cleanupWalletAccountListener() {
-  if (walletAccountChangeUnsubscribe) {
-    try {
-      walletAccountChangeUnsubscribe();
-    } catch (error) {
-      console.warn("Failed to remove Phantom account listener", error);
-    }
-  }
-  walletAccountChangeUnsubscribe = null;
-}
-
-function attachWalletAccountListener(provider) {
-  cleanupWalletAccountListener();
-  if (!provider) {
-    return;
-  }
-  walletAccountChangeUnsubscribe = attachAccountChangeListener(
-    provider,
-    handlePhantomAccountChange
-  );
-}
-
 function syncWalletUi(overrides = {}) {
   if (!ui || typeof ui.setWalletState !== "function") {
     return;
   }
+  const availability = getWalletAvailability();
   const state = {
-    available: isPhantomInstalled(),
+    available: availability.available,
     connected: Boolean(activeWalletAddress),
     address: activeWalletAddress,
     callSign: activeAccount?.callSign ?? null,
@@ -3440,14 +2919,7 @@ function syncWalletUi(overrides = {}) {
 }
 
 function handlePhantomAccountChange(nextPublicKey) {
-  if (suppressWalletAccountChange) {
-    suppressWalletAccountChange = false;
-    return;
-  }
-
   if (!nextPublicKey) {
-    cleanupWalletAccountListener();
-    walletProviderInstance = null;
     activeWalletAddress = null;
     handleLogout();
     syncWalletUi({ connected: false, address: null });
@@ -3488,54 +2960,29 @@ function handlePhantomAccountChange(nextPublicKey) {
   }
 }
 
+serviceAttachWalletAccountListener(handlePhantomAccountChange);
+
 async function requestWalletLogin() {
-  const provider = getPhantomProvider();
-  if (!provider) {
-    syncWalletUi({ available: false, connected: false });
-    showMessage(
-      {
-        text: "Install the Phantom wallet extension to link your mission data.",
-        author: "Mission Command",
-        channel: "mission"
-      },
-      6000
-    );
-    return;
-  }
+  const result = await serviceRequestWalletLogin();
+  if (!result?.ok) {
+    if (!result?.available) {
+      syncWalletUi({ available: false, connected: false });
+      showMessage(
+        {
+          text: "Install the Phantom wallet extension to link your mission data.",
+          author: "Mission Command",
+          channel: "mission"
+        },
+        6000
+      );
+      return;
+    }
 
-  try {
-    const { publicKey } = await connectPhantomWallet();
-    const address = normalizeWalletAddress(publicKey);
-    if (!address) {
-      throw new Error("Invalid wallet address returned by Phantom");
-    }
-    walletProviderInstance = provider;
-    const existingAccount = findStoredAccountByWalletAddress(address);
-    activeWalletAddress = address;
-    attachWalletAccountListener(provider);
-    const account = ensureAccountForWalletAddress(address);
-    if (!account) {
-      throw new Error("Unable to create an account for the connected wallet");
-    }
-    activateStoredAccount(account.callSign, {
-      message: {
-        text: `Wallet linked. Call sign @${account.callSign} is ready for transmissions.`,
-        author: "Mission Command",
-        channel: "mission"
-      }
-    });
-    syncWalletUi({ connected: true, address });
-
-    if (!existingAccount) {
-      const savedAccounts = getStoredAccountsSnapshot();
-      openOnboarding(account, savedAccounts);
-    }
-  } catch (error) {
     const message =
-      error?.code === 4001
+      result?.error?.code === 4001
         ? "Connection request was dismissed. Confirm in Phantom to continue."
         : "Phantom wallet connection failed. Try again.";
-    console.warn("Failed to connect Phantom wallet", error);
+    console.warn("Failed to connect Phantom wallet", result?.error);
     showMessage(
       {
         text: message,
@@ -3545,25 +2992,52 @@ async function requestWalletLogin() {
       6400
     );
     syncWalletUi({ connected: Boolean(activeWalletAddress) });
+    return;
+  }
+
+  const rawPublicKey =
+    typeof result.publicKey === "string"
+      ? result.publicKey
+      : result.publicKey?.toString?.();
+  const address = normalizeWalletAddress(rawPublicKey);
+  if (!address) {
+    console.warn("Invalid wallet address returned by Phantom");
+    syncWalletUi({ connected: Boolean(activeWalletAddress) });
+    return;
+  }
+
+  serviceAttachWalletAccountListener(handlePhantomAccountChange);
+  const existingAccount = findStoredAccountByWalletAddress(address);
+  activeWalletAddress = address;
+  const account = ensureAccountForWalletAddress(address);
+  if (!account) {
+    console.warn("Unable to create an account for the connected wallet");
+    return;
+  }
+
+  activateStoredAccount(account.callSign, {
+    message: {
+      text: `Wallet linked. Call sign @${account.callSign} is ready for transmissions.`,
+      author: "Mission Command",
+      channel: "mission"
+    }
+  });
+  syncWalletUi({ connected: true, address });
+
+  if (!existingAccount) {
+    const savedAccounts = getStoredAccountsSnapshot();
+    openOnboarding(account, savedAccounts);
   }
 }
 
 async function requestWalletDisconnect() {
-  const provider = walletProviderInstance ?? getPhantomProvider();
-  suppressWalletAccountChange = true;
-  try {
-    if (provider) {
-      await disconnectPhantomWallet(provider);
-    }
-  } catch (error) {
-    console.warn("Failed to disconnect Phantom wallet", error);
+  const result = await serviceRequestWalletDisconnect();
+  if (result?.error) {
+    console.warn("Failed to disconnect Phantom wallet", result.error);
   }
-  cleanupWalletAccountListener();
-  walletProviderInstance = null;
   activeWalletAddress = null;
   handleLogout();
   syncWalletUi({ connected: false, address: null });
-  suppressWalletAccountChange = false;
 }
 
 const fallbackAccount = {
