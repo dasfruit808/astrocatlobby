@@ -330,7 +330,6 @@ function createMiniGameEntryCandidates() {
   const resolvedEntry = resolveMiniGameEntryPoint();
   addCandidate(resolvedEntry);
   addCandidate(resolvePublicAssetUrl("AstroCats3/index.html"));
-  addCandidate("/AstroCats3/index.html");
   addCandidate("./AstroCats3/index.html");
 
   return candidates;
