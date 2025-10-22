@@ -33,7 +33,7 @@ import {
   persistStoredAccounts as servicePersistStoredAccounts,
   rememberAccount as serviceRememberAccount,
   sanitizeAccount as serviceSanitizeAccount,
-  sanitizeLobbyLayoutSnapshot,
+  sanitizeLobbyLayoutSnapshot as serviceSanitizeLobbyLayoutSnapshot,
   saveAccount as serviceSaveAccount,
   updateActiveAccountLobbyLayout as serviceUpdateActiveAccountLobbyLayout
 } from "./services/accounts.js";
@@ -109,12 +109,18 @@ function attemptImportMetaGlob(pattern, options, assetType) {
       return null;
     }
 
-    if (typeof import.meta.glob !== "function") {
+    const globFunction = import.meta.glob;
+
+    if (globFunction == null) {
+      return null;
+    }
+
+    if (typeof globFunction !== "function") {
       warnImportMetaGlobUnavailable(assetType);
       return null;
     }
 
-    const eagerManifest = import.meta.glob(pattern, options);
+    const eagerManifest = globFunction(pattern, options);
 
     if (eagerManifest && typeof eagerManifest === "object") {
       const manifestEntries = Object.entries(eagerManifest).filter(([, value]) => {
@@ -129,6 +135,20 @@ function attemptImportMetaGlob(pattern, options, assetType) {
   }
 
   return null;
+}
+
+function sanitizeLobbyLayoutSnapshot(snapshot) {
+  if (typeof serviceSanitizeLobbyLayoutSnapshot !== "function") {
+    console.warn("sanitizeLobbyLayoutSnapshot helper is unavailable");
+    return null;
+  }
+
+  try {
+    return serviceSanitizeLobbyLayoutSnapshot(snapshot);
+  } catch (error) {
+    console.warn("Failed to sanitize lobby layout snapshot", error);
+    return null;
+  }
 }
 
 // The mini game entry point that loads inside the arcade cabinet overlay.
