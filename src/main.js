@@ -7644,6 +7644,8 @@ function createInterface(stats, options = {}) {
 
   const walletGateDescription = document.createElement("p");
   walletGateDescription.className = "wallet-gate__description";
+  const walletGateMotto = "Connect your Phantom wallet to reveal the Astrocat toolbar.";
+  walletGateDescription.textContent = walletGateMotto;
 
   const walletGateAction = document.createElement("button");
   walletGateAction.type = "button";
@@ -9145,6 +9147,8 @@ function createInterface(stats, options = {}) {
     const connected = Boolean(walletUiState.connected);
     const wasConnected = interfaceRoot.dataset.walletConnected === "true";
     interfaceRoot.dataset.walletConnected = connected ? "true" : "false";
+    toolbar.hidden = !connected;
+    toolbar.setAttribute("aria-hidden", connected ? "false" : "true");
     toolbarContent.hidden = !connected;
     walletGateWrapper.hidden = connected;
 
@@ -9167,8 +9171,13 @@ function createInterface(stats, options = {}) {
             : "Awaiting wallet approval. Check the Phantom extension window.";
       } else if (status === "error") {
         walletGateDescription.textContent =
-          statusMessage || "We couldn't connect to Phantom. Try again.";
-        walletGateAction.textContent = available ? "Retry connection" : "Get Phantom Wallet";
+          statusMessage ||
+          (available
+            ? "We couldn't connect to Phantom. Try again."
+            : "We couldn't detect Phantom. Install it to continue.");
+        walletGateAction.textContent = available
+          ? "Reconnect Phantom Wallet"
+          : "Install Phantom Wallet";
         walletGateAction.disabled = false;
         walletGateAction.removeAttribute("aria-busy");
         walletGateHint.hidden = false;
@@ -9177,9 +9186,11 @@ function createInterface(stats, options = {}) {
           : "Install Phantom to continue.";
       } else {
         walletGateDescription.textContent = available
-          ? "Connect your Solana wallet to enter the Astrocat Lobby."
+          ? walletGateMotto
           : "Install the Phantom wallet extension to link your mission data.";
-        walletGateAction.textContent = available ? "Connect wallet" : "Get Phantom Wallet";
+        walletGateAction.textContent = available
+          ? "Connect Phantom Wallet"
+          : "Install Phantom Wallet";
         walletGateAction.disabled = false;
         walletGateAction.removeAttribute("aria-busy");
         walletGateHint.hidden = !statusMessage;
