@@ -68,6 +68,56 @@ import { createHudModal } from "./ui/components/hudModal.js";
 
 const runtimeGlobal = installRuntimeShims();
 
+function ensureDirectoryTrailingSlash() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const { location, history } = window;
+  if (!location || typeof location.pathname !== "string") {
+    return;
+  }
+
+  const { pathname } = location;
+  if (!pathname || pathname === "/" || pathname.endsWith("/")) {
+    return;
+  }
+
+  const lastSegment = pathname.split("/").pop();
+  if (lastSegment && lastSegment.includes(".")) {
+    return;
+  }
+
+  const normalisedPath = `${pathname}/`;
+  const search = typeof location.search === "string" ? location.search : "";
+  const hash = typeof location.hash === "string" ? location.hash : "";
+  const replacement = `${normalisedPath}${search}${hash}`;
+
+  try {
+    if (history && typeof history.replaceState === "function") {
+      const title =
+        typeof document !== "undefined" && typeof document.title === "string"
+          ? document.title
+          : "";
+      history.replaceState(history.state ?? null, title, replacement);
+      return;
+    }
+
+    if (typeof location.replace === "function") {
+      location.replace(replacement);
+      return;
+    }
+
+    location.href = replacement;
+  } catch (error) {
+    if (typeof console !== "undefined" && error) {
+      console.warn("Failed to normalise pathname with a trailing slash.", error);
+    }
+  }
+}
+
+ensureDirectoryTrailingSlash();
+
 const baseCanvasDimensions = Object.freeze({ width: 960, height: 540 });
 
 const importMetaGlobWarningKeys = new Set();
