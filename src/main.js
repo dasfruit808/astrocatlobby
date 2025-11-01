@@ -9109,10 +9109,28 @@ function createInterface(stats, options = {}) {
     const list = document.createElement("ul");
     list.className = "site-toolbar__list";
 
+    const iconSvgMap = {
+      x: `
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path d="M17.88 3h-3.4l-2.5 4-2.47-4H6.12l4.82 8L6 21h3.38l3.1-5.06L15.56 21H19l-4.9-8z" />
+        </svg>
+      `,
+      medium: `
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path d="M6.5 7.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zm5.25.75v6.5c1.77-.14 3.5-1.76 3.5-3.25s-1.73-3.11-3.5-3.25zm5.25-.75c-.9 0-1.75.55-2.25 1.37v6.76c.5.83 1.35 1.37 2.25 1.37 1.8 0 3.25-1.9 3.25-4.12S18.8 7.5 17 7.5z" />
+        </svg>
+      `,
+      about: `
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 4.2a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4zm1.6 9h-3.2v-1.4h0.9V11h-0.9V9.6h2.3v5h0.9z" />
+        </svg>
+      `
+    };
+
     const links = [
-      { label: "X.com", href: "https://x.com", external: true },
-      { label: "Medium", href: "https://medium.com", external: true },
-      { label: "About", href: "#about", external: false }
+      { label: "X.com", href: "https://x.com", external: true, icon: "x" },
+      { label: "Medium", href: "https://medium.com", external: true, icon: "medium" },
+      { label: "About", href: "#about", external: false, icon: "about" }
     ];
 
     for (const linkDefinition of links) {
@@ -9122,7 +9140,39 @@ function createInterface(stats, options = {}) {
       const link = document.createElement("a");
       link.className = "site-toolbar__link";
       link.href = linkDefinition.href;
-      link.textContent = linkDefinition.label;
+      if (typeof linkDefinition.icon === "string") {
+        link.dataset.icon = linkDefinition.icon;
+      }
+
+      const linkContent = document.createElement("span");
+      linkContent.className = "site-toolbar__link-content";
+
+      const iconWrapper = document.createElement("span");
+      iconWrapper.className = "site-toolbar__icon";
+      iconWrapper.setAttribute("aria-hidden", "true");
+
+      const iconSvg =
+        (typeof linkDefinition.icon === "string" && iconSvgMap[linkDefinition.icon]) || null;
+
+      if (iconSvg) {
+        iconWrapper.innerHTML = iconSvg.trim();
+      } else {
+        const initials = (linkDefinition.label ?? "")
+          .trim()
+          .split(/\s+/)
+          .map((part) => part[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase();
+        iconWrapper.textContent = initials || "•";
+      }
+
+      const label = document.createElement("span");
+      label.className = "site-toolbar__link-label";
+      label.textContent = linkDefinition.label;
+
+      linkContent.append(iconWrapper, label);
+      link.append(linkContent);
 
       if (linkDefinition.external) {
         link.target = "_blank";
