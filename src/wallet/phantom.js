@@ -81,6 +81,7 @@ function initialiseAvailabilityListeners() {
   };
 
   addGlobalListener(globalObject, "phantom#initialized");
+  addGlobalListener(globalObject, "fantom#initialized");
   addGlobalListener(globalObject, "load");
 
   const documentObject = globalObject?.document;
@@ -97,13 +98,24 @@ function initialiseAvailabilityListeners() {
 export function getPhantomProvider() {
   const globalObject = getGlobalObject();
   const solanaNamespace = globalObject?.solana;
-  if (solanaNamespace?.isPhantom) {
+  if (solanaNamespace?.isPhantom || solanaNamespace?.isFantom) {
     return solanaNamespace;
   }
 
   const phantomNamespace = globalObject?.phantom;
-  if (phantomNamespace?.solana?.isPhantom) {
+  if (
+    phantomNamespace?.solana?.isPhantom ||
+    phantomNamespace?.solana?.isFantom
+  ) {
     return phantomNamespace.solana;
+  }
+
+  const fantomNamespace = globalObject?.fantom;
+  if (
+    fantomNamespace?.solana?.isPhantom ||
+    fantomNamespace?.solana?.isFantom
+  ) {
+    return fantomNamespace.solana;
   }
 
   const providerCandidates = [];
@@ -112,7 +124,7 @@ export function getPhantomProvider() {
     const providers = Array.isArray(solanaNamespace.providers)
       ? solanaNamespace.providers
       : [];
-    providerCandidates.push(...providers);
+    providerCandidates.push(solanaNamespace, ...providers);
   }
 
   if (phantomNamespace) {
@@ -122,8 +134,15 @@ export function getPhantomProvider() {
     providerCandidates.push(...phantomProviders);
   }
 
+  if (fantomNamespace) {
+    const fantomProviders = Array.isArray(fantomNamespace.providers)
+      ? fantomNamespace.providers
+      : [];
+    providerCandidates.push(...fantomProviders);
+  }
+
   for (const provider of providerCandidates) {
-    if (provider?.isPhantom) {
+    if (provider?.isPhantom || provider?.isFantom) {
       return provider;
     }
   }
