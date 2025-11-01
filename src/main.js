@@ -3083,6 +3083,9 @@ function handlePhantomAccountChange(nextPublicKey) {
   if (!nextPublicKey) {
     activeWalletAddress = null;
     handleLogout();
+    if (ui && typeof ui.setWalletGateStatus === "function") {
+      ui.setWalletGateStatus("intro");
+    }
     syncWalletUi({ connected: false, address: null });
     return;
   }
@@ -3113,6 +3116,9 @@ function handlePhantomAccountChange(nextPublicKey) {
       channel: "mission"
     }
   });
+  if (ui && typeof ui.setWalletGateStatus === "function") {
+    ui.setWalletGateStatus("entering", "Preparing lobby systems...");
+  }
   syncWalletUi({ connected: true, address });
 
   if (!existingAccount) {
@@ -3124,9 +3130,18 @@ function handlePhantomAccountChange(nextPublicKey) {
 serviceAttachWalletAccountListener(handlePhantomAccountChange);
 
 async function requestWalletLogin() {
+  if (ui && typeof ui.setWalletGateStatus === "function") {
+    ui.setWalletGateStatus("connecting", "Confirm the connection in Phantom to continue.");
+  }
   const result = await serviceRequestWalletLogin();
   if (!result?.ok) {
     if (!result?.available) {
+      if (ui && typeof ui.setWalletGateStatus === "function") {
+        ui.setWalletGateStatus(
+          "intro",
+          "Install the Phantom wallet extension to link your mission data."
+        );
+      }
       syncWalletUi({ available: false, connected: false });
       showMessage(
         {
@@ -3144,6 +3159,9 @@ async function requestWalletLogin() {
         ? "Connection request was dismissed. Confirm in Phantom to continue."
         : "Phantom wallet connection failed. Try again.";
     console.warn("Failed to connect Phantom wallet", result?.error);
+    if (ui && typeof ui.setWalletGateStatus === "function") {
+      ui.setWalletGateStatus("error", message);
+    }
     showMessage(
       {
         text: message,
@@ -3183,6 +3201,9 @@ async function requestWalletLogin() {
       channel: "mission"
     }
   });
+  if (ui && typeof ui.setWalletGateStatus === "function") {
+    ui.setWalletGateStatus("entering", "Preparing lobby systems...");
+  }
   syncWalletUi({ connected: true, address });
 
   if (!existingAccount) {
@@ -3198,6 +3219,9 @@ async function requestWalletDisconnect() {
   }
   activeWalletAddress = null;
   handleLogout();
+  if (ui && typeof ui.setWalletGateStatus === "function") {
+    ui.setWalletGateStatus("intro");
+  }
   syncWalletUi({ connected: false, address: null });
 }
 
@@ -4108,6 +4132,10 @@ const updateCanvasScale = () => {
 
 const scheduleCanvasScale = createFrameScheduler(updateCanvasScale);
 scheduleCanvasScale();
+
+if (ui && typeof ui.onLobbyVisible === "function") {
+  ui.onLobbyVisible(() => scheduleCanvasScale());
+}
 
 if (typeof window !== "undefined") {
   window.addEventListener("resize", scheduleCanvasScale);
@@ -7521,7 +7549,9 @@ function createInterface(stats, options = {}) {
     available: false,
     connected: false,
     address: null,
-    callSign: isValidCallSign(stats?.callSign) ? stats.callSign : null
+    callSign: isValidCallSign(stats?.callSign) ? stats.callSign : null,
+    status: "intro",
+    statusMessage: ""
   };
 
   const openWalletInstallPage = () => {
@@ -7563,21 +7593,36 @@ function createInterface(stats, options = {}) {
   const walletGateAction = document.createElement("button");
   walletGateAction.type = "button";
   walletGateAction.className = "wallet-gate__action";
+
+  const walletGateHint = document.createElement("p");
+  walletGateHint.className = "wallet-gate__hint";
+  walletGateHint.hidden = true;
+
   walletGateAction.addEventListener("click", () => {
-    if (walletUiState.connected) {
+    if (walletUiState.connected || walletUiState.status === "connecting") {
       return;
     }
 
     if (walletUiState.available) {
+      updateWalletGateStatus(
+        "connecting",
+        walletUiState.status === "error"
+          ? "Re-establishing link. Confirm the request in Phantom to continue."
+          : "Confirm the connection in Phantom to continue."
+      );
       if (typeof onRequestWalletLogin === "function") {
         onRequestWalletLogin();
       }
     } else {
+      updateWalletGateStatus(
+        "intro",
+        "The Phantom download page will open in a new tab."
+      );
       openWalletInstallPage();
     }
   });
 
-  walletGate.append(walletGateTitle, walletGateDescription, walletGateAction);
+  walletGate.append(walletGateTitle, walletGateDescription, walletGateAction, walletGateHint);
   walletGateWrapper.append(walletGate);
 
   interfaceRoot.append(toolbar, walletGateWrapper, toolbarContent);
@@ -8919,11 +8964,13 @@ function createInterface(stats, options = {}) {
     },
     setWalletState(state = {}) {
       walletUiState = { ...walletUiState, ...state };
-      if (walletControls && typeof walletControls.setState === "function") {
-        walletControls.setState(walletUiState);
-      }
-      applyWalletGateState();
-      updateAccountActions(accountLoggedIn);
+      applyWalletUiState();
+    },
+    setWalletGateStatus(status, message) {
+      updateWalletGateStatus(status, message);
+    },
+    onLobbyVisible(callback) {
+      lobbyVisibleHandler = typeof callback === "function" ? callback : null;
     },
     setAccount(account, starter) {
       updateAccountCard(account, starter);
@@ -8945,6 +8992,26 @@ function createInterface(stats, options = {}) {
       chatBoard.addMessage(entry);
     }
   };
+
+  let lobbyVisibleHandler = null;
+
+  const applyWalletUiState = () => {
+    if (walletControls && typeof walletControls.setState === "function") {
+      walletControls.setState(walletUiState);
+    }
+    applyWalletGateState();
+    updateAccountActions(accountLoggedIn);
+  };
+
+  function updateWalletGateStatus(status, message = "") {
+    const normalizedStatus = typeof status === "string" ? status : walletUiState.status;
+    walletUiState = {
+      ...walletUiState,
+      status: normalizedStatus,
+      statusMessage: typeof message === "string" ? message : ""
+    };
+    applyWalletUiState();
+  }
 
   function createToolbar(walletSection) {
     const header = document.createElement("header");
@@ -9021,16 +9088,61 @@ function createInterface(stats, options = {}) {
 
   function applyWalletGateState() {
     const connected = Boolean(walletUiState.connected);
+    const wasConnected = interfaceRoot.dataset.walletConnected === "true";
     interfaceRoot.dataset.walletConnected = connected ? "true" : "false";
     toolbarContent.hidden = !connected;
     walletGateWrapper.hidden = connected;
 
     if (!connected) {
       const available = Boolean(walletUiState.available);
-      walletGateDescription.textContent = available
-        ? "Connect your Solana wallet to enter the Astrocat Lobby."
-        : "Install the Phantom wallet extension to link your mission data.";
-      walletGateAction.textContent = available ? "Connect wallet" : "Get Phantom Wallet";
+      const status = walletUiState.status ?? "intro";
+      const statusMessage = walletUiState.statusMessage ?? "";
+      walletGate.dataset.status = status;
+
+      if (status === "connecting" || status === "entering") {
+        walletGateDescription.textContent =
+          statusMessage || "Confirm the connection in Phantom to continue.";
+        walletGateAction.textContent = "Connecting…";
+        walletGateAction.disabled = true;
+        walletGateAction.setAttribute("aria-busy", "true");
+        walletGateHint.hidden = false;
+        walletGateHint.textContent =
+          status === "entering"
+            ? "Preparing lobby systems. Hang tight for a moment."
+            : "Awaiting wallet approval. Check the Phantom extension window.";
+      } else if (status === "error") {
+        walletGateDescription.textContent =
+          statusMessage || "We couldn't connect to Phantom. Try again.";
+        walletGateAction.textContent = available ? "Retry connection" : "Get Phantom Wallet";
+        walletGateAction.disabled = false;
+        walletGateAction.removeAttribute("aria-busy");
+        walletGateHint.hidden = false;
+        walletGateHint.textContent = available
+          ? "Make sure Phantom is unlocked, then approve the connection request."
+          : "Install Phantom to continue.";
+      } else {
+        walletGateDescription.textContent = available
+          ? "Connect your Solana wallet to enter the Astrocat Lobby."
+          : "Install the Phantom wallet extension to link your mission data.";
+        walletGateAction.textContent = available ? "Connect wallet" : "Get Phantom Wallet";
+        walletGateAction.disabled = false;
+        walletGateAction.removeAttribute("aria-busy");
+        walletGateHint.hidden = !statusMessage;
+        walletGateHint.textContent = statusMessage;
+      }
+    } else {
+      walletGate.dataset.status = "connected";
+      walletGateAction.disabled = true;
+      walletGateAction.removeAttribute("aria-busy");
+      walletGateHint.hidden = true;
+    }
+
+    if (connected && !wasConnected && typeof lobbyVisibleHandler === "function") {
+      try {
+        lobbyVisibleHandler();
+      } catch (error) {
+        console.warn("Failed to notify lobby visibility handler", error);
+      }
     }
   }
 
