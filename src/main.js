@@ -14,7 +14,11 @@ import {
   createPortalActivationEffect,
   createScreenShakeEffect
 } from "./game/render.js";
-import { formatWalletAddress, getPhantomInstallUrl } from "./wallet/phantom.js";
+import {
+  formatWalletAddress,
+  getPhantomInstallUrl,
+  subscribeToPhantomAvailability,
+} from "./wallet/phantom.js";
 import {
   callSignLength,
   clearStoredAccount as serviceClearStoredAccount,
@@ -2029,6 +2033,57 @@ let layoutEditor = null;
 let ui = null;
 
 let activeWalletAddress = null;
+let phantomWalletAvailable = null;
+
+subscribeToPhantomAvailability(({ available }) => {
+  if (phantomWalletAvailable === available) {
+    return;
+  }
+
+  const previousAvailability = phantomWalletAvailable;
+  phantomWalletAvailable = available;
+
+  if (!available) {
+    if (ui && typeof ui.setWalletGateStatus === "function") {
+      ui.setWalletGateStatus(
+        "intro",
+        "Install the Phantom wallet extension to link your mission data.",
+      );
+    }
+    syncWalletUi({ available: false, connected: false, address: null });
+    if (ui && previousAvailability === true) {
+      showMessage(
+        {
+          text: "Phantom wallet unavailable. Ensure the extension is installed and unlocked.",
+          author: "Mission Command",
+          channel: "mission",
+        },
+        6000,
+      );
+    }
+    return;
+  }
+
+  syncWalletUi({ available: true });
+
+  if (ui && typeof ui.setWalletGateStatus === "function" && !activeWalletAddress) {
+    ui.setWalletGateStatus(
+      "intro",
+      "Connect your Solana wallet to enter the Astrocat Lobby.",
+    );
+  }
+
+  if (ui && !activeWalletAddress && previousAvailability !== true) {
+    showMessage(
+      {
+        text: "Phantom wallet detected. Connect your wallet to link your mission data.",
+        author: "Mission Command",
+        channel: "mission",
+      },
+      5200,
+    );
+  }
+});
 
 const MOVEMENT_HINT_STORAGE_KEY = "astrocatlobby.movementHintAcknowledged";
 const MOVEMENT_HINT_IDLE_THRESHOLD = 5200;

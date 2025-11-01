@@ -16,6 +16,84 @@ function getGlobalObject() {
   return {};
 }
 
+const availabilitySubscribers = new Set();
+let availabilityListenersInitialised = false;
+let lastKnownAvailability = null;
+
+function notifyAvailabilityChange(provider) {
+  if (availabilitySubscribers.size === 0) {
+    return;
+  }
+
+  const payload = {
+    available: Boolean(provider),
+    provider,
+  };
+
+  for (const subscriber of availabilitySubscribers) {
+    try {
+      subscriber(payload);
+    } catch (error) {
+      if (typeof console !== "undefined" && console.warn) {
+        console.warn("Phantom availability subscriber failed", error);
+      }
+    }
+  }
+}
+
+function evaluateAvailability() {
+  const provider = getPhantomProvider();
+  const isAvailable = Boolean(provider);
+
+  if (isAvailable !== lastKnownAvailability) {
+    lastKnownAvailability = isAvailable;
+    notifyAvailabilityChange(provider);
+  }
+
+  return provider;
+}
+
+function scheduleAvailabilityEvaluation(delay) {
+  if (typeof setTimeout !== "function") {
+    return;
+  }
+  setTimeout(() => {
+    evaluateAvailability();
+  }, delay);
+}
+
+function initialiseAvailabilityListeners() {
+  if (availabilityListenersInitialised) {
+    return;
+  }
+  availabilityListenersInitialised = true;
+
+  const globalObject = getGlobalObject();
+  const handleEvent = () => {
+    evaluateAvailability();
+  };
+
+  const addGlobalListener = (target, eventName) => {
+    if (!target || typeof target.addEventListener !== "function") {
+      return;
+    }
+    target.addEventListener(eventName, handleEvent, { passive: true });
+  };
+
+  addGlobalListener(globalObject, "phantom#initialized");
+  addGlobalListener(globalObject, "load");
+
+  const documentObject = globalObject?.document;
+  addGlobalListener(documentObject, "DOMContentLoaded");
+  addGlobalListener(documentObject, "visibilitychange");
+
+  // Attempt a few quick checks in case Phantom injects without emitting events.
+  evaluateAvailability();
+  scheduleAvailabilityEvaluation(50);
+  scheduleAvailabilityEvaluation(250);
+  scheduleAvailabilityEvaluation(1000);
+}
+
 export function getPhantomProvider() {
   const globalObject = getGlobalObject();
   const solanaNamespace = globalObject?.solana;
@@ -112,4 +190,43 @@ export function formatWalletAddress(address, { segmentLength = 4 } = {}) {
 
 export function getPhantomInstallUrl() {
   return PHANTOM_INSTALL_URL;
+}
+
+export function subscribeToPhantomAvailability(listener, options = {}) {
+  if (typeof listener !== "function") {
+    return () => {};
+  }
+
+  initialiseAvailabilityListeners();
+
+  const emitCurrentState = options.emitCurrent !== false;
+
+  const wrappedListener = ({ available, provider }) => {
+    listener({ available, provider });
+  };
+
+  const provider = getPhantomProvider();
+  const available = Boolean(provider);
+
+  if (lastKnownAvailability === null) {
+    lastKnownAvailability = available;
+  }
+
+  if (emitCurrentState) {
+    try {
+      listener({ available, provider });
+    } catch (error) {
+      if (typeof console !== "undefined" && console.warn) {
+        console.warn("Phantom availability listener failed", error);
+      }
+    }
+  }
+
+  availabilitySubscribers.add(wrappedListener);
+
+  evaluateAvailability();
+
+  return () => {
+    availabilitySubscribers.delete(wrappedListener);
+  };
 }
