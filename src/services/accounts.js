@@ -184,8 +184,10 @@ function generateCallSignCandidate(preferred, { getLocalStorage } = {}) {
     ? loadCallSignRegistry(getLocalStorage)
     : new Set();
 
-  if (isValidCallSign(preferred)) {
-    return preferred;
+  const normalizedPreferred = `${preferred ?? ""}`.trim();
+
+  if (isValidCallSign(normalizedPreferred)) {
+    return normalizedPreferred;
   }
 
   const maxAttempts = 1000;
