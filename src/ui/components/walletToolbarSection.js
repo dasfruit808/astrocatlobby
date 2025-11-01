@@ -16,7 +16,7 @@ export function createWalletToolbarSection({
         <span class="wallet-status__call-sign" data-role="call-sign" hidden></span>
         <span class="wallet-status__address" data-role="address">Install Phantom to connect.</span>
       </div>
-      <button type="button" class="wallet-status__action" data-role="action">Get Phantom</button>
+      <button type="button" class="wallet-status__action" data-role="action">Connect Phantom Wallet</button>
     </div>
   `.trim();
 
@@ -64,15 +64,15 @@ export function createWalletToolbarSection({
 
     if (!state.available) {
       addressText.textContent = "Install Phantom to connect.";
-      actionButton.textContent = "Get Phantom";
+      actionButton.textContent = "Install Phantom Wallet";
       actionButton.disabled = false;
       actionButton.onclick = openInstallPage;
       return;
     }
 
     if (!state.connected) {
-      addressText.textContent = "Ready to connect";
-      actionButton.textContent = "Connect Wallet";
+      addressText.textContent = "Connect your Phantom wallet to reveal the toolbar.";
+      actionButton.textContent = "Connect Phantom Wallet";
       actionButton.disabled = typeof onConnect !== "function";
       actionButton.onclick = () => {
         if (typeof onConnect === "function") {
