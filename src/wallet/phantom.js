@@ -18,19 +18,38 @@ function getGlobalObject() {
 
 export function getPhantomProvider() {
   const globalObject = getGlobalObject();
-  const candidate = globalObject?.solana;
-  if (!candidate) {
-    return null;
+  const solanaNamespace = globalObject?.solana;
+  if (solanaNamespace?.isPhantom) {
+    return solanaNamespace;
   }
-  if (candidate.isPhantom) {
-    return candidate;
+
+  const phantomNamespace = globalObject?.phantom;
+  if (phantomNamespace?.solana?.isPhantom) {
+    return phantomNamespace.solana;
   }
-  const providers = Array.isArray(candidate.providers) ? candidate.providers : [];
-  for (const provider of providers) {
+
+  const providerCandidates = [];
+
+  if (solanaNamespace) {
+    const providers = Array.isArray(solanaNamespace.providers)
+      ? solanaNamespace.providers
+      : [];
+    providerCandidates.push(...providers);
+  }
+
+  if (phantomNamespace) {
+    const phantomProviders = Array.isArray(phantomNamespace.providers)
+      ? phantomNamespace.providers
+      : [];
+    providerCandidates.push(...phantomProviders);
+  }
+
+  for (const provider of providerCandidates) {
     if (provider?.isPhantom) {
       return provider;
     }
   }
+
   return null;
 }
 
