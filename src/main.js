@@ -698,6 +698,31 @@ function ensureMiniGameEntryPointAvailability() {
   return miniGameEntryAvailabilityProbe;
 }
 
+async function refreshMiniGameEntryPointTargets() {
+  let resolvedEntry = miniGameEntryPoint;
+
+  try {
+    const availableEntry = await ensureMiniGameEntryPointAvailability();
+    if (availableEntry) {
+      resolvedEntry = availableEntry;
+      if (miniGameEntryPoint !== availableEntry) {
+        miniGameEntryPoint = availableEntry;
+      }
+    }
+  } catch (error) {
+    if (typeof console !== "undefined" && error) {
+      console.warn(
+        "Failed to verify AstroCats3 mini game entry point before launching the Starcade.",
+        error
+      );
+    }
+  }
+
+  miniGameOrigin = computeMiniGameOrigin(resolvedEntry);
+  updateMiniGameEntryPointTargets(resolvedEntry);
+  return resolvedEntry;
+}
+
 function applyCustomPageBackground() {
   if (typeof document === "undefined") {
     return;
@@ -3788,7 +3813,7 @@ function syncMiniGameProfile() {
   contentWindow.postMessage(profile, targetOrigin);
 }
 
-function openMiniGame() {
+async function openMiniGame() {
   if (miniGameActive || typeof document === "undefined") {
     if (miniGameOverlayState?.closeButton) {
       try {
@@ -3801,7 +3826,7 @@ function openMiniGame() {
   }
 
   const overlayComponent = createMiniGameOverlay({
-    entryPoint: miniGameEntryPoint,
+    entryPoint: "",
     onCloseRequest: () => {
       closeMiniGame();
     },
@@ -3851,8 +3876,11 @@ function openMiniGame() {
   };
   miniGameActive = true;
 
-  updateMiniGameEntryPointTargets(miniGameEntryPoint);
-  syncMiniGameProfile();
+  try {
+    await refreshMiniGameEntryPointTargets();
+  } finally {
+    syncMiniGameProfile();
+  }
 
   try {
     closeButton.focus({ preventScroll: true });
