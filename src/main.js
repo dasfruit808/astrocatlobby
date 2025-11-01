@@ -8896,6 +8896,16 @@ function createInterface(stats, options = {}) {
   updateDerivedStatsInterface(stats);
   updateStatsSummary(stats);
 
+  let lobbyVisibleHandler = null;
+
+  function applyWalletUiState() {
+    if (walletControls && typeof walletControls.setState === "function") {
+      walletControls.setState(walletUiState);
+    }
+    applyWalletGateState();
+    updateAccountActions(accountLoggedIn);
+  }
+
   return {
     root: interfaceRoot,
     canvasWrapper,
@@ -9048,16 +9058,6 @@ function createInterface(stats, options = {}) {
       }
       chatBoard.addMessage(entry);
     }
-  };
-
-  let lobbyVisibleHandler = null;
-
-  const applyWalletUiState = () => {
-    if (walletControls && typeof walletControls.setState === "function") {
-      walletControls.setState(walletUiState);
-    }
-    applyWalletGateState();
-    updateAccountActions(accountLoggedIn);
   };
 
   function updateWalletGateStatus(status, message = "") {
