@@ -9204,10 +9204,27 @@ function createInterface(stats, options = {}) {
     }
 
     if (connected && !wasConnected && typeof lobbyVisibleHandler === "function") {
-      try {
-        lobbyVisibleHandler();
-      } catch (error) {
-        console.warn("Failed to notify lobby visibility handler", error);
+      const invokeLobbyVisibleHandler = () => {
+        try {
+          lobbyVisibleHandler();
+        } catch (error) {
+          console.warn("Failed to notify lobby visibility handler", error);
+        }
+      };
+
+      invokeLobbyVisibleHandler();
+
+      const scheduleDeferredNotification =
+        typeof requestAnimationFrame === "function"
+          ? requestAnimationFrame
+          : typeof setTimeout === "function"
+            ? (callback) => setTimeout(callback, 16)
+            : null;
+
+      if (scheduleDeferredNotification) {
+        scheduleDeferredNotification(() => {
+          invokeLobbyVisibleHandler();
+        });
       }
     }
   }
