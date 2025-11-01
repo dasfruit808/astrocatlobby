@@ -199,11 +199,31 @@ export function formatWalletAddress(address, { segmentLength = 4 } = {}) {
     return "";
   }
   const trimmed = address.trim();
-  if (trimmed.length <= segmentLength * 2 + 3) {
+  if (!trimmed) {
+    return "";
+  }
+
+  const fallbackSegmentLength = 4;
+  const numericSegment = Number(segmentLength);
+  let effectiveSegmentLength = fallbackSegmentLength;
+
+  if (Number.isFinite(numericSegment)) {
+    const floored = Math.floor(numericSegment);
+    if (floored > 0) {
+      effectiveSegmentLength = floored;
+    }
+  }
+
+  effectiveSegmentLength = Math.max(
+    1,
+    Math.min(effectiveSegmentLength, trimmed.length)
+  );
+
+  if (trimmed.length <= effectiveSegmentLength * 2 + 3) {
     return trimmed;
   }
-  const start = trimmed.slice(0, segmentLength);
-  const end = trimmed.slice(-segmentLength);
+  const start = trimmed.slice(0, effectiveSegmentLength);
+  const end = trimmed.slice(-effectiveSegmentLength);
   return `${start}…${end}`;
 }
 
