@@ -559,13 +559,20 @@ export function resolvePublicAssetUrl(relativePath) {
     }
   }
   if (manifestEntry) {
-    if (
-      /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(manifestEntry) ||
-      manifestEntry.startsWith("//") ||
-      manifestEntry.startsWith("/") ||
-      manifestEntry.startsWith("./") ||
-      manifestEntry.startsWith("../")
-    ) {
+    if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(manifestEntry) || manifestEntry.startsWith("//")) {
+      return manifestEntry;
+    }
+
+    if (manifestEntry.startsWith("./") || manifestEntry.startsWith("../")) {
+      const resolvedFromRelativeManifestEntry = resolveUsingDocumentBase(manifestEntry);
+      if (resolvedFromRelativeManifestEntry) {
+        return resolvedFromRelativeManifestEntry;
+      }
+
+      return manifestEntry;
+    }
+
+    if (manifestEntry.startsWith("/")) {
       return manifestEntry;
     }
 
@@ -883,7 +890,30 @@ export function applyPageBackgroundFromUrl(body, imageUrl) {
     return;
   }
 
-  const escapedUrl = imageUrl.replace(/"/g, '\\"');
+  const normaliseInlineImageUrl = (value) => {
+    const trimmed = `${value ?? ""}`.trim();
+    if (!trimmed) {
+      return "";
+    }
+
+    if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(trimmed) || trimmed.startsWith("//")) {
+      return trimmed;
+    }
+
+    const resolvedFromDocument = resolveUsingDocumentBase(trimmed);
+    if (resolvedFromDocument) {
+      return resolvedFromDocument;
+    }
+
+    if (trimmed.startsWith("/")) {
+      return trimmed;
+    }
+
+    return trimmed;
+  };
+
+  const resolvedUrl = normaliseInlineImageUrl(imageUrl);
+  const escapedUrl = resolvedUrl.replace(/"/g, '\\"');
   for (const element of targets) {
     element.classList.add("has-custom-background");
     element.style.setProperty("--page-background-overlay", `url("${escapedUrl}")`);
