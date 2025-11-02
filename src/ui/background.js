@@ -735,6 +735,12 @@ export const backgroundVideoSources = (
 const customPageBackgroundSources = resolvePublicAssetCandidatesByBasename(
   "webpagebackground",
   [
+    "AstroCats3/webpagebackground.png",
+    "AstroCats3/webpagebackground.jpg",
+    "AstroCats3/webpagebackground.jpeg",
+    "AstroCats3/webpagebackground.webp",
+    "AstroCats3/webpagebackground.avif",
+    "AstroCats3/webpagebackground.gif",
     "webpagebackground.png",
     "webpagebackground.jpg",
     "webpagebackground.jpeg",

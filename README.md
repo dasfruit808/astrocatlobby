@@ -25,11 +25,14 @@ Open the printed local URL in your browser to explore the lobby during developme
 
 ## Custom page background
 
-Add a `webpagebackground` image (PNG, JPG/JPEG, WebP, AVIF, or GIF) to the `public/` directory to replace the default gradient backdrop that surrounds the lobby canvas. The image is applied automatically when present and falls back to the gradient when removed.
+Add a `webpagebackground` image (PNG, JPG/JPEG, WebP, AVIF, or GIF) to the `public/` directory (or within the bundled mini game folder at `public/AstroCats3/`) to replace the default gradient backdrop that surrounds the lobby canvas. The image is applied automatically when present and falls back to the gradient when removed.
 
 ```
 public/
 └── webpagebackground.png  ← place your full-page background here (any of the supported extensions work)
+
+public/AstroCats3/
+└── webpagebackground.png  ← alternative location when packaging assets with the mini game
 ```
 
 The background stretches to cover the entire viewport, so large landscape images work best.
