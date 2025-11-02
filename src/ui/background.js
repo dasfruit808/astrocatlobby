@@ -783,8 +783,41 @@ export function shouldUseCustomPageBackground() {
         }
 
         if (response?.ok) {
-          const contentType = response.headers.get("content-type");
-          if (!contentType || contentType.toLowerCase().startsWith("image/")) {
+          const contentTypeRaw = response.headers.get("content-type") ?? "";
+          const normalisedContentType = contentTypeRaw.toLowerCase().split(";", 1)[0].trim();
+
+          const candidateExtension = (() => {
+            const withoutQuery = candidate.split("?", 1)[0];
+            const withoutFragment = withoutQuery.split("#", 1)[0];
+            const lastDot = withoutFragment.lastIndexOf(".");
+            if (lastDot < 0) {
+              return "";
+            }
+            return withoutFragment.slice(lastDot + 1).toLowerCase();
+          })();
+
+          const likelyImageExtensions = [
+            "png",
+            "jpg",
+            "jpeg",
+            "webp",
+            "avif",
+            "gif",
+            "bmp",
+            "svg"
+          ];
+
+          const isLikelyImageExtension = candidateExtension
+            ? likelyImageExtensions.includes(candidateExtension)
+            : false;
+
+          const isLikelyImageContentType =
+            !normalisedContentType ||
+            normalisedContentType.startsWith("image/") ||
+            normalisedContentType === "application/octet-stream" ||
+            normalisedContentType === "binary/octet-stream";
+
+          if (isLikelyImageContentType || isLikelyImageExtension) {
             customPageBackgroundUrl = candidate;
             return true;
           }
