@@ -448,7 +448,17 @@ function buildAccountPayload(accounts, activeCallSign) {
 
 function persistStoredAccounts(state, context = {}) {
   const { storedAccounts, activeAccountCallSign } = state;
-  const { getLocalStorage } = context;
+  const { getLocalStorage, queueOnChainWrite } = context;
+
+  const payload = buildAccountPayload(storedAccounts, activeAccountCallSign);
+
+  if (typeof queueOnChainWrite === "function") {
+    try {
+      queueOnChainWrite(payload);
+    } catch (error) {
+      console.warn("Failed to queue on-chain account snapshot", error);
+    }
+  }
 
   const storage = typeof getLocalStorage === "function" ? getLocalStorage() : null;
   if (!storage) {
@@ -463,7 +473,6 @@ function persistStoredAccounts(state, context = {}) {
       return true;
     }
 
-    const payload = buildAccountPayload(storedAccounts, activeAccountCallSign);
     storage.setItem(accountStorageKey, JSON.stringify(payload));
     try {
       storage.removeItem(legacyAccountStorageKey);
@@ -787,6 +796,7 @@ function saveAccount(account, state, context = {}) {
 
 export {
   accountStorageKey,
+  buildAccountPayload,
   callSignLength,
   clearStoredAccount,
   createWalletDisplayName,
@@ -804,6 +814,7 @@ export {
   maxAccountLevel,
   normalizeAccountExp,
   normalizeAccountLevel,
+  normalizeStoredAccountPayload,
   normalizeWalletAddress,
   persistStoredAccounts,
   registerCallSign,

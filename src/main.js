@@ -33,6 +33,7 @@ import {
   maxAccountLevel,
   normalizeAccountExp,
   normalizeAccountLevel,
+  normalizeStoredAccountPayload,
   normalizeWalletAddress as serviceNormalizeWalletAddress,
   persistStoredAccounts as servicePersistStoredAccounts,
   rememberAccount as serviceRememberAccount,
@@ -47,6 +48,13 @@ import {
   requestWalletDisconnect as serviceRequestWalletDisconnect,
   requestWalletLogin as serviceRequestWalletLogin
 } from "./services/wallet.js";
+import {
+  clearLedgerWalletContext,
+  fetchLatestAccountSnapshot as fetchLedgerAccountSnapshot,
+  flushPendingAccountSnapshot as flushLedgerSnapshot,
+  queueAccountSnapshot as queueLedgerAccountSnapshot,
+  setLedgerWalletContext
+} from "./services/solanaLedger.js";
 import { installRuntimeShims } from "./runtime/shims.js";
 
 import {
@@ -2033,6 +2041,7 @@ let layoutEditor = null;
 let ui = null;
 
 let activeWalletAddress = null;
+let activeWalletProvider = null;
 let phantomWalletAvailable = null;
 
 subscribeToPhantomAvailability(({ available }) => {
@@ -2375,11 +2384,72 @@ function sanitizeAccount(source = {}) {
   });
 }
 
+function queueAccountPayloadForLedger(payload) {
+  if (!payload || !activeWalletAddress) {
+    return;
+  }
+  queueLedgerAccountSnapshot(payload, {
+    provider: activeWalletProvider,
+    publicKey: activeWalletAddress
+  });
+}
+
+function createAccountServiceContext(overrides = {}) {
+  const context = { ...overrides };
+  if (!context.getLocalStorage) {
+    context.getLocalStorage = getLocalStorage;
+  }
+  context.queueOnChainWrite = queueAccountPayloadForLedger;
+  return context;
+}
+
 function persistStoredAccounts() {
   return servicePersistStoredAccounts(
     { storedAccounts, activeAccountCallSign },
-    { getLocalStorage }
+    createAccountServiceContext()
   );
+}
+
+async function syncAccountsFromLedger(address) {
+  if (!address) {
+    return null;
+  }
+
+  try {
+    const payload = await fetchLedgerAccountSnapshot(address);
+    if (!payload) {
+      return null;
+    }
+
+    const normalized = normalizeStoredAccountPayload(payload, {
+      defaultStarterCharacter,
+      isValidStarterId,
+      sanitizeAttributeValues,
+      hasCustomAttributes,
+      getLocalStorage
+    });
+
+    storedAccounts = normalized.accounts;
+    activeAccountCallSign = normalized.activeCallSign;
+    const nextActiveAccount =
+      activeAccountCallSign && storedAccounts[activeAccountCallSign]
+        ? storedAccounts[activeAccountCallSign]
+        : null;
+
+    if (nextActiveAccount) {
+      activeAccount = nextActiveAccount;
+    }
+
+    servicePersistStoredAccounts(
+      { storedAccounts, activeAccountCallSign },
+      createAccountServiceContext()
+    );
+    refreshStoredAccountDirectory();
+    return nextActiveAccount;
+  } catch (error) {
+    console.warn("Failed to synchronise accounts from on-chain ledger", error);
+    return null;
+  }
 }
 
 function syncActiveAccountProgress() {
@@ -2456,14 +2526,13 @@ function rememberAccount(account, options = {}) {
   const result = serviceRememberAccount(
     account,
     { storedAccounts, activeAccountCallSign },
-    {
+    createAccountServiceContext({
       defaultStarterCharacter,
       isValidStarterId,
       sanitizeAttributeValues,
       hasCustomAttributes,
-      getLocalStorage,
       setActive: options.setActive
-    }
+    })
   );
 
   if (!result) {
@@ -2493,11 +2562,10 @@ function ensureAccountForWalletAddress(address) {
   const result = serviceEnsureAccountForWalletAddress(
     address,
     { storedAccounts, activeAccountCallSign },
-    {
+    createAccountServiceContext({
       defaultStarterCharacter,
-      getStatPointsForLevel,
-      getLocalStorage
-    }
+      getStatPointsForLevel
+    })
   );
 
   if (!result) {
@@ -2535,14 +2603,13 @@ function saveAccount(account, options = {}) {
   const result = serviceSaveAccount(
     account,
     { storedAccounts, activeAccountCallSign },
-    {
+    createAccountServiceContext({
       defaultStarterCharacter,
       isValidStarterId,
       sanitizeAttributeValues,
       hasCustomAttributes,
-      getLocalStorage,
       setActive: options.setActive
-    }
+    })
   );
 
   if (!result) {
@@ -2558,7 +2625,7 @@ function clearStoredAccount(callSign = null) {
   const result = serviceClearStoredAccount(
     callSign,
     { storedAccounts, activeAccountCallSign },
-    { getLocalStorage }
+    createAccountServiceContext()
   );
 
   storedAccounts = result.storedAccounts;
@@ -3134,9 +3201,19 @@ function syncWalletUi(overrides = {}) {
   ui.setWalletState(state);
 }
 
-function handlePhantomAccountChange(nextPublicKey) {
+async function handlePhantomAccountChange(nextPublicKey) {
   if (!nextPublicKey) {
+    const pendingFlush = flushLedgerSnapshot();
+    if (pendingFlush && typeof pendingFlush.then === "function") {
+      try {
+        await pendingFlush;
+      } catch (error) {
+        console.warn("Failed to flush on-chain snapshot after wallet removal", error);
+      }
+    }
     activeWalletAddress = null;
+    activeWalletProvider = null;
+    clearLedgerWalletContext();
     handleLogout();
     if (ui && typeof ui.setWalletGateStatus === "function") {
       ui.setWalletGateStatus("intro");
@@ -3155,6 +3232,9 @@ function handlePhantomAccountChange(nextPublicKey) {
   if (address === activeWalletAddress) {
     return;
   }
+
+  setLedgerWalletContext({ provider: activeWalletProvider, publicKey: address });
+  await syncAccountsFromLedger(address);
 
   const existingAccount = findStoredAccountByWalletAddress(address);
   activeWalletAddress = address;
@@ -3229,6 +3309,11 @@ async function requestWalletLogin() {
     return;
   }
 
+  activeWalletProvider = result.provider ?? activeWalletProvider ?? null;
+  if (activeWalletProvider) {
+    setLedgerWalletContext({ provider: activeWalletProvider });
+  }
+
   const rawPublicKey =
     typeof result.publicKey === "string"
       ? result.publicKey
@@ -3239,6 +3324,9 @@ async function requestWalletLogin() {
     syncWalletUi({ connected: Boolean(activeWalletAddress) });
     return;
   }
+
+  setLedgerWalletContext({ provider: activeWalletProvider, publicKey: address });
+  await syncAccountsFromLedger(address);
 
   serviceAttachWalletAccountListener(handlePhantomAccountChange);
   const existingAccount = findStoredAccountByWalletAddress(address);
@@ -3272,7 +3360,17 @@ async function requestWalletDisconnect() {
   if (result?.error) {
     console.warn("Failed to disconnect Phantom wallet", result.error);
   }
+  const pendingFlush = flushLedgerSnapshot();
+  if (pendingFlush && typeof pendingFlush.then === "function") {
+    try {
+      await pendingFlush;
+    } catch (error) {
+      console.warn("Failed to flush on-chain snapshot before disconnect", error);
+    }
+  }
   activeWalletAddress = null;
+  activeWalletProvider = null;
+  clearLedgerWalletContext();
   handleLogout();
   if (ui && typeof ui.setWalletGateStatus === "function") {
     ui.setWalletGateStatus("intro");
@@ -3641,6 +3739,15 @@ function initializeInterface() {
 }
 
 initializeInterface();
+
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  window.addEventListener("beforeunload", () => {
+    const result = flushLedgerSnapshot();
+    if (result && typeof result.catch === "function") {
+      result.catch(() => {});
+    }
+  });
+}
 
 function refreshStoredAccountDirectory() {
   if (!ui || typeof ui.setStoredAccounts !== "function") {
