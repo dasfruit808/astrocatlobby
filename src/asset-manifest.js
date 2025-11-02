@@ -76,6 +76,12 @@ function createFallbackManifest() {
   add("webpagebackground.webp", pageBackground);
   add("webpagebackground.avif", pageBackground);
   add("webpagebackground.gif", pageBackground);
+  add("AstroCats3/webpagebackground.png", pageBackground);
+  add("AstroCats3/webpagebackground.jpg", pageBackground);
+  add("AstroCats3/webpagebackground.jpeg", pageBackground);
+  add("AstroCats3/webpagebackground.webp", pageBackground);
+  add("AstroCats3/webpagebackground.avif", pageBackground);
+  add("AstroCats3/webpagebackground.gif", pageBackground);
 
   const lobbyBackground = absoluteAsset("./lobby-background.mp4");
   add("lobby-background.mp4", lobbyBackground);
