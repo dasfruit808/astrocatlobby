@@ -43,14 +43,22 @@ function attachWalletAccountListener(handler) {
   return accountChangeUnsubscribe;
 }
 
-async function requestWalletLogin() {
+async function requestWalletLogin(options = {}) {
   const provider = getPhantomProvider();
   if (!provider) {
     return { ok: false, available: false };
   }
 
   try {
-    const { publicKey } = await connectPhantomWallet();
+    const { forcePrompt = false, connectOptions = null } =
+      options && typeof options === "object" ? options : {};
+    const resolvedConnectOptions =
+      connectOptions && typeof connectOptions === "object"
+        ? connectOptions
+        : forcePrompt
+          ? { onlyIfTrusted: false }
+          : undefined;
+    const { publicKey } = await connectPhantomWallet(resolvedConnectOptions);
     providerInstance = provider;
     if (accountChangeHandler) {
       attachWalletAccountListener(accountChangeHandler);

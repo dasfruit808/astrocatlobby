@@ -3264,11 +3264,13 @@ async function handlePhantomAccountChange(nextPublicKey) {
 
 serviceAttachWalletAccountListener(handlePhantomAccountChange);
 
-async function requestWalletLogin() {
+async function requestWalletLogin(options = {}) {
   if (ui && typeof ui.setWalletGateStatus === "function") {
     ui.setWalletGateStatus("connecting", "Confirm the connection in Phantom to continue.");
   }
-  const result = await serviceRequestWalletLogin();
+  const result = await serviceRequestWalletLogin({
+    forcePrompt: Boolean(options?.forcePrompt)
+  });
   if (!result?.ok) {
     if (!result?.available) {
       if (ui && typeof ui.setWalletGateStatus === "function") {
@@ -3870,7 +3872,7 @@ if (!activeAccount) {
 
 function requestAccountLogin() {
   if (!activeWalletAddress) {
-    requestWalletLogin();
+    requestWalletLogin({ forcePrompt: true });
     return;
   }
 
@@ -7728,7 +7730,11 @@ function createInterface(stats, options = {}) {
   };
 
   const walletControls = createWalletToolbarSection({
-    onConnect: onRequestWalletLogin,
+    onConnect: () => {
+      if (typeof onRequestWalletLogin === "function") {
+        onRequestWalletLogin({ forcePrompt: true });
+      }
+    },
     onDisconnect: onRequestWalletDisconnect,
     onOpenInstall: openWalletInstallPage,
     formatAddress: formatWalletAddress
@@ -7775,7 +7781,7 @@ function createInterface(stats, options = {}) {
           : "Confirm the connection in Phantom to continue."
       );
       if (typeof onRequestWalletLogin === "function") {
-        onRequestWalletLogin();
+        onRequestWalletLogin({ forcePrompt: true });
       }
     } else {
       updateWalletGateStatus(
@@ -8177,7 +8183,7 @@ function createInterface(stats, options = {}) {
   loginButton.textContent = "Log in";
   loginButton.addEventListener("click", () => {
     if (walletUiState.available && typeof onRequestWalletLogin === "function") {
-      onRequestWalletLogin();
+      onRequestWalletLogin({ forcePrompt: walletUiState.connected });
       return;
     }
     if (typeof onRequestLogin === "function") {
